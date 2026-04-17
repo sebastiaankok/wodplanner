@@ -147,3 +147,9 @@ The app uses SQLite (`wodplanner.db`) to store:
 - Friends list
 
 The database is created automatically on first run.
+
+## Import schedules
+
+```
+python -m wodplanner.cli.import_schedule "/data/Bull 202603.pdf" --year 2026
+```
