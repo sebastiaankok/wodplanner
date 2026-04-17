@@ -1,5 +1,6 @@
 """HTML views for the web frontend."""
 
+import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
@@ -13,6 +14,7 @@ from wodplanner.api.client import WodAppClient
 from wodplanner.app.dependencies import (
     get_client_from_session_for_view,
     get_friends_service,
+    get_one_rep_max_service,
     get_preferences_service,
     get_schedule_service,
     get_scheduler,
@@ -22,6 +24,7 @@ from wodplanner.app.dependencies import (
 from wodplanner.models.auth import AuthSession
 from wodplanner.models.queue import QueuedSignup, QueueStatus
 from wodplanner.services.friends import FriendsService
+from wodplanner.services.one_rep_max import OneRepMaxService, extract_1rm_exercises, has_1rm_exercise
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
 from wodplanner.services.scheduler import SignupScheduler
@@ -31,6 +34,31 @@ FILTERABLE_CLASS_TYPES = ["Open Gym", "CF101", "Teen Athlete", "HyCross"]
 
 # Timezone for calculations
 TZ = ZoneInfo("Europe/Amsterdam")
+
+
+def _format_1rm_entries(entries):
+    return [
+        {
+            "id": e.id,
+            "exercise": e.exercise,
+            "weight_kg": e.weight_kg,
+            "recorded_at": e.recorded_at.strftime("%b %d, %Y"),
+            "recorded_at_iso": e.recorded_at.isoformat(),
+        }
+        for e in entries
+    ]
+
+
+def _build_exercises_chart_data(formatted_entries: list) -> str:
+    data: dict[str, list] = {}
+    for e in formatted_entries:
+        ex = e["exercise"]
+        if ex not in data:
+            data[ex] = []
+        data[ex].append({"date": e["recorded_at_iso"], "weight": e["weight_kg"], "label": e["recorded_at"]})
+    for ex in data:
+        data[ex].sort(key=lambda x: x["date"])
+    return json.dumps(data)
 
 
 def is_signup_open(appt_name: str, appt_start: datetime) -> bool:
@@ -95,6 +123,7 @@ def calendar_page(
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Main calendar page."""
     target_date = date.fromisoformat(day) if day else date.today()
@@ -129,6 +158,13 @@ def calendar_page(
             except Exception:
                 pass
 
+        # Check if workout contains a 1rm exercise
+        schedule = schedule_service.find_for_appointment(appt.name, target_date)
+        appt_has_1rm = schedule is not None and (
+            has_1rm_exercise(schedule.strength_specialty)
+            or has_1rm_exercise(schedule.warmup_mobility)
+        )
+
         # Construct actual datetime for this instance (template date may be historical)
         actual_start = datetime.combine(target_date, appt.date_start.time())
         actual_end = datetime.combine(target_date, appt.date_end.time())
@@ -145,6 +181,7 @@ def calendar_page(
             "spots_total": appt.max_subscriptions,
             "status": appt.status,
             "friends": friends_in_class,
+            "has_1rm": appt_has_1rm,
             "signup_open": is_signup_open(appt.name, actual_start),
             "is_past": actual_start < now,
         })
@@ -183,6 +220,7 @@ def calendar_day_partial(
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Calendar day partial for htmx updates."""
     target_date = date.fromisoformat(day)
@@ -216,6 +254,13 @@ def calendar_day_partial(
             except Exception:
                 pass
 
+        # Check if workout contains a 1rm exercise
+        schedule = schedule_service.find_for_appointment(appt.name, target_date)
+        appt_has_1rm = schedule is not None and (
+            has_1rm_exercise(schedule.strength_specialty)
+            or has_1rm_exercise(schedule.warmup_mobility)
+        )
+
         # Construct actual datetime for this instance (template date may be historical)
         actual_start = datetime.combine(target_date, appt.date_start.time())
         actual_end = datetime.combine(target_date, appt.date_end.time())
@@ -232,6 +277,7 @@ def calendar_day_partial(
             "spots_total": appt.max_subscriptions,
             "status": appt.status,
             "friends": friends_in_class,
+            "has_1rm": appt_has_1rm,
             "signup_open": is_signup_open(appt.name, actual_start),
             "is_past": actual_start < now,
         })
@@ -269,6 +315,7 @@ def toggle_filter(
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Toggle a class type filter."""
     prefs_service.toggle_hidden_class_type(session.user_id, class_type)
@@ -279,6 +326,32 @@ def toggle_filter(
         client=client,
         friends_service=friends_service,
         prefs_service=prefs_service,
+        schedule_service=schedule_service,
+    )
+
+
+@router.get("/1rm", response_class=HTMLResponse)
+def one_rep_max_page(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+):
+    """1RM tracking page."""
+    raw = one_rep_max_service.get_all(session.user_id)
+    past_exercises = one_rep_max_service.get_exercises(session.user_id)
+    entries = _format_1rm_entries(raw)
+
+    return render(
+        request,
+        "one_rep_max.html",
+        {
+            "active_page": "1rm",
+            "past_exercises": past_exercises,
+            "entries": entries,
+            "exercises_data_json": _build_exercises_chart_data(entries),
+            "today": date.today().isoformat(),
+            **get_user_context(session),
+        },
     )
 
 
@@ -403,6 +476,7 @@ def add_to_queue_view(
     scheduler: SignupScheduler = Depends(get_scheduler),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Add to queue from calendar (htmx)."""
     start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
@@ -437,6 +511,7 @@ def add_to_queue_view(
         client=client,
         friends_service=friends_service,
         prefs_service=prefs_service,
+        schedule_service=schedule_service,
     )
 
 
@@ -481,6 +556,7 @@ def subscribe_view(
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Subscribe to appointment from calendar (htmx)."""
     start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
@@ -496,6 +572,7 @@ def subscribe_view(
         client=client,
         friends_service=friends_service,
         prefs_service=prefs_service,
+        schedule_service=schedule_service,
     )
 
 
@@ -509,6 +586,7 @@ def waitinglist_view(
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Join waiting list from calendar (htmx)."""
     start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
@@ -524,6 +602,7 @@ def waitinglist_view(
         client=client,
         friends_service=friends_service,
         prefs_service=prefs_service,
+        schedule_service=schedule_service,
     )
 
 
@@ -538,6 +617,7 @@ def unsubscribe_view(
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Unsubscribe from appointment (htmx)."""
     start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
@@ -556,6 +636,7 @@ def unsubscribe_view(
         client=client,
         friends_service=friends_service,
         prefs_service=prefs_service,
+        schedule_service=schedule_service,
     )
 
 
@@ -653,5 +734,99 @@ def schedule_modal_view(
             "appointment_name": class_name,
             "schedule_date": schedule_date.strftime("%A, %B %d, %Y"),
             "schedule": schedule,
+        },
+    )
+
+
+@router.get("/appointments/{appointment_id}/1rm", response_class=HTMLResponse)
+def one_rep_max_modal_view(
+    request: Request,
+    appointment_id: int,
+    date_start: str,
+    class_name: str,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    schedule_service: ScheduleService = Depends(get_schedule_service),
+    one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+):
+    """Get 1rm tracker modal for an appointment (htmx modal)."""
+    schedule_date = date.fromisoformat(date_start.split(" ")[0])
+    schedule = schedule_service.find_for_appointment(class_name, schedule_date)
+
+    suggested_exercises: list[str] = []
+    if schedule:
+        suggested_exercises = extract_1rm_exercises(schedule.strength_specialty)
+        suggested_exercises += extract_1rm_exercises(schedule.warmup_mobility)
+
+    entries = one_rep_max_service.get_all(session.user_id)
+    past_exercises = one_rep_max_service.get_exercises(session.user_id)
+    today = date.today().isoformat()
+
+    return render(
+        request,
+        "partials/one_rep_max_modal.html",
+        {
+            "suggested_exercises": suggested_exercises,
+            "past_exercises": past_exercises,
+            "entries": [
+                {
+                    "id": e.id,
+                    "exercise": e.exercise,
+                    "weight_kg": e.weight_kg,
+                    "recorded_at": e.recorded_at.strftime("%b %d, %Y"),
+                }
+                for e in entries
+            ],
+            "today": today,
+        },
+    )
+
+
+@router.post("/one-rep-maxes/add", response_class=HTMLResponse)
+def add_one_rep_max_view(
+    request: Request,
+    exercise: str = Form(...),
+    weight_kg: float = Form(...),
+    recorded_at: str = Form(...),
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+):
+    """Add a 1rm entry (htmx)."""
+    one_rep_max_service.add(
+        user_id=session.user_id,
+        exercise=exercise,
+        weight_kg=weight_kg,
+        recorded_at=date.fromisoformat(recorded_at),
+    )
+
+    raw = one_rep_max_service.get_all(session.user_id)
+    entries = _format_1rm_entries(raw)
+    return render(
+        request,
+        "partials/one_rep_max_history.html",
+        {
+            "entries": entries,
+            "exercises_data_json": _build_exercises_chart_data(entries),
+        },
+    )
+
+
+@router.delete("/one-rep-maxes/{entry_id}/delete", response_class=HTMLResponse)
+def delete_one_rep_max_view(
+    request: Request,
+    entry_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+):
+    """Delete a 1rm entry (htmx)."""
+    one_rep_max_service.delete(session.user_id, entry_id)
+
+    raw = one_rep_max_service.get_all(session.user_id)
+    entries = _format_1rm_entries(raw)
+    return render(
+        request,
+        "partials/one_rep_max_history.html",
+        {
+            "entries": entries,
+            "exercises_data_json": _build_exercises_chart_data(entries),
         },
     )

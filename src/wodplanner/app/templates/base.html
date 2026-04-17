@@ -21,6 +21,7 @@
             <a href="/" class="{% if active_page == 'calendar' %}active{% endif %}">Calendar</a>
             <a href="/friends" class="{% if active_page == 'friends' %}active{% endif %}">Friends</a>
             <a href="/queue" class="{% if active_page == 'queue' %}active{% endif %}">Queue</a>
+            <a href="/1rm" class="{% if active_page == '1rm' %}active{% endif %}">1RM</a>
         </div>
         <div class="nav-user">
             {% if user %}
@@ -48,6 +49,11 @@
     <!-- Schedule Modal -->
     <div id="schedule-modal" class="modal">
         <div id="schedule-modal-container"></div>
+    </div>
+
+    <!-- 1RM Modal -->
+    <div id="one-rep-max-modal" class="modal">
+        <div id="one-rep-max-modal-container"></div>
     </div>
 
     <script>
@@ -79,11 +85,25 @@
             }
         });
 
+        function open1rmModal() {
+            document.getElementById('one-rep-max-modal').classList.add('active');
+        }
+        function close1rmModal() {
+            document.getElementById('one-rep-max-modal').classList.remove('active');
+            document.getElementById('one-rep-max-modal-container').innerHTML = '';
+        }
+        document.getElementById('one-rep-max-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                close1rmModal();
+            }
+        });
+
         // Close modals on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closePeopleModal();
                 closeScheduleModal();
+                close1rmModal();
             }
         });
 

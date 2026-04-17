@@ -1,0 +1,35 @@
+<div id="one-rep-max-history" class="one-rm-history"{% if exercises_data_json %} data-exercises='{{ exercises_data_json | safe }}'{% endif %}>
+    {% if entries %}
+    <table class="one-rm-table">
+        <thead>
+            <tr>
+                <th>Exercise</th>
+                <th>Weight</th>
+                <th>Date</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td>{{ entry.exercise }}</td>
+                <td class="one-rm-weight">{{ entry.weight_kg }} kg</td>
+                <td class="one-rm-date text-muted">{{ entry.recorded_at }}</td>
+                <td>
+                    <button class="btn-delete"
+                            hx-delete="/one-rep-maxes/{{ entry.id }}/delete"
+                            hx-target="#one-rep-max-history"
+                            hx-swap="outerHTML"
+                            hx-confirm="Delete this 1rm entry?"
+                            title="Delete">
+                        &times;
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted one-rm-empty">No entries yet.</p>
+    {% endif %}
+</div>

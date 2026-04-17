@@ -1,0 +1,63 @@
+<div class="modal-content">
+    <div class="modal-header">
+        <h3 class="modal-title">1 Rep Max</h3>
+        <button class="modal-close" onclick="close1rmModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+        <form hx-post="/one-rep-maxes/add"
+              hx-target="#one-rep-max-history"
+              hx-swap="outerHTML"
+              class="one-rm-form">
+            <datalist id="exercise-suggestions">
+                {% for ex in suggested_exercises %}
+                <option value="{{ ex }}">
+                {% endfor %}
+                {% for ex in past_exercises %}
+                {% if ex not in suggested_exercises %}
+                <option value="{{ ex }}">
+                {% endif %}
+                {% endfor %}
+            </datalist>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="1rm-exercise">Exercise</label>
+                    <input type="text"
+                           id="1rm-exercise"
+                           name="exercise"
+                           list="exercise-suggestions"
+                           placeholder="{% if suggested_exercises %}{{ suggested_exercises[0] }}{% else %}e.g. Deadlift{% endif %}"
+                           {% if suggested_exercises %}value="{{ suggested_exercises[0] }}"{% endif %}
+                           required
+                           class="form-control">
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="1rm-weight">Weight (kg)</label>
+                    <input type="number"
+                           id="1rm-weight"
+                           name="weight_kg"
+                           min="1"
+                           max="999"
+                           step="0.5"
+                           placeholder="100"
+                           required
+                           class="form-control">
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="1rm-date">Date</label>
+                    <input type="date"
+                           id="1rm-date"
+                           name="recorded_at"
+                           value="{{ today }}"
+                           required
+                           class="form-control">
+                </div>
+                <div class="form-group form-group-submit">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </div>
+            </div>
+        </form>
+
+        {% include "partials/one_rep_max_history.html" %}
+    </div>
+</div>

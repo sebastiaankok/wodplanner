@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}1RM - WodPlanner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>1 Rep Max</h1>
+    <button class="btn btn-primary btn-sm" onclick="toggle1rmLogForm()">+ Log</button>
+</div>
+
+<div id="log-form-card" class="card" style="display:none; margin-bottom: 1rem;">
+    <div class="card-header">
+        <span class="card-title">Log a 1RM</span>
+    </div>
+    <div style="padding: 1rem;">
+        <form hx-post="/one-rep-maxes/add"
+              hx-target="#one-rep-max-history"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) toggle1rmLogForm()"
+              class="one-rm-form">
+            <datalist id="exercise-suggestions">
+                {% for ex in past_exercises %}
+                <option value="{{ ex }}">
+                {% endfor %}
+            </datalist>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="1rm-exercise">Exercise</label>
+                    <input type="text"
+                           id="1rm-exercise"
+                           name="exercise"
+                           list="exercise-suggestions"
+                           placeholder="e.g. Deadlift"
+                           required
+                           class="form-control">
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="1rm-weight">Weight (kg)</label>
+                    <input type="number"
+                           id="1rm-weight"
+                           name="weight_kg"
+                           min="1"
+                           max="999"
+                           step="0.5"
+                           placeholder="100"
+                           required
+                           class="form-control">
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="1rm-date">Date</label>
+                    <input type="date"
+                           id="1rm-date"
+                           name="recorded_at"
+                           value="{{ today }}"
+                           required
+                           class="form-control">
+                </div>
+                <div class="form-group form-group-submit">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+    <div class="card-header">
+        <span class="card-title">Progress</span>
+        <select id="exercise-select" class="form-control form-control-inline" onchange="update1rmChart()">
+            <option value="">— Select exercise —</option>
+            {% for ex in entries | map(attribute='exercise') | unique | sort %}
+            <option value="{{ ex }}">{{ ex }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="one-rm-chart-container">
+        <canvas id="1rm-chart"></canvas>
+        <p id="1rm-no-data" class="text-muted one-rm-empty">Select an exercise to see progress.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">History</span>
+    </div>
+    <div style="padding: 1rem;">
+        {% include "partials/one_rep_max_history.html" %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+var __1rmData = {{ exercises_data_json | safe }};
+var __1rmChart = null;
+var __1rmLogFormOpen = false;
+
+function toggle1rmLogForm() {
+    __1rmLogFormOpen = !__1rmLogFormOpen;
+    document.getElementById('log-form-card').style.display = __1rmLogFormOpen ? 'block' : 'none';
+}
+
+function update1rmChart() {
+    var select = document.getElementById('exercise-select');
+    var canvas = document.getElementById('1rm-chart');
+    var noData = document.getElementById('1rm-no-data');
+    if (!select || !canvas) return;
+    var exercise = select.value;
+
+    if (!exercise || !__1rmData[exercise] || !__1rmData[exercise].length) {
+        canvas.style.display = 'none';
+        noData.style.display = 'block';
+        if (__1rmChart) { __1rmChart.destroy(); __1rmChart = null; }
+        return;
+    }
+
+    canvas.style.display = 'block';
+    noData.style.display = 'none';
+
+    var points = __1rmData[exercise];
+    var labels = points.map(function(p) { return p.label; });
+    var weights = points.map(function(p) { return p.weight; });
+
+    if (__1rmChart) __1rmChart.destroy();
+    __1rmChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: exercise + ' (kg)',
+                data: weights,
+                borderColor: '#7c3aed',
+                backgroundColor: 'rgba(124,58,237,0.08)',
+                tension: 0.2,
+                fill: true,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    title: { display: true, text: 'Weight (kg)' },
+                    ticks: { precision: 1 }
+                }
+            }
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var select = document.getElementById('exercise-select');
+    if (select && select.options.length > 1) {
+        select.selectedIndex = 1;
+        update1rmChart();
+    } else {
+        document.getElementById('1rm-chart').style.display = 'none';
+    }
+});
+
+document.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target && e.detail.target.id === 'one-rep-max-history') {
+        var raw = document.getElementById('one-rep-max-history').dataset.exercises;
+        if (!raw) return;
+        __1rmData = JSON.parse(raw);
+        var select = document.getElementById('exercise-select');
+        if (!select) return;
+        var current = select.value;
+        select.innerHTML = '<option value="">— Select exercise —</option>';
+        Object.keys(__1rmData).sort().forEach(function(ex) {
+            var opt = document.createElement('option');
+            opt.value = ex;
+            opt.textContent = ex;
+            select.appendChild(opt);
+        });
+        select.value = (__1rmData[current]) ? current : (Object.keys(__1rmData)[0] || '');
+        update1rmChart();
+    }
+});
+</script>
+{% endblock %}

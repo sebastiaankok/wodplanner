@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from wodplanner.api.client import WodAppClient
 from wodplanner.models.auth import AuthSession
 from wodplanner.services.friends import FriendsService
+from wodplanner.services.one_rep_max import OneRepMaxService
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.queue import QueueService
 from wodplanner.services.schedule import ScheduleService
@@ -50,6 +51,12 @@ def get_preferences_service() -> PreferencesService:
 def get_schedule_service() -> ScheduleService:
     """Get the singleton schedule service."""
     return ScheduleService(_get_db_path())
+
+
+@lru_cache
+def get_one_rep_max_service() -> OneRepMaxService:
+    """Get the singleton one rep max service."""
+    return OneRepMaxService(_get_db_path())
 
 
 def get_session_from_cookie(

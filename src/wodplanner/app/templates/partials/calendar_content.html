@@ -39,6 +39,22 @@
                 {% endif %}
             </div>
             <div class="appointment-actions">
+                {% if appt.has_1rm %}
+                <button class="btn btn-icon btn-sm btn-1rm"
+                        hx-get="/appointments/{{ appt.id }}/1rm?date_start={{ appt.date_start }}%20{{ appt.time_start }}&class_name={{ appt.name | urlencode }}"
+                        hx-target="#one-rep-max-modal-container"
+                        hx-swap="innerHTML"
+                        onclick="open1rmModal()"
+                        title="Log 1 rep max">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <line x1="6" y1="6" x2="6" y2="18"/>
+                        <line x1="4" y1="8" x2="4" y2="16"/>
+                        <line x1="18" y1="6" x2="18" y2="18"/>
+                        <line x1="20" y1="8" x2="20" y2="16"/>
+                        <line x1="6" y1="12" x2="18" y2="12"/>
+                    </svg>
+                </button>
+                {% endif %}
                 <button class="btn btn-icon btn-sm"
                         hx-get="/appointments/{{ appt.id }}/schedule?date_start={{ appt.date_start }}%20{{ appt.time_start }}&class_name={{ appt.name | urlencode }}"
                         hx-target="#schedule-modal-container"
