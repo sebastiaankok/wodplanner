@@ -3,7 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from wodplanner.app.dependencies import get_friends_service
+from wodplanner.app.dependencies import get_friends_service, require_session
+from wodplanner.models.auth import AuthSession
 from wodplanner.services.friends import FriendsService
 
 router = APIRouter(prefix="/friends", tags=["friends"])
@@ -27,10 +28,11 @@ class AddFriendRequest(BaseModel):
 
 @router.get("", response_model=list[FriendResponse])
 def list_friends(
+    session: AuthSession = Depends(require_session),
     friends_service: FriendsService = Depends(get_friends_service),
 ) -> list[FriendResponse]:
     """List all friends."""
-    friends = friends_service.get_all()
+    friends = friends_service.get_all(session.user_id)
     return [
         FriendResponse(
             id=f.id,
@@ -45,10 +47,11 @@ def list_friends(
 @router.post("", response_model=FriendResponse)
 def add_friend(
     request: AddFriendRequest,
+    session: AuthSession = Depends(require_session),
     friends_service: FriendsService = Depends(get_friends_service),
 ) -> FriendResponse:
     """Add a friend by their WodApp user ID."""
-    friend = friends_service.add(request.appuser_id, request.name)
+    friend = friends_service.add(session.user_id, request.appuser_id, request.name)
     return FriendResponse(
         id=friend.id,
         appuser_id=friend.appuser_id,
@@ -60,10 +63,11 @@ def add_friend(
 @router.get("/{friend_id}", response_model=FriendResponse)
 def get_friend(
     friend_id: int,
+    session: AuthSession = Depends(require_session),
     friends_service: FriendsService = Depends(get_friends_service),
 ) -> FriendResponse:
     """Get a friend by ID."""
-    friend = friends_service.get(friend_id)
+    friend = friends_service.get(session.user_id, friend_id)
     if not friend:
         raise HTTPException(status_code=404, detail="Friend not found")
     return FriendResponse(
@@ -77,9 +81,10 @@ def get_friend(
 @router.delete("/{friend_id}")
 def delete_friend(
     friend_id: int,
+    session: AuthSession = Depends(require_session),
     friends_service: FriendsService = Depends(get_friends_service),
 ) -> dict:
     """Remove a friend."""
-    if not friends_service.delete(friend_id):
+    if not friends_service.delete(session.user_id, friend_id):
         raise HTTPException(status_code=404, detail="Friend not found")
     return {"success": True, "message": "Friend removed"}

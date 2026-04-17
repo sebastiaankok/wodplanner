@@ -102,8 +102,8 @@ def calendar_page(
     next_date = (target_date + timedelta(days=1)).isoformat()
 
     appointments = client.get_day_schedule(target_date)
-    friend_ids = friends_service.get_appuser_ids()
-    friends_map = {f.appuser_id: f for f in friends_service.get_all()}
+    friend_ids = friends_service.get_appuser_ids(session.user_id)
+    friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
     hidden_types = prefs_service.get_hidden_class_types()
 
     # Build appointment data with friends
@@ -190,8 +190,8 @@ def calendar_day_partial(
     next_date = (target_date + timedelta(days=1)).isoformat()
 
     appointments = client.get_day_schedule(target_date)
-    friend_ids = friends_service.get_appuser_ids()
-    friends_map = {f.appuser_id: f for f in friends_service.get_all()}
+    friend_ids = friends_service.get_appuser_ids(session.user_id)
+    friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
     hidden_types = prefs_service.get_hidden_class_types()
 
     appt_data = []
@@ -289,7 +289,7 @@ def friends_page(
     friends_service: FriendsService = Depends(get_friends_service),
 ):
     """Friends management page."""
-    friends = friends_service.get_all()
+    friends = friends_service.get_all(session.user_id)
     friends_data = [
         {
             "id": f.id,
@@ -316,11 +316,12 @@ def add_friend_view(
     request: Request,
     appuser_id: int = Form(...),
     name: str = Form(...),
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
     friends_service: FriendsService = Depends(get_friends_service),
 ):
     """Add a friend (htmx form submission)."""
-    friends_service.add(appuser_id, name)
-    friends = friends_service.get_all()
+    friends_service.add(session.user_id, appuser_id, name)
+    friends = friends_service.get_all(session.user_id)
     friends_data = [
         {
             "id": f.id,
@@ -338,11 +339,12 @@ def add_friend_view(
 def delete_friend_view(
     request: Request,
     friend_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
     friends_service: FriendsService = Depends(get_friends_service),
 ):
     """Delete a friend (htmx)."""
-    friends_service.delete(friend_id)
-    friends = friends_service.get_all()
+    friends_service.delete(session.user_id, friend_id)
+    friends = friends_service.get_all(session.user_id)
     friends_data = [
         {
             "id": f.id,
@@ -570,7 +572,7 @@ def people_modal_view(
     end = datetime.strptime(date_end, "%Y-%m-%d %H:%M")
 
     details = client.get_appointment_details(appointment_id, start, end)
-    friend_ids = set(friends_service.get_appuser_ids())
+    friend_ids = friends_service.get_appuser_ids(session.user_id)
     current_user_id = session.user_id
 
     participants = []
@@ -613,7 +615,7 @@ def add_friend_from_people(
     friends_service: FriendsService = Depends(get_friends_service),
 ):
     """Add a friend from the people modal."""
-    friends_service.add(appuser_id, name)
+    friends_service.add(session.user_id, appuser_id, name)
 
     # Return updated modal
     return people_modal_view(
