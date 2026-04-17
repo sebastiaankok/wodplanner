@@ -1,9 +1,12 @@
 """WodApp API client for interacting with ws.paynplan.nl."""
 
+import logging
 from datetime import date, datetime
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 from wodplanner.models.auth import AuthSession, LoginResponse
 from wodplanner.models.calendar import (
@@ -99,6 +102,11 @@ class WodAppClient:
 
     def _request(self, params: dict[str, str]) -> dict[str, Any]:
         """Make a POST request to the API."""
+        logger.debug(
+            "WodApp API %s.%s",
+            params.get("data[service]", "?"),
+            params.get("data[method]", "?"),
+        )
         response = self._client.post(
             self.BASE_URL,
             data=params,
