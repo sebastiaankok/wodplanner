@@ -1,0 +1,37 @@
+<div class="card">
+    {% if friends %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>User ID</th>
+                <th>Added</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for friend in friends %}
+            <tr>
+                <td><strong>{{ friend.name }}</strong></td>
+                <td class="text-muted">{{ friend.appuser_id }}</td>
+                <td class="text-muted">{{ friend.added_at[:10] if friend.added_at else '' }}</td>
+                <td>
+                    <button class="btn btn-danger btn-sm"
+                            hx-delete="/friends/{{ friend.id }}/delete"
+                            hx-target="#friends-list"
+                            hx-swap="innerHTML"
+                            hx-confirm="Remove {{ friend.name }} from friends?">
+                        Remove
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <h3>No friends yet</h3>
+        <p>Add friends to see which classes they're signed up for.</p>
+    </div>
+    {% endif %}
+</div>

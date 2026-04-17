@@ -1,0 +1,34 @@
+<div class="modal-content" id="people-modal-content">
+    <div class="modal-header">
+        <h3>{{ appointment_name }}</h3>
+        <button class="modal-close" onclick="closePeopleModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+        <p class="text-muted mb-2">{{ taken_spots }}/{{ total_spots }} signed up</p>
+
+        {% if participants %}
+        <ul class="people-list">
+            {% for person in participants %}
+            <li class="person-item {% if person.is_friend %}is-friend{% endif %}{% if person.is_self %} is-self{% endif %}">
+                <span class="person-name">{{ person.name }}{% if person.is_self %} (you){% endif %}</span>
+                {% if person.is_self %}
+                    {# No button for self #}
+                {% elif person.is_friend %}
+                <span class="friend-badge">Friend</span>
+                {% else %}
+                <button class="btn btn-sm btn-secondary add-friend-btn"
+                        hx-post="/friends/add-from-people"
+                        hx-vals='{"appuser_id": {{ person.id }}, "name": "{{ person.name }}", "appointment_id": {{ appointment_id }}, "date_start": "{{ date_start }}", "date_end": "{{ date_end }}"}'
+                        hx-target="#people-modal-content"
+                        hx-swap="outerHTML">
+                    + Add
+                </button>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">No participants yet.</p>
+        {% endif %}
+    </div>
+</div>

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Friends - WodPlanner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Friends</h1>
+    <button class="btn btn-primary" onclick="document.getElementById('add-friend-modal').classList.add('active')">
+        Add Friend
+    </button>
+</div>
+
+<div id="friends-list">
+    {% include "partials/friends_list.html" %}
+</div>
+
+<!-- Add Friend Modal -->
+<div id="add-friend-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add Friend</h3>
+            <button class="modal-close" onclick="document.getElementById('add-friend-modal').classList.remove('active')">&times;</button>
+        </div>
+        <form hx-post="/friends/add" hx-target="#friends-list" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful) document.getElementById('add-friend-modal').classList.remove('active')">
+            <div class="form-group">
+                <label for="appuser_id">WodApp User ID</label>
+                <input type="number" id="appuser_id" name="appuser_id" required placeholder="e.g. 12345">
+                <small class="text-muted">Find this in class participant lists</small>
+            </div>
+            <div class="form-group">
+                <label for="name">Display Name</label>
+                <input type="text" id="name" name="name" required placeholder="Friend's name">
+            </div>
+            <button type="submit" class="btn btn-primary">Add Friend</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

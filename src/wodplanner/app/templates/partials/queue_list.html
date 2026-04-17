@@ -1,0 +1,58 @@
+<div class="card">
+    {% if queue_items %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Class</th>
+                <th>Date & Time</th>
+                <th>Signup Opens</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in queue_items %}
+            <tr>
+                <td><strong>{{ item.appointment_name }}</strong></td>
+                <td>{{ item.date }} {{ item.time_start }}-{{ item.time_end }}</td>
+                <td>{{ item.signup_opens_at[:16] if item.signup_opens_at else '' }}</td>
+                <td>
+                    {% if item.status == 'pending' %}
+                    <span class="badge badge-warning">Pending</span>
+                    {% elif item.status == 'scheduled' %}
+                    <span class="badge badge-info">Scheduled</span>
+                    {% elif item.status == 'completed' %}
+                    <span class="badge badge-success">Completed</span>
+                    {% elif item.status == 'waitlisted' %}
+                    <span class="badge badge-info">Waitlisted</span>
+                    {% elif item.status == 'failed' %}
+                    <span class="badge badge-danger">Failed</span>
+                    {% elif item.status == 'cancelled' %}
+                    <span class="badge badge-secondary">Cancelled</span>
+                    {% endif %}
+                    {% if item.result_message %}
+                    <br><small class="text-muted">{{ item.result_message[:50] }}{% if item.result_message|length > 50 %}...{% endif %}</small>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.status in ['pending', 'scheduled'] %}
+                    <button class="btn btn-danger btn-sm"
+                            hx-delete="/queue/{{ item.id }}/cancel"
+                            hx-target="#queue-list"
+                            hx-swap="innerHTML"
+                            hx-confirm="Cancel auto-signup for {{ item.appointment_name }}?">
+                        Cancel
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <h3>No queued signups</h3>
+        <p>Add classes to the queue from the calendar to auto-signup when registration opens.</p>
+    </div>
+    {% endif %}
+</div>

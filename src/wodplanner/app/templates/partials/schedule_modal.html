@@ -1,0 +1,36 @@
+<div class="modal-content" id="schedule-modal-content">
+    <div class="modal-header">
+        <h3>{{ appointment_name }}</h3>
+        <button class="modal-close" onclick="closeScheduleModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+        <p class="text-muted mb-2">{{ schedule_date }}</p>
+
+        {% if schedule %}
+        <div class="schedule-sections">
+            {% if schedule.warmup_mobility %}
+            <div class="schedule-section">
+                <h4 class="schedule-section-title">Warm-up & Mobility</h4>
+                <div class="schedule-section-content">{{ schedule.warmup_mobility }}</div>
+            </div>
+            {% endif %}
+
+            {% if schedule.strength_specialty %}
+            <div class="schedule-section">
+                <h4 class="schedule-section-title">Strength / Specialty</h4>
+                <div class="schedule-section-content">{{ schedule.strength_specialty }}</div>
+            </div>
+            {% endif %}
+
+            {% if schedule.metcon %}
+            <div class="schedule-section">
+                <h4 class="schedule-section-title">MetCon</h4>
+                <div class="schedule-section-content">{{ schedule.metcon }}</div>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="text-muted">No workout schedule available for this class.</p>
+        {% endif %}
+    </div>
+</div>

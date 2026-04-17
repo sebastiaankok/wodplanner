@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Secrets - NEVER commit these
+.env
+*.env
+secrets.json
+credentials.json
+
+# HAR files contain credentials
+*.har
+app.wodapp.nl_har
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+wodplanner.db
+.env

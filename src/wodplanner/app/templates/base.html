@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}WodPlanner{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/">WodPlanner</a>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="{% if active_page == 'calendar' %}active{% endif %}">Calendar</a>
+            <a href="/friends" class="{% if active_page == 'friends' %}active{% endif %}">Friends</a>
+            <a href="/queue" class="{% if active_page == 'queue' %}active{% endif %}">Queue</a>
+        </div>
+        <div class="nav-user">
+            {% if user %}
+            <span>{{ user.firstname }}</span>
+            <form action="/api/auth/logout" method="post" style="display: inline; margin-left: 1rem;">
+                <button type="submit" class="btn btn-sm btn-secondary">Logout</button>
+            </form>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>WodPlanner - CrossFit scheduling made easy</p>
+    </footer>
+
+    <!-- People Modal -->
+    <div id="people-modal" class="modal">
+        <div id="people-modal-container"></div>
+    </div>
+
+    <!-- Schedule Modal -->
+    <div id="schedule-modal" class="modal">
+        <div id="schedule-modal-container"></div>
+    </div>
+
+    <script>
+        function openPeopleModal() {
+            document.getElementById('people-modal').classList.add('active');
+        }
+        function closePeopleModal() {
+            document.getElementById('people-modal').classList.remove('active');
+            document.getElementById('people-modal-container').innerHTML = '';
+        }
+        // Close modal on backdrop click
+        document.getElementById('people-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePeopleModal();
+            }
+        });
+
+        function openScheduleModal() {
+            document.getElementById('schedule-modal').classList.add('active');
+        }
+        function closeScheduleModal() {
+            document.getElementById('schedule-modal').classList.remove('active');
+            document.getElementById('schedule-modal-container').innerHTML = '';
+        }
+        // Close schedule modal on backdrop click
+        document.getElementById('schedule-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeScheduleModal();
+            }
+        });
+
+        // Close modals on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePeopleModal();
+                closeScheduleModal();
+            }
+        });
+
+        // Calendar picker
+        var calendarState = { year: 2026, month: 3 }; // 0-indexed month
+        var selectedDate = null;
+
+        function toggleCalendar() {
+            var dropdown = document.getElementById('calendar-dropdown');
+            var currentDateEl = document.querySelector('.current-date');
+            if (currentDateEl && currentDateEl.dataset.date) {
+                var parts = currentDateEl.dataset.date.split('-');
+                calendarState.year = parseInt(parts[0]);
+                calendarState.month = parseInt(parts[1]) - 1;
+                selectedDate = currentDateEl.dataset.date;
+            }
+            dropdown.classList.toggle('active');
+            if (dropdown.classList.contains('active')) {
+                renderCalendar();
+            }
+        }
+
+        function renderCalendar() {
+            var dropdown = document.getElementById('calendar-dropdown');
+            var year = calendarState.year;
+            var month = calendarState.month;
+            var today = new Date();
+            var todayStr = today.toISOString().split('T')[0];
+
+            var monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                              'July', 'August', 'September', 'October', 'November', 'December'];
+            var dayNames = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+            var firstDay = new Date(year, month, 1);
+            var lastDay = new Date(year, month + 1, 0);
+            var startDay = (firstDay.getDay() + 6) % 7; // Monday = 0
+            var daysInMonth = lastDay.getDate();
+            var prevMonthDays = new Date(year, month, 0).getDate();
+
+            var html = '<div class="calendar-header">';
+            html += '<button onclick="changeMonth(-1)">&larr;</button>';
+            html += '<span class="calendar-month-year">' + monthNames[month] + ' ' + year + '</span>';
+            html += '<button onclick="changeMonth(1)">&rarr;</button>';
+            html += '</div>';
+
+            html += '<div class="calendar-weekdays">';
+            for (var i = 0; i < 7; i++) {
+                html += '<div class="calendar-weekday">' + dayNames[i] + '</div>';
+            }
+            html += '</div>';
+
+            html += '<div class="calendar-days">';
+
+            // Previous month days
+            for (var i = startDay - 1; i >= 0; i--) {
+                var day = prevMonthDays - i;
+                var dateStr = formatDate(year, month - 1, day);
+                html += '<div class="calendar-day other-month" onclick="selectDate(\'' + dateStr + '\')">' + day + '</div>';
+            }
+
+            // Current month days
+            for (var d = 1; d <= daysInMonth; d++) {
+                var dateStr = formatDate(year, month, d);
+                var classes = 'calendar-day';
+                if (dateStr === todayStr) classes += ' today';
+                if (dateStr === selectedDate) classes += ' selected';
+                html += '<div class="' + classes + '" onclick="selectDate(\'' + dateStr + '\')">' + d + '</div>';
+            }
+
+            // Next month days
+            var totalCells = startDay + daysInMonth;
+            var remaining = (7 - (totalCells % 7)) % 7;
+            for (var i = 1; i <= remaining; i++) {
+                var dateStr = formatDate(year, month + 1, i);
+                html += '<div class="calendar-day other-month" onclick="selectDate(\'' + dateStr + '\')">' + i + '</div>';
+            }
+
+            html += '</div>';
+            dropdown.innerHTML = html;
+        }
+
+        function formatDate(year, month, day) {
+            if (month < 0) { month = 11; year--; }
+            if (month > 11) { month = 0; year++; }
+            return year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+        }
+
+        function changeMonth(delta) {
+            calendarState.month += delta;
+            if (calendarState.month < 0) { calendarState.month = 11; calendarState.year--; }
+            if (calendarState.month > 11) { calendarState.month = 0; calendarState.year++; }
+            renderCalendar();
+        }
+
+        function selectDate(dateStr) {
+            document.getElementById('calendar-dropdown').classList.remove('active');
+            htmx.ajax('GET', '/calendar/' + dateStr, {target: '#calendar-content', swap: 'innerHTML'});
+        }
+
+        // Close calendar when clicking outside
+        document.addEventListener('click', function(e) {
+            var dropdown = document.getElementById('calendar-dropdown');
+            var wrapper = e.target.closest('.date-picker-wrapper');
+            if (!wrapper && dropdown && dropdown.classList.contains('active')) {
+                dropdown.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>

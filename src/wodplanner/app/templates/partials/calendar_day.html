@@ -1,0 +1,28 @@
+<!-- Out-of-band swap for navigation buttons -->
+<div id="date-nav" class="date-nav" hx-swap-oob="true">
+    <button hx-get="/calendar/{{ prev_date }}" hx-target="#calendar-content" hx-swap="innerHTML">&larr; Prev</button>
+    <div class="date-picker-wrapper">
+        <span class="current-date" onclick="toggleCalendar()" data-date="{{ current_date }}">{{ display_date }}</span>
+        <div id="calendar-dropdown" class="calendar-dropdown"></div>
+    </div>
+    <button hx-get="/calendar/{{ next_date }}" hx-target="#calendar-content" hx-swap="innerHTML">Next &rarr;</button>
+    <button hx-get="/calendar/{{ today }}" hx-target="#calendar-content" hx-swap="innerHTML" class="btn btn-secondary btn-sm">Today</button>
+</div>
+
+<!-- Out-of-band swap for filters -->
+<div id="filters" class="filters" hx-swap-oob="true">
+    <span class="filters-label">Show:</span>
+    {% for filter in filters %}
+    <label class="filter-toggle">
+        <input type="checkbox"
+               {% if not filter.hidden %}checked{% endif %}
+               hx-post="/filters/toggle/{{ filter.name }}"
+               hx-vals='{"current_date": "{{ current_date }}"}'
+               hx-target="#calendar-content"
+               hx-swap="innerHTML">
+        {{ filter.name }}
+    </label>
+    {% endfor %}
+</div>
+
+{% include "partials/calendar_content.html" %}
