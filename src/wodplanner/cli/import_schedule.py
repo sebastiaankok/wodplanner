@@ -88,8 +88,10 @@ def clean_text(text: str | None) -> str | None:
     """Clean up extracted text."""
     if not text:
         return None
-    # Replace multiple whitespace with single space
-    text = re.sub(r"\s+", " ", text.strip())
+    # Collapse horizontal whitespace per line, preserve newlines
+    lines = text.strip().split("\n")
+    lines = [re.sub(r"[^\S\n]+", " ", line).strip() for line in lines]
+    text = "\n".join(line for line in lines if line)
     return text if text else None
 
 
@@ -99,7 +101,7 @@ def append_content(existing: str | None, new: str | None) -> str | None:
         return existing
     if not existing:
         return new
-    return f"{existing} {new}"
+    return f"{existing}\n{new}"
 
 
 def is_continuation_row(row: list[str | None]) -> bool:
