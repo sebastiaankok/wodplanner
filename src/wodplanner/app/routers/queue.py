@@ -65,10 +65,11 @@ def _signup_to_response(signup: QueuedSignup) -> QueueItemResponse:
 @router.get("", response_model=list[QueueItemResponse])
 def list_queue(
     include_completed: bool = False,
+    session: Annotated[AuthSession, Depends(require_session)] = None,
     scheduler: SignupScheduler = Depends(get_scheduler),
 ) -> list[QueueItemResponse]:
-    """List all items in the auto-signup queue."""
-    signups = scheduler.queue_service.get_all(include_completed=include_completed)
+    """List all items in the auto-signup queue for the current user."""
+    signups = scheduler.queue_service.get_all_for_user(session.user_id, include_completed=include_completed)
     return [_signup_to_response(s) for s in signups]
 
 
@@ -163,12 +164,16 @@ def get_queue_item(
 @router.delete("/{queue_id}")
 def cancel_queue_item(
     queue_id: int,
+    session: Annotated[AuthSession, Depends(require_session)] = None,
     scheduler: SignupScheduler = Depends(get_scheduler),
 ) -> dict:
     """Cancel a queued signup."""
     signup = scheduler.queue_service.get(queue_id)
     if not signup:
         raise HTTPException(status_code=404, detail="Queue item not found")
+
+    if signup.user_id != session.user_id:
+        raise HTTPException(status_code=403, detail="Not your queue item")
 
     if signup.status not in (QueueStatus.PENDING, QueueStatus.SCHEDULED):
         raise HTTPException(

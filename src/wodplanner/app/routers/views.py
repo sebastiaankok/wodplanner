@@ -365,7 +365,7 @@ def queue_page(
     scheduler: SignupScheduler = Depends(get_scheduler),
 ):
     """Queue management page."""
-    queue_items = scheduler.queue_service.get_all(include_completed=True)
+    queue_items = scheduler.queue_service.get_all_for_user(session.user_id, include_completed=True)
     queue_data = [
         {
             "id": item.id,
@@ -448,9 +448,11 @@ def cancel_queue_view(
     scheduler: SignupScheduler = Depends(get_scheduler),
 ):
     """Cancel a queued signup (htmx)."""
-    scheduler.cancel_signup(queue_id)
+    item = scheduler.queue_service.get(queue_id)
+    if item and item.user_id == session.user_id:
+        scheduler.cancel_signup(queue_id)
 
-    queue_items = scheduler.queue_service.get_all(include_completed=True)
+    queue_items = scheduler.queue_service.get_all_for_user(session.user_id, include_completed=True)
     queue_data = [
         {
             "id": item.id,

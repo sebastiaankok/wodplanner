@@ -122,6 +122,25 @@ class QueueService:
                 ).fetchall()
             return [self._row_to_model(row) for row in rows]
 
+    def get_all_for_user(self, user_id: int, include_completed: bool = False) -> list[QueuedSignup]:
+        """Get all signups in the queue for a specific user."""
+        with self._get_connection() as conn:
+            if include_completed:
+                rows = conn.execute(
+                    "SELECT * FROM signup_queue WHERE user_id = ? ORDER BY signup_opens_at",
+                    (user_id,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM signup_queue
+                    WHERE user_id = ? AND status IN ('pending', 'scheduled')
+                    ORDER BY signup_opens_at
+                    """,
+                    (user_id,),
+                ).fetchall()
+            return [self._row_to_model(row) for row in rows]
+
     def get_pending(self) -> list[QueuedSignup]:
         """Get all pending signups that need to be scheduled."""
         with self._get_connection() as conn:
