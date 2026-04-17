@@ -17,7 +17,7 @@ Server-rendered HTML with HTMX. Views router serves pages, API routers handle da
 `services/one_rep_max.py` provides two utilities and a service class:
 
 - `has_1rm_exercise(text)` — returns `True` if `text` contains "1rm" as an exercise name (not a percentage reference like "70% 1rm"). Checks the 6 chars preceding each match for `\d+%\s*$`.
-- `extract_1rm_exercises(text)` — returns list of exercise names following non-percentage "1rm" occurrences. Captures full name up to next `A./B./C.` section delimiter, then strips parenthetical weight annotations (e.g. `(2x 20kg)`).
+- `extract_1rm_exercises(text)` — returns list of exercise names following non-percentage "1rm" occurrences. Captures full name up to next `A./B./C.` section delimiter, then strips parenthetical weight annotations (e.g. `(2x 20kg)`). **Uses `re.DOTALL`** — pdfplumber can split a cell across lines (e.g. `(2x\n20kg)`), and without DOTALL the `.+?` can't cross the embedded newline, causing the match to fail silently and return no exercises.
 - `OneRepMaxService` — CRUD over `one_rep_maxes` table; all methods take explicit `user_id`.
 
 **Calendar enrichment**: `calendar_day_partial` calls `schedule_service.find_for_appointment()` per appointment and sets `has_1rm=True` on the appointment dict when `strength_specialty` or `warmup_mobility` contains a 1rm exercise. Triggers a dumbbell icon (`.btn-1rm`, purple) in `partials/calendar_content.html`.

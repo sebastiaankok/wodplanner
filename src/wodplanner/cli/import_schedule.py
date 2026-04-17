@@ -91,7 +91,15 @@ def clean_text(text: str | None) -> str | None:
     # Collapse horizontal whitespace per line, preserve newlines
     lines = text.strip().split("\n")
     lines = [re.sub(r"[^\S\n]+", " ", line).strip() for line in lines]
-    text = "\n".join(line for line in lines if line)
+    lines = [line for line in lines if line]
+    # Join lines that continue an unclosed parenthetical (PDF line-wrap artifact)
+    merged: list[str] = []
+    for line in lines:
+        if merged and merged[-1].count("(") > merged[-1].count(")"):
+            merged[-1] += " " + line
+        else:
+            merged.append(line)
+    text = "\n".join(merged)
     return text if text else None
 
 
