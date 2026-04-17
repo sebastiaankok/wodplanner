@@ -1,5 +1,6 @@
 """FastAPI dependencies for dependency injection."""
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
@@ -18,8 +19,7 @@ from wodplanner.services.session import SessionService
 
 
 def _get_db_path() -> Path:
-    """Get the database path."""
-    return Path(__file__).parent.parent.parent.parent / "wodplanner.db"
+    return Path(os.environ.get("DB_PATH", "/data/wodplanner.db"))
 
 
 @lru_cache
