@@ -82,6 +82,20 @@
             }
         });
 
+        // Filters toggle
+        var filtersOpen = false;
+        function applyFiltersState() {
+            var panel = document.getElementById('filters');
+            var btn = document.getElementById('filters-toggle-btn');
+            if (panel) panel.style.display = filtersOpen ? 'flex' : 'none';
+            if (btn) btn.classList.toggle('active', filtersOpen);
+        }
+        function toggleFilters() {
+            filtersOpen = !filtersOpen;
+            applyFiltersState();
+        }
+        document.addEventListener('htmx:afterSettle', applyFiltersState);
+
         // Calendar picker
         var calendarState = { year: 2026, month: 3 }; // 0-indexed month
         var selectedDate = null;

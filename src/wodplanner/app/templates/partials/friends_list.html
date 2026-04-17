@@ -1,10 +1,11 @@
 <div class="card">
     {% if friends %}
+    <div class="table-scroll-wrapper">
     <table class="table">
         <thead>
             <tr>
                 <th>Name</th>
-                <th>User ID</th>
+                <th class="col-userid">User ID</th>
                 <th>Added</th>
                 <th></th>
             </tr>
@@ -13,7 +14,7 @@
             {% for friend in friends %}
             <tr>
                 <td><strong>{{ friend.name }}</strong></td>
-                <td class="text-muted">{{ friend.appuser_id }}</td>
+                <td class="col-userid text-muted">{{ friend.appuser_id }}</td>
                 <td class="text-muted">{{ friend.added_at[:10] if friend.added_at else '' }}</td>
                 <td>
                     <button class="btn btn-danger btn-sm"
@@ -28,6 +29,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <div class="empty-state">
         <h3>No friends yet</h3>

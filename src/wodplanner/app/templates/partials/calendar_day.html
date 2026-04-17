@@ -1,12 +1,21 @@
 <!-- Out-of-band swap for navigation buttons -->
 <div id="date-nav" class="date-nav" hx-swap-oob="true">
-    <button hx-get="/calendar/{{ prev_date }}" hx-target="#calendar-content" hx-swap="innerHTML">&larr; Prev</button>
+    <button hx-get="/calendar/{{ prev_date }}" hx-target="#calendar-content" hx-swap="innerHTML" title="Previous day">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
     <div class="date-picker-wrapper">
         <span class="current-date" onclick="toggleCalendar()" data-date="{{ current_date }}">{{ display_date }}</span>
         <div id="calendar-dropdown" class="calendar-dropdown"></div>
     </div>
-    <button hx-get="/calendar/{{ next_date }}" hx-target="#calendar-content" hx-swap="innerHTML">Next &rarr;</button>
-    <button hx-get="/calendar/{{ today }}" hx-target="#calendar-content" hx-swap="innerHTML" class="btn btn-secondary btn-sm">Today</button>
+    <button hx-get="/calendar/{{ next_date }}" hx-target="#calendar-content" hx-swap="innerHTML" title="Next day">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"></polyline></svg>
+    </button>
+    <button hx-get="/calendar/{{ today }}" hx-target="#calendar-content" hx-swap="innerHTML" title="Go to today">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"></circle></svg>
+    </button>
+    <button class="filters-toggle-btn" id="filters-toggle-btn" onclick="toggleFilters()" title="Toggle filters">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+    </button>
 </div>
 
 <!-- Out-of-band swap for filters -->

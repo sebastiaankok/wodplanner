@@ -13,13 +13,6 @@
             </div>
             <div class="appointment-info">
                 <div class="appointment-name">{{ appt.name }}</div>
-                {% if appt.friends %}
-                <div class="appointment-friends mt-1">
-                    {% for friend in appt.friends %}
-                    <span class="friend-badge">{{ friend.name }}</span>
-                    {% endfor %}
-                </div>
-                {% endif %}
             </div>
             <div class="appointment-spots">
                 {{ appt.spots_taken }}/{{ appt.spots_total }}
@@ -60,18 +53,19 @@
                         <polyline points="10 9 9 9 8 9"></polyline>
                     </svg>
                 </button>
-                <button class="btn btn-icon btn-sm"
+                <button class="btn btn-icon btn-sm{% if appt.friends %} has-friends{% endif %}"
                         hx-get="/appointments/{{ appt.id }}/people?date_start={{ appt.date_start }}%20{{ appt.time_start }}&date_end={{ appt.date_end }}%20{{ appt.time_end }}"
                         hx-target="#people-modal-container"
                         hx-swap="innerHTML"
                         onclick="openPeopleModal()"
-                        title="View participants">
+                        title="View participants{% if appt.friends %} ({{ appt.friends|length }} friend{{ 's' if appt.friends|length != 1 }}){% endif %}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                         <circle cx="9" cy="7" r="4"></circle>
                         <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                     </svg>
+                    {% if appt.friends %}<span class="friend-count">{{ appt.friends|length }}</span>{% endif %}
                 </button>
                 {% if not appt.is_past %}
                     {% if appt.status == 'subscribed' or appt.status == 'waiting' %}
