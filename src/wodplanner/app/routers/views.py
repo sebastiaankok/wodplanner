@@ -104,7 +104,7 @@ def calendar_page(
     appointments = client.get_day_schedule(target_date)
     friend_ids = friends_service.get_appuser_ids(session.user_id)
     friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
-    hidden_types = prefs_service.get_hidden_class_types()
+    hidden_types = prefs_service.get_hidden_class_types(session.user_id)
 
     # Build appointment data with friends
     appt_data = []
@@ -192,7 +192,7 @@ def calendar_day_partial(
     appointments = client.get_day_schedule(target_date)
     friend_ids = friends_service.get_appuser_ids(session.user_id)
     friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
-    hidden_types = prefs_service.get_hidden_class_types()
+    hidden_types = prefs_service.get_hidden_class_types(session.user_id)
 
     appt_data = []
     for appt in appointments:
@@ -271,7 +271,7 @@ def toggle_filter(
     prefs_service: PreferencesService = Depends(get_preferences_service),
 ):
     """Toggle a class type filter."""
-    prefs_service.toggle_hidden_class_type(class_type)
+    prefs_service.toggle_hidden_class_type(session.user_id, class_type)
     return calendar_day_partial(
         request=request,
         day=current_date,

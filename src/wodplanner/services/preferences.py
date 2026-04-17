@@ -19,60 +19,75 @@ class PreferencesService:
         self.db_path = db_path
         self._init_db()
 
-    def _init_db(self) -> None:
-        """Initialize the database table."""
+    def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS preferences (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            )
-        """)
-        conn.commit()
-        conn.close()
+        conn.row_factory = sqlite3.Row
+        return conn
 
-    def _get(self, key: str, default: str = "") -> str:
-        """Get a preference value."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT value FROM preferences WHERE key = ?", (key,))
-        row = cursor.fetchone()
-        conn.close()
+    def _init_db(self) -> None:
+        with self._get_connection() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS preferences (
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    key TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    PRIMARY KEY (user_id, key)
+                )
+            """)
+            # Migrate old schema: had key TEXT PRIMARY KEY (no user_id)
+            table_sql = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='preferences'"
+            ).fetchone()[0]
+            if "user_id" not in table_sql:
+                conn.execute("ALTER TABLE preferences RENAME TO preferences_old")
+                conn.execute("""
+                    CREATE TABLE preferences (
+                        user_id INTEGER NOT NULL DEFAULT 0,
+                        key TEXT NOT NULL,
+                        value TEXT NOT NULL,
+                        PRIMARY KEY (user_id, key)
+                    )
+                """)
+                conn.execute("""
+                    INSERT INTO preferences (user_id, key, value)
+                    SELECT 0, key, value FROM preferences_old
+                """)
+                conn.execute("DROP TABLE preferences_old")
+            conn.commit()
+
+    def _get(self, user_id: int, key: str, default: str = "") -> str:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT value FROM preferences WHERE user_id = ? AND key = ?",
+                (user_id, key),
+            ).fetchone()
         return row[0] if row else default
 
-    def _set(self, key: str, value: str) -> None:
-        """Set a preference value."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT OR REPLACE INTO preferences (key, value) VALUES (?, ?)",
-            (key, value),
-        )
-        conn.commit()
-        conn.close()
+    def _set(self, user_id: int, key: str, value: str) -> None:
+        with self._get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO preferences (user_id, key, value) VALUES (?, ?, ?)",
+                (user_id, key, value),
+            )
+            conn.commit()
 
-    def get_hidden_class_types(self) -> list[str]:
-        """Get list of hidden class types."""
-        value = self._get("hidden_class_types", "[]")
+    def get_hidden_class_types(self, user_id: int) -> list[str]:
+        value = self._get(user_id, "hidden_class_types", "[]")
         return json.loads(value)
 
-    def set_hidden_class_types(self, types: list[str]) -> None:
-        """Set list of hidden class types."""
-        self._set("hidden_class_types", json.dumps(types))
+    def set_hidden_class_types(self, user_id: int, types: list[str]) -> None:
+        self._set(user_id, "hidden_class_types", json.dumps(types))
 
-    def toggle_hidden_class_type(self, class_type: str) -> list[str]:
-        """Toggle a class type visibility. Returns updated list."""
-        hidden = self.get_hidden_class_types()
+    def toggle_hidden_class_type(self, user_id: int, class_type: str) -> list[str]:
+        hidden = self.get_hidden_class_types(user_id)
         if class_type in hidden:
             hidden.remove(class_type)
         else:
             hidden.append(class_type)
-        self.set_hidden_class_types(hidden)
+        self.set_hidden_class_types(user_id, hidden)
         return hidden
 
-    def get_all(self) -> UserPreferences:
-        """Get all preferences."""
+    def get_all(self, user_id: int) -> UserPreferences:
         return UserPreferences(
-            hidden_class_types=self.get_hidden_class_types(),
+            hidden_class_types=self.get_hidden_class_types(user_id),
         )
