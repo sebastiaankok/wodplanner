@@ -2,11 +2,11 @@
 
 Unofficial WodApp alternative for planning CrossFit classes. Uses the same credentials as [app.wodapp.nl](https://app.wodapp.nl) — no separate account needed.
 
-> **Privacy:** Your credentials are never stored. They are passed directly to WodApp on login and discarded.
+> **Privacy:** Your password is never stored. Login sends it directly to WodApp, which returns an auth token — only that token is kept in your browser cookie.
 
 ## Features
 
-- **Friend tracking** — see which friends are signed up for the same class
+- **Friend tracking** — see what classes your friends are joining
 - **Exercises overview** — browse all programmed movements across the schedule
 - **1RM tracker** — log and track your personal records per exercise
 - **Auto-signup queue** — automatically sign up when registration opens (7 days before)
