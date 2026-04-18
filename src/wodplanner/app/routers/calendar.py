@@ -62,16 +62,15 @@ def get_day_schedule(
     for appt in appointments:
         friends_in_class = []
 
-        # If include_friends is enabled, fetch appointment details to get member list
+        # If include_friends is enabled, fetch member list (cached)
         if include_friends and friend_ids:
             try:
-                details = client.get_appointment_details(
+                members, _ = client.get_appointment_members(
                     appt.id_appointment,
                     appt.date_start,
                     appt.date_end,
                 )
-                # Check which members are friends
-                for member in details.subscriptions.members:
+                for member in members:
                     if member.id_appuser in friend_ids:
                         friend = friends_map.get(member.id_appuser)
                         friends_in_class.append(
@@ -81,7 +80,6 @@ def get_day_schedule(
                             )
                         )
             except Exception:
-                # If fetching details fails, continue without friends info
                 pass
 
         result_appointments.append(
@@ -137,12 +135,12 @@ def get_week_schedule(
 
             if include_friends and friend_ids:
                 try:
-                    details = client.get_appointment_details(
+                    members, _ = client.get_appointment_members(
                         appt.id_appointment,
                         appt.date_start,
                         appt.date_end,
                     )
-                    for member in details.subscriptions.members:
+                    for member in members:
                         if member.id_appuser in friend_ids:
                             friend = friends_map.get(member.id_appuser)
                             friends_in_class.append(

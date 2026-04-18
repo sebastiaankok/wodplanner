@@ -344,8 +344,22 @@ The `appointment` endpoint returns `subscriptions.members[]` with:
 **Strategy**:
 1. Store a list of friend `id_appuser` values
 2. For each day, fetch appointments using `day` method
-3. For each appointment, fetch details using `appointment` method
+3. For each appointment, call `WodAppClient.get_appointment_members()` which returns only member lists
 4. Check if any friend's `id_appuser` is in `subscriptions.members[]`
+
+**User-specific vs. cacheable data**:
+
+| Data | API call | Cached? | Reason |
+|------|----------|---------|--------|
+| `Appointment.status` (`"subscribed"`) | `agenda.day` → `get_day_schedule()` | No — live per request | User-specific: reflects current user's subscription state |
+| `AppointmentDetails.subscriptions.subscribed` | `agenda.appointment` → `get_appointment_details()` | No | User-specific |
+| `subscriptions.members[]` | `agenda.appointment` → `get_appointment_members()` | Yes (TTL 600s) | Same for all users of the gym |
+| `waitinglist.members[]` | `agenda.appointment` → `get_appointment_members()` | Yes (TTL 600s) | Same for all users of the gym |
+
+Cache key: `{agenda_id}:{appointment_id}:{date_start}:{date_end}` — deliberately excludes `user_id` because the cached value is non-user-specific. A user's subscription status always comes from `get_day_schedule()`, called live with their own auth token.
+
+- `get_appointment_members()` is the cache-aware entry point; `get_appointment_details()` always hits the API
+- `people_modal_view` uses `get_appointment_details()` directly (correct — needs full user-specific detail)
 
 ---
 

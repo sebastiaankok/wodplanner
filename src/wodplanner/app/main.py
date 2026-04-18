@@ -18,6 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 logging.getLogger("wodplanner.api.client").setLevel(logging.DEBUG)
+logging.getLogger("wodplanner.services.api_cache").setLevel(logging.DEBUG)
 
 
 app = FastAPI(

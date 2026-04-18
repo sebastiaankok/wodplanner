@@ -41,7 +41,8 @@ src/wodplanner/
 └── services/
     ├── session.py         # Cookie-based session encoding (itsdangerous)
     ├── schedule.py        # Workout schedule storage + class name mapping
-    └── friends.py         # Friends list persistence
+    ├── friends.py         # Friends list persistence
+    └── api_cache.py       # Short TTL in-memory cache for non-user-specific API responses
 ```
 
 ## Configuration
@@ -51,6 +52,7 @@ Environment variables (all optional for web usage):
 - `COOKIE_SECURE` — set true for HTTPS in production (default: false)
 - `SECRET_KEY` — cookie signing key; random default invalidates sessions on restart; set in production
 - `WODAPP_USERNAME` / `WODAPP_PASSWORD` — only needed for CLI tools, not web
+- `API_CACHE_TTL_SECONDS` — TTL for non-user-specific API response cache (default: 600 = 10 min); set lower for faster refresh, higher to reduce API load
 
 ## Further Reading
 

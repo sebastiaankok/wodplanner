@@ -12,6 +12,7 @@ from wodplanner.api.client import WodAppClient
 from wodplanner.app.config import settings
 from wodplanner.models.auth import AuthSession
 from wodplanner.services import session as cookie_session
+from wodplanner.services.api_cache import ApiCacheService
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.one_rep_max import OneRepMaxService
 from wodplanner.services.preferences import PreferencesService
@@ -44,6 +45,12 @@ def get_schedule_service() -> ScheduleService:
 def get_one_rep_max_service() -> OneRepMaxService:
     """Get the singleton one rep max service."""
     return OneRepMaxService(_get_db_path())
+
+
+@lru_cache
+def get_api_cache_service() -> ApiCacheService:
+    """Get the singleton API cache service."""
+    return ApiCacheService(ttl_seconds=settings.api_cache_ttl_seconds)
 
 
 def get_session_from_cookie(
@@ -112,7 +119,7 @@ def get_client_from_session(
 
     This creates a new client per request using stored session data.
     """
-    return WodAppClient.from_session(session)
+    return WodAppClient.from_session(session, cache=get_api_cache_service())
 
 
 def get_client_from_session_for_view(
@@ -123,4 +130,4 @@ def get_client_from_session_for_view(
 
     Redirects to login if no valid session.
     """
-    return WodAppClient.from_session(session)
+    return WodAppClient.from_session(session, cache=get_api_cache_service())

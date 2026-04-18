@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     wodapp_username: str | None = None
     wodapp_password: str | None = None
 
+    # Cache configuration
+    api_cache_ttl_seconds: int = 600
+
     # Session configuration
     session_expire_days: int = 7
     cookie_secure: bool = False  # Set True in production with HTTPS

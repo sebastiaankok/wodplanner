@@ -191,10 +191,10 @@ def calendar_page(
         friends_in_class = []
         if friend_ids:
             try:
-                details = client.get_appointment_details(
+                members, _ = client.get_appointment_members(
                     appt.id_appointment, appt.date_start, appt.date_end
                 )
-                for member in details.subscriptions.members:
+                for member in members:
                     if member.id_appuser in friend_ids:
                         friend = friends_map.get(member.id_appuser)
                         friends_in_class.append({
@@ -287,10 +287,10 @@ def calendar_day_partial(
         friends_in_class = []
         if friend_ids:
             try:
-                details = client.get_appointment_details(
+                members, _ = client.get_appointment_members(
                     appt.id_appointment, appt.date_start, appt.date_end
                 )
-                for member in details.subscriptions.members:
+                for member in members:
                     if member.id_appuser in friend_ids:
                         friend = friends_map.get(member.id_appuser)
                         friends_in_class.append({

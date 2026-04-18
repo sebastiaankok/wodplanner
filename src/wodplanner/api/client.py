@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -18,6 +18,9 @@ from wodplanner.models.calendar import (
     Subscriptions,
     WaitingList,
 )
+
+if TYPE_CHECKING:
+    from wodplanner.services.api_cache import ApiCacheService
 
 
 class WodAppError(Exception):
@@ -44,20 +47,23 @@ class WodAppClient:
     def __init__(self) -> None:
         self._client = httpx.Client(timeout=30.0)
         self._session: AuthSession | None = None
+        self._cache: "ApiCacheService | None" = None
 
     @classmethod
-    def from_session(cls, session: AuthSession) -> "WodAppClient":
+    def from_session(cls, session: AuthSession, cache: "ApiCacheService | None" = None) -> "WodAppClient":
         """
         Create a pre-authenticated client from an existing session.
 
         Args:
             session: An AuthSession with valid token and user info
+            cache: Optional cache service for non-user-specific data
 
         Returns:
             WodAppClient ready to make authenticated requests
         """
         client = cls()
         client._session = session
+        client._cache = cache
         return client
 
     def __enter__(self) -> "WodAppClient":
@@ -470,6 +476,29 @@ class WodAppClient:
         result.sort(key=lambda x: x["date_start"])
         return result, company_images
 
+    def get_appointment_members(
+        self,
+        appointment_id: int,
+        date_start: datetime,
+        date_end: datetime,
+    ) -> tuple[list[Member], WaitingList]:
+        """Return subscribed members and waiting list. Cached when ApiCacheService is available."""
+        cache_key = f"{self.session.agenda_id}:{appointment_id}:{date_start.isoformat()}:{date_end.isoformat()}"
+
+        if self._cache:
+            cached = self._cache.get(cache_key)
+            if cached is not None:
+                return cached
+
+        details = self.get_appointment_details(appointment_id, date_start, date_end)
+        result = (details.subscriptions.members, details.waitinglist)
+
+        if self._cache:
+            self._cache.set(cache_key, result)
+            logger.debug("Cache set: %s", cache_key)
+
+        return result
+
     def find_friends_in_appointments(
         self,
         friend_ids: set[int],
@@ -492,15 +521,13 @@ class WodAppClient:
         result: dict[int, list[Member]] = {}
 
         for appt in appointments:
-            details = self.get_appointment_details(
+            members, _ = self.get_appointment_members(
                 appt.id_appointment,
                 appt.date_start,
                 appt.date_end,
             )
 
-            friends_found = [
-                m for m in details.subscriptions.members if m.id_appuser in friend_ids
-            ]
+            friends_found = [m for m in members if m.id_appuser in friend_ids]
 
             if friends_found:
                 result[appt.id_appointment] = friends_found
