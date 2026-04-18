@@ -21,8 +21,12 @@ uvicorn wodplanner.app.main:app --reload
 pytest
 
 # Import workout schedule from PDF (--dry-run to preview)
-import-schedule schedule.pdf --year 2026
-import-schedule schedule.pdf --year 2026 --dry-run
+import-schedule schedule.pdf --year 2026 --gym-id 2495
+import-schedule schedule.pdf --year 2026 --gym-id 2495 --dry-run
+
+# Backup database (safe during live writes, keeps 7 by default)
+backup-db
+backup-db --db-path /data/wodplanner.db --backup-dir /data/backups --keep 7
 ```
 
 ## Architecture
@@ -37,6 +41,7 @@ src/wodplanner/
 │   ├── routers/           # API endpoints (prefixed /api) and views
 │   └── templates/         # Jinja2 HTML templates with HTMX
 ├── cli/import_schedule.py # PDF parser for workout schedules
+├── cli/backup_db.py       # SQLite Online Backup API wrapper
 ├── models/                # Pydantic models
 └── services/
     ├── session.py         # Cookie-based session encoding (itsdangerous)
@@ -48,8 +53,9 @@ src/wodplanner/
 ## Configuration
 
 Environment variables (all optional for web usage):
-- `SESSION_EXPIRE_DAYS` — session lifetime (default: 7)
-- `COOKIE_SECURE` — set true for HTTPS in production (default: false)
+- `ENVIRONMENT` — `development` (default) or `production`; production enables `COOKIE_SECURE` automatically
+- `SESSION_EXPIRE_DAYS` — session lifetime in days (default: unset = never expire; browser max_age capped at 400 days)
+- `COOKIE_SECURE` — override cookie secure flag; auto-enabled when `ENVIRONMENT=production`
 - `SECRET_KEY` — cookie signing key; random default invalidates sessions on restart; set in production
 - `WODAPP_USERNAME` / `WODAPP_PASSWORD` — only needed for CLI tools, not web
 - `API_CACHE_TTL_SECONDS` — TTL for non-user-specific API response cache (default: 600 = 10 min); set lower for faster refresh, higher to reduce API load

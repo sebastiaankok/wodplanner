@@ -10,7 +10,9 @@ Server-rendered HTML with HTMX. Views router serves pages, API routers handle da
 
 ## Schedule Import
 
-`import-schedule` CLI parses CrossFit Purmerend PDF schedules (Dutch format) using pdfplumber. Extracts workout details per class type: warmup/mobility, strength/specialty, metcon. Stored in `schedules` table with `(date, class_type)` unique constraint. Class names normalized via `CLASS_NAME_MAPPING` in `services/schedule.py` to match API appointment names (e.g. "CF101" → "CrossFit 101").
+`import-schedule` CLI parses CrossFit Purmerend PDF schedules (Dutch format) using pdfplumber. Extracts workout details per class type: warmup/mobility, strength/specialty, metcon. Stored in `schedules` table scoped to a gym via `--gym-id` (required arg). Unique constraint is `(date, class_type, gym_id)`. Class names normalized via `CLASS_NAME_MAPPING` in `services/schedule.py` to match API appointment names (e.g. "CF101" → "CrossFit 101").
+
+Calendar views pass `session.gym_id` to all schedule queries. Query filter is `gym_id = ? OR gym_id IS NULL` — the NULL fallback covers rows imported before gym scoping was added.
 
 ## 1RM Tracking
 

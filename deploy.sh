@@ -8,4 +8,4 @@ docker build --platform linux/amd64 -t "${IMAGE}:${TAG}" .
 docker push "${IMAGE}:${TAG}"
 
 kubectl --kubeconfig ~/.kube/configs/k3s.yaml --context k3s-home \
-  delete po -n wodplanner --all
+  rollout restart deploy -n wodplanner
