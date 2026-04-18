@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>{% block title %}WodPlanner{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
@@ -20,7 +21,6 @@
         <div class="nav-links">
             <a href="/" class="{% if active_page == 'calendar' %}active{% endif %}">Calendar</a>
             <a href="/friends" class="{% if active_page == 'friends' %}active{% endif %}">Friends</a>
-            <a href="/queue" class="{% if active_page == 'queue' %}active{% endif %}">Queue</a>
             <a href="/1rm" class="{% if active_page == '1rm' %}active{% endif %}">1RM</a>
         </div>
         <div class="nav-user">
@@ -226,5 +226,67 @@
             }
         });
     </script>
+
+    {% if user %}
+    <!-- PWA install banner -->
+    <div id="pwa-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:2000; background:#1d4ed8; color:white; padding:1rem 1.5rem; box-shadow:0 -4px 16px rgba(0,0,0,0.25); align-items:center; gap:1rem; flex-wrap:wrap;">
+        <div id="pwa-android" style="display:none; width:100%; align-items:center; gap:1rem; flex-wrap:wrap;">
+            <span style="flex:1; min-width:0; font-size:0.9375rem;">Add WodPlanner to your home screen for the best experience.</span>
+            <div style="display:flex; gap:0.5rem; flex-shrink:0;">
+                <button onclick="pwaBannerInstall()" style="background:white; color:#1d4ed8; border:none; padding:0.375rem 0.875rem; border-radius:0.375rem; font-size:0.875rem; font-weight:500; cursor:pointer;">Install</button>
+                <button onclick="pwaBannerDismiss()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:0.375rem 0.875rem; border-radius:0.375rem; font-size:0.875rem; cursor:pointer;">Dismiss</button>
+            </div>
+        </div>
+        <div id="pwa-ios" style="display:none; width:100%; align-items:center; gap:1rem; flex-wrap:wrap;">
+            <span style="flex:1; min-width:0; font-size:0.9375rem;">Install: tap the Share button then &ldquo;Add to Home Screen&rdquo;.</span>
+            <button onclick="pwaBannerDismiss()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:0.375rem 0.875rem; border-radius:0.375rem; font-size:0.875rem; cursor:pointer;">Dismiss</button>
+        </div>
+    </div>
+    <script>
+        (function() {
+            if (window.matchMedia('(display-mode: standalone)').matches) return;
+            if (window.navigator.standalone === true) return;
+            if (localStorage.getItem('pwa-prompt-dismissed')) return;
+
+            var deferredPrompt = null;
+
+            function showBanner(type) {
+                var banner = document.getElementById('pwa-banner');
+                var el = document.getElementById('pwa-' + type);
+                if (!banner || !el) return;
+                banner.style.display = 'flex';
+                el.style.display = 'flex';
+            }
+
+            window.pwaBannerDismiss = function() {
+                localStorage.setItem('pwa-prompt-dismissed', '1');
+                document.getElementById('pwa-banner').style.display = 'none';
+            };
+
+            window.pwaBannerInstall = function() {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(function(result) {
+                    if (result.outcome === 'accepted') {
+                        localStorage.setItem('pwa-prompt-dismissed', '1');
+                    }
+                    deferredPrompt = null;
+                    document.getElementById('pwa-banner').style.display = 'none';
+                });
+            };
+
+            window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                deferredPrompt = e;
+                showBanner('android');
+            });
+
+            var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+            if (isIOS) {
+                showBanner('ios');
+            }
+        })();
+    </script>
+    {% endif %}
 </body>
 </html>

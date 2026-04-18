@@ -26,11 +26,11 @@
 </div>
 
 <div id="filters" class="filters">
-    <span class="filters-label">Show:</span>
+    <span class="filters-label">Hide:</span>
     {% for filter in filters %}
     <label class="filter-toggle">
         <input type="checkbox"
-               {% if not filter.hidden %}checked{% endif %}
+               {% if filter.hidden %}checked{% endif %}
                hx-post="/filters/toggle/{{ filter.name }}"
                hx-vals='{"current_date": "{{ current_date }}"}'
                hx-target="#calendar-content"

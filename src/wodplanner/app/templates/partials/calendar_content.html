@@ -112,15 +112,6 @@
                             Sign up
                         </button>
                         {% endif %}
-                    {% else %}
-                        {# Signup not open yet - show queue button #}
-                        <button class="btn btn-secondary btn-sm"
-                                hx-post="/queue/add"
-                                hx-vals='{"appointment_id": {{ appt.id }}, "date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}"}'
-                                hx-target="#calendar-content"
-                                hx-swap="innerHTML">
-                            Queue
-                        </button>
                     {% endif %}
                 {% endif %}
             </div>

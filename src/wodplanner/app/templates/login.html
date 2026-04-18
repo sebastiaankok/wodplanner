@@ -58,7 +58,18 @@
             margin-bottom: 1rem;
             font-size: 0.875rem;
         }
+
+        @media (prefers-color-scheme: dark) {
+            .login-page { background: #0f172a; }
+            .login-card { background: #1e293b; }
+            .login-header h1 { color: #f1f5f9; }
+            .login-header p { color: #94a3b8; }
+            .login-error { background: #7f1d1d; color: #f87171; }
+            .form-group label { color: #cbd5e1; }
+            .form-group input { background-color: #0f172a; color: #f1f5f9; border-color: #475569; }
+        }
     </style>
+    <meta name="color-scheme" content="light dark">
 </head>
 <body>
     <div class="login-page">
