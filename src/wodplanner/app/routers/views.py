@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -27,7 +27,7 @@ from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
 
 # Class types that can be filtered
-FILTERABLE_CLASS_TYPES = ["Open Gym", "CF101", "Teen Athlete", "HyCross"]
+FILTERABLE_CLASS_TYPES = ["Open Gym", "CF101", "Teen Athlete", "HyCross", "CF Boxing", "Gymnastics", "Strength", "Small Group Strength Class"]
 
 # Timezone for calculations
 TZ = ZoneInfo("Europe/Amsterdam")
@@ -69,7 +69,7 @@ def _build_exercises_chart_data(formatted_entries: list) -> str:
         data[ex].append({"date": e["recorded_at_iso"], "weight": e["weight_kg"], "label": e["recorded_at"]})
     for ex in data:
         data[ex].sort(key=lambda x: x["date"])
-    return json.dumps(data)
+    return json.dumps(data).replace("</", "<\\/")
 
 
 def is_signup_open(appt_name: str, appt_start: datetime) -> bool:
@@ -728,11 +728,20 @@ def add_one_rep_max_view(
     one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
 ):
     """Add a 1rm entry (htmx)."""
+    exercise = exercise.strip()
+    if not exercise or len(exercise) > 100:
+        raise HTTPException(status_code=400, detail="Exercise name must be 1–100 characters.")
+    if not (0 < weight_kg < 1000):
+        raise HTTPException(status_code=400, detail="Weight must be between 0 and 1000 kg.")
+    try:
+        entry_date = date.fromisoformat(recorded_at)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format.")
     one_rep_max_service.add(
         user_id=session.user_id,
         exercise=exercise,
         weight_kg=weight_kg,
-        recorded_at=date.fromisoformat(recorded_at),
+        recorded_at=entry_date,
     )
 
     raw = one_rep_max_service.get_all(session.user_id)
