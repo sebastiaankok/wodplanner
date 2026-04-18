@@ -5,6 +5,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from wodplanner.models.schedule import Schedule
+from wodplanner.services.db import get_connection
 
 
 # Mapping from PDF class names to possible API names
@@ -70,10 +71,7 @@ class ScheduleService:
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get a database connection."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return get_connection(self.db_path)
 
     def _init_db(self) -> None:
         """Initialize the database schema."""
@@ -108,45 +106,48 @@ class ScheduleService:
             created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
         )
 
+    def _execute_add(self, conn: sqlite3.Connection, schedule: Schedule) -> int | None:
+        cursor = conn.execute(
+            """
+            INSERT INTO schedules
+            (date, class_type, warmup_mobility, strength_specialty, metcon, raw_content, source_file, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(date, class_type) DO UPDATE SET
+                warmup_mobility = excluded.warmup_mobility,
+                strength_specialty = excluded.strength_specialty,
+                metcon = excluded.metcon,
+                raw_content = excluded.raw_content,
+                source_file = excluded.source_file,
+                created_at = excluded.created_at
+            """,
+            (
+                schedule.date.isoformat(),
+                schedule.class_type,
+                schedule.warmup_mobility,
+                schedule.strength_specialty,
+                schedule.metcon,
+                schedule.raw_content,
+                schedule.source_file,
+                datetime.now().isoformat(),
+            ),
+        )
+        return cursor.lastrowid
+
     def add(self, schedule: Schedule) -> Schedule:
         """Add a schedule entry (upsert - insert or update on conflict)."""
         with self._get_connection() as conn:
-            cursor = conn.execute(
-                """
-                INSERT INTO schedules
-                (date, class_type, warmup_mobility, strength_specialty, metcon, raw_content, source_file, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(date, class_type) DO UPDATE SET
-                    warmup_mobility = excluded.warmup_mobility,
-                    strength_specialty = excluded.strength_specialty,
-                    metcon = excluded.metcon,
-                    raw_content = excluded.raw_content,
-                    source_file = excluded.source_file,
-                    created_at = excluded.created_at
-                """,
-                (
-                    schedule.date.isoformat(),
-                    schedule.class_type,
-                    schedule.warmup_mobility,
-                    schedule.strength_specialty,
-                    schedule.metcon,
-                    schedule.raw_content,
-                    schedule.source_file,
-                    datetime.now().isoformat(),
-                ),
-            )
+            schedule.id = self._execute_add(conn, schedule)
             conn.commit()
-            schedule.id = cursor.lastrowid
-            schedule.created_at = datetime.now()
-            return schedule
+        schedule.created_at = datetime.now()
+        return schedule
 
     def bulk_add(self, schedules: list[Schedule]) -> int:
-        """Add multiple schedule entries. Returns count of entries added."""
-        count = 0
-        for schedule in schedules:
-            self.add(schedule)
-            count += 1
-        return count
+        """Add multiple schedule entries in a single transaction. Returns count of entries added."""
+        with self._get_connection() as conn:
+            for schedule in schedules:
+                schedule.id = self._execute_add(conn, schedule)
+            conn.commit()
+        return len(schedules)
 
     def get_by_date_and_class(self, schedule_date: date, class_type: str) -> Schedule | None:
         """Get a schedule by date and class type, trying all aliases."""

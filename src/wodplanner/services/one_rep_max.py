@@ -6,6 +6,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from wodplanner.models.one_rep_max import OneRepMax
+from wodplanner.services.db import get_connection
 
 
 def has_1rm_exercise(text: str | None) -> bool:
@@ -41,9 +42,7 @@ class OneRepMaxService:
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return get_connection(self.db_path)
 
     def _init_db(self) -> None:
         with self._get_connection() as conn:
@@ -73,12 +72,11 @@ class OneRepMaxService:
 
     def add(self, user_id: int, exercise: str, weight_kg: float, recorded_at: date, notes: str | None = None) -> OneRepMax:
         with self._get_connection() as conn:
-            cursor = conn.execute(
-                "INSERT INTO one_rep_maxes (user_id, exercise, weight_kg, recorded_at, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            row = conn.execute(
+                "INSERT INTO one_rep_maxes (user_id, exercise, weight_kg, recorded_at, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
                 (user_id, exercise.strip(), weight_kg, recorded_at.isoformat(), notes, datetime.now().isoformat()),
-            )
+            ).fetchone()
             conn.commit()
-            row = conn.execute("SELECT * FROM one_rep_maxes WHERE id = ?", (cursor.lastrowid,)).fetchone()
             return self._row_to_model(row)
 
     def get_all(self, user_id: int) -> list[OneRepMax]:

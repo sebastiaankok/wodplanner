@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from wodplanner.models.friends import Friend
+from wodplanner.services.db import get_connection
 
 
 class FriendsService:
@@ -15,14 +16,12 @@ class FriendsService:
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get a database connection."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return get_connection(self.db_path)
 
     def _init_db(self) -> None:
         """Initialize the database schema."""
         with self._get_connection() as conn:
+            conn.execute("BEGIN")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS friends (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,19 +68,16 @@ class FriendsService:
     def add(self, owner_user_id: int, appuser_id: int, name: str) -> Friend:
         """Add a friend for the given owner."""
         with self._get_connection() as conn:
-            conn.execute(
+            row = conn.execute(
                 """
                 INSERT INTO friends (owner_user_id, appuser_id, name, added_at)
                 VALUES (?, ?, ?, ?)
                 ON CONFLICT(owner_user_id, appuser_id) DO UPDATE SET name = excluded.name
+                RETURNING *
                 """,
                 (owner_user_id, appuser_id, name, datetime.now().isoformat()),
-            )
-            conn.commit()
-            row = conn.execute(
-                "SELECT * FROM friends WHERE owner_user_id = ? AND appuser_id = ?",
-                (owner_user_id, appuser_id),
             ).fetchone()
+            conn.commit()
             return self._row_to_model(row)
 
     def get(self, owner_user_id: int, friend_id: int) -> Friend | None:
