@@ -244,6 +244,12 @@ def main():
         default=Path("wodplanner.db"),
         help="Path to the database file (default: wodplanner.db)",
     )
+    parser.add_argument(
+        "--gym-id",
+        type=int,
+        required=True,
+        help="WodApp gym ID to associate schedules with (e.g. 2495)",
+    )
 
     args = parser.parse_args()
 
@@ -257,6 +263,8 @@ def main():
 
     # Extract schedules from PDF
     schedules = extract_schedules_from_pdf(args.pdf_file, args.year)
+    for s in schedules:
+        s.gym_id = args.gym_id
 
     if not schedules:
         print("No schedules found in PDF")

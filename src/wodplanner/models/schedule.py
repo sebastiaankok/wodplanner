@@ -9,6 +9,7 @@ class Schedule(BaseModel):
     """A workout schedule entry imported from PDF."""
 
     id: int | None = None
+    gym_id: int | None = None
     date: date
     class_type: str
     warmup_mobility: str | None = None

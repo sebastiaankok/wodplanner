@@ -79,6 +79,7 @@ class ScheduleService:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS schedules (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    gym_id INTEGER,
                     date DATE NOT NULL,
                     class_type TEXT NOT NULL,
                     warmup_mobility TEXT,
@@ -87,15 +88,45 @@ class ScheduleService:
                     raw_content TEXT,
                     source_file TEXT,
                     created_at TEXT NOT NULL,
-                    UNIQUE(date, class_type)
+                    UNIQUE(date, class_type, gym_id)
                 )
             """)
+            conn.commit()
+            self._migrate_db(conn)
+
+    def _migrate_db(self, conn: sqlite3.Connection) -> None:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(schedules)")]
+        if "gym_id" not in cols:
+            conn.execute("""
+                CREATE TABLE schedules_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    gym_id INTEGER,
+                    date DATE NOT NULL,
+                    class_type TEXT NOT NULL,
+                    warmup_mobility TEXT,
+                    strength_specialty TEXT,
+                    metcon TEXT,
+                    raw_content TEXT,
+                    source_file TEXT,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(date, class_type, gym_id)
+                )
+            """)
+            conn.execute("""
+                INSERT INTO schedules_new
+                SELECT id, NULL, date, class_type, warmup_mobility,
+                       strength_specialty, metcon, raw_content, source_file, created_at
+                FROM schedules
+            """)
+            conn.execute("DROP TABLE schedules")
+            conn.execute("ALTER TABLE schedules_new RENAME TO schedules")
             conn.commit()
 
     def _row_to_model(self, row: sqlite3.Row) -> Schedule:
         """Convert a database row to a Schedule model."""
         return Schedule(
             id=row["id"],
+            gym_id=row["gym_id"],
             date=date.fromisoformat(row["date"]),
             class_type=row["class_type"],
             warmup_mobility=row["warmup_mobility"],
@@ -110,9 +141,9 @@ class ScheduleService:
         cursor = conn.execute(
             """
             INSERT INTO schedules
-            (date, class_type, warmup_mobility, strength_specialty, metcon, raw_content, source_file, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(date, class_type) DO UPDATE SET
+            (gym_id, date, class_type, warmup_mobility, strength_specialty, metcon, raw_content, source_file, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(date, class_type, gym_id) DO UPDATE SET
                 warmup_mobility = excluded.warmup_mobility,
                 strength_specialty = excluded.strength_specialty,
                 metcon = excluded.metcon,
@@ -121,6 +152,7 @@ class ScheduleService:
                 created_at = excluded.created_at
             """,
             (
+                schedule.gym_id,
                 schedule.date.isoformat(),
                 schedule.class_type,
                 schedule.warmup_mobility,
@@ -149,34 +181,45 @@ class ScheduleService:
             conn.commit()
         return len(schedules)
 
-    def get_by_date_and_class(self, schedule_date: date, class_type: str) -> Schedule | None:
+    def get_by_date_and_class(self, schedule_date: date, class_type: str, gym_id: int | None = None) -> Schedule | None:
         """Get a schedule by date and class type, trying all aliases."""
         aliases = get_all_class_aliases(class_type)
 
         with self._get_connection() as conn:
-            # Try each alias
             placeholders = ",".join("?" * len(aliases))
-            row = conn.execute(
-                f"SELECT * FROM schedules WHERE date = ? AND class_type IN ({placeholders})",
-                (schedule_date.isoformat(), *aliases),
-            ).fetchone()
+            if gym_id is not None:
+                row = conn.execute(
+                    f"SELECT * FROM schedules WHERE date = ? AND class_type IN ({placeholders}) AND (gym_id = ? OR gym_id IS NULL)",
+                    (schedule_date.isoformat(), *aliases, gym_id),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    f"SELECT * FROM schedules WHERE date = ? AND class_type IN ({placeholders})",
+                    (schedule_date.isoformat(), *aliases),
+                ).fetchone()
 
             if row:
                 return self._row_to_model(row)
             return None
 
-    def get_by_date(self, schedule_date: date) -> list[Schedule]:
+    def get_by_date(self, schedule_date: date, gym_id: int | None = None) -> list[Schedule]:
         """Get all schedules for a specific date."""
         with self._get_connection() as conn:
-            rows = conn.execute(
-                "SELECT * FROM schedules WHERE date = ? ORDER BY class_type",
-                (schedule_date.isoformat(),),
-            ).fetchall()
+            if gym_id is not None:
+                rows = conn.execute(
+                    "SELECT * FROM schedules WHERE date = ? AND (gym_id = ? OR gym_id IS NULL) ORDER BY class_type",
+                    (schedule_date.isoformat(), gym_id),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM schedules WHERE date = ? ORDER BY class_type",
+                    (schedule_date.isoformat(),),
+                ).fetchall()
             return [self._row_to_model(row) for row in rows]
 
-    def find_for_appointment(self, appointment_name: str, appointment_date: date) -> Schedule | None:
+    def find_for_appointment(self, appointment_name: str, appointment_date: date, gym_id: int | None = None) -> Schedule | None:
         """Find a schedule that matches an appointment name and date."""
-        return self.get_by_date_and_class(appointment_date, appointment_name)
+        return self.get_by_date_and_class(appointment_date, appointment_name, gym_id=gym_id)
 
     def get_all(self) -> list[Schedule]:
         """Get all schedules."""

@@ -205,7 +205,7 @@ def calendar_page(
                 pass
 
         # Check if workout contains a 1rm exercise
-        schedule = schedule_service.find_for_appointment(appt.name, target_date)
+        schedule = schedule_service.find_for_appointment(appt.name, target_date, gym_id=session.gym_id)
         appt_has_1rm = schedule is not None and (
             has_1rm_exercise(schedule.strength_specialty)
             or has_1rm_exercise(schedule.warmup_mobility)
@@ -301,7 +301,7 @@ def calendar_day_partial(
                 pass
 
         # Check if workout contains a 1rm exercise
-        schedule = schedule_service.find_for_appointment(appt.name, target_date)
+        schedule = schedule_service.find_for_appointment(appt.name, target_date, gym_id=session.gym_id)
         appt_has_1rm = schedule is not None and (
             has_1rm_exercise(schedule.strength_specialty)
             or has_1rm_exercise(schedule.warmup_mobility)
@@ -651,6 +651,7 @@ def schedule_modal_view(
     appointment_id: int,
     date_start: str,
     class_name: str,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
     schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Get workout schedule for an appointment (htmx modal)."""
@@ -658,7 +659,7 @@ def schedule_modal_view(
     schedule_date = date.fromisoformat(date_start.split(" ")[0])
 
     # Look up schedule by date and class name
-    schedule = schedule_service.get_by_date_and_class(schedule_date, class_name)
+    schedule = schedule_service.get_by_date_and_class(schedule_date, class_name, gym_id=session.gym_id)
 
     return render(
         request,
@@ -683,7 +684,7 @@ def one_rep_max_modal_view(
 ):
     """Get 1rm tracker modal for an appointment (htmx modal)."""
     schedule_date = date.fromisoformat(date_start.split(" ")[0])
-    schedule = schedule_service.find_for_appointment(class_name, schedule_date)
+    schedule = schedule_service.find_for_appointment(class_name, schedule_date, gym_id=session.gym_id)
 
     suggested_exercises: list[str] = []
     if schedule:
