@@ -186,8 +186,7 @@ data[id_appuser_li]=388211
 
 **Key Fields for Your Features**:
 - `subscriptions.members[]` - **List of people signed up** (for friends feature)
-- `number_hours_before_subscription_opens` - **168 hours = 7 days** (for auto-signup)
-- `subscription_open_date` - Exact datetime when signup opens
+- `subscription_open_date` - Exact datetime when signup opens (shown in calendar)
 - `subscribe_not_opened_yet` - `1` if signup hasn't opened yet
 - `waiting_list` - `1` if waiting list is enabled
 
@@ -284,21 +283,9 @@ data[id_appuser_li]=388211
 
 ---
 
-## Implementation Notes for Your Features
+## Implementation Notes
 
-### 1. Auto-Signup Queue
-
-The API reveals that:
-- Subscriptions open **168 hours (7 days)** before the class
-- Check `subscription_open_date` for the exact opening time
-- Check `subscribe_not_opened_yet` flag before attempting signup
-
-**Strategy**:
-1. Calculate the exact moment subscriptions open
-2. Poll or schedule a job to call `subscribeAppointment` at that moment
-3. If class is full, call `subscribeWaitingList` as fallback
-
-### 2. Friends Feature
+### Friends Feature
 
 The `appointment` endpoint returns `subscriptions.members[]` with:
 - `name` - First name of participant
