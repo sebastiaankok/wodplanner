@@ -63,7 +63,7 @@ def get_session_from_cookie(
     """
     if not session:
         return None
-    max_age = settings.session_expire_days * 24 * 60 * 60
+    max_age = settings.session_expire_days * 24 * 60 * 60 if settings.session_expire_days else None
     return cookie_session.decode(session, settings.secret_key, max_age)
 
 

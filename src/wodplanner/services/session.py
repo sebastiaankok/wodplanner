@@ -11,7 +11,7 @@ def encode(auth_session: AuthSession, secret_key: str) -> str:
     return s.dumps(auth_session.model_dump())
 
 
-def decode(cookie_value: str, secret_key: str, max_age_seconds: int) -> AuthSession | None:
+def decode(cookie_value: str, secret_key: str, max_age_seconds: int | None) -> AuthSession | None:
     """Verify and deserialize an AuthSession from a signed cookie value."""
     s = URLSafeTimedSerializer(secret_key)
     try:

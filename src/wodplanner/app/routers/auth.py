@@ -58,13 +58,18 @@ def login(
         session_value = cookie_session.encode(auth_session, settings.secret_key)
 
         redirect = RedirectResponse(url="/", status_code=303)
+        cookie_max_age = (
+            settings.session_expire_days * 24 * 60 * 60
+            if settings.session_expire_days
+            else 400 * 24 * 60 * 60  # ~max allowed by modern browsers
+        )
         redirect.set_cookie(
             key="session",
             value=session_value,
             httponly=True,
             secure=settings.cookie_secure,
             samesite="lax",
-            max_age=settings.session_expire_days * 24 * 60 * 60,
+            max_age=cookie_max_age,
         )
         return redirect
 
