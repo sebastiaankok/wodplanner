@@ -9,30 +9,17 @@ from fastapi import Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from wodplanner.api.client import WodAppClient
+from wodplanner.app.config import settings
 from wodplanner.models.auth import AuthSession
+from wodplanner.services import session as cookie_session
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.one_rep_max import OneRepMaxService
 from wodplanner.services.preferences import PreferencesService
-from wodplanner.services.queue import QueueService
 from wodplanner.services.schedule import ScheduleService
-from wodplanner.services.scheduler import SignupScheduler
-from wodplanner.services.session import SessionService
 
 
 def _get_db_path() -> Path:
     return Path(os.environ.get("DB_PATH", "/data/wodplanner.db"))
-
-
-@lru_cache
-def get_session_service() -> SessionService:
-    """Get the singleton session service."""
-    return SessionService(_get_db_path())
-
-
-@lru_cache
-def get_queue_service() -> QueueService:
-    """Get the singleton queue service."""
-    return QueueService(_get_db_path())
 
 
 @lru_cache
@@ -60,17 +47,17 @@ def get_one_rep_max_service() -> OneRepMaxService:
 
 
 def get_session_from_cookie(
-    session_id: Annotated[str | None, Cookie()] = None,
-    session_service: SessionService = Depends(get_session_service),
+    session: Annotated[str | None, Cookie()] = None,
 ) -> AuthSession | None:
     """
     Get AuthSession from cookie if present and valid.
 
     Returns None if no session cookie or session is expired/invalid.
     """
-    if not session_id:
+    if not session:
         return None
-    return session_service.get(session_id)
+    max_age = settings.session_expire_days * 24 * 60 * 60
+    return cookie_session.decode(session, settings.secret_key, max_age)
 
 
 def require_session(
@@ -137,9 +124,3 @@ def get_client_from_session_for_view(
     Redirects to login if no valid session.
     """
     return WodAppClient.from_session(session)
-
-
-@lru_cache
-def get_scheduler() -> SignupScheduler:
-    """Get the singleton signup scheduler."""
-    return SignupScheduler(queue_service=get_queue_service())

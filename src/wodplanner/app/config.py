@@ -1,5 +1,7 @@
 """Application configuration."""
 
+import secrets
+
 from pydantic_settings import BaseSettings
 
 
@@ -13,6 +15,8 @@ class Settings(BaseSettings):
     # Session configuration
     session_expire_days: int = 7
     cookie_secure: bool = False  # Set True in production with HTTPS
+    # Set SECRET_KEY env var in production; random default invalidates sessions on restart
+    secret_key: str = secrets.token_hex(32)
 
     class Config:
         env_file = ".env"

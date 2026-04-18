@@ -17,17 +17,14 @@ from wodplanner.app.dependencies import (
     get_one_rep_max_service,
     get_preferences_service,
     get_schedule_service,
-    get_scheduler,
     get_session_from_cookie,
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
-from wodplanner.models.queue import QueuedSignup, QueueStatus
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.one_rep_max import OneRepMaxService, extract_1rm_exercises, has_1rm_exercise
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
-from wodplanner.services.scheduler import SignupScheduler
 
 # Class types that can be filtered
 FILTERABLE_CLASS_TYPES = ["Open Gym", "CF101", "Teen Athlete", "HyCross"]
@@ -47,6 +44,20 @@ def _format_1rm_entries(entries):
         }
         for e in entries
     ]
+
+
+def _similarity_score(exercise: str, suggested: list[str]) -> int:
+    ex_lower = exercise.lower()
+    ex_words = set(ex_lower.split())
+    best = 0
+    for s in suggested:
+        s_lower = s.lower()
+        if ex_lower == s_lower:
+            return 2
+        s_words = set(s_lower.split())
+        if s_lower in ex_lower or ex_lower in s_lower or ex_words & s_words:
+            best = 1
+    return best
 
 
 def _build_exercises_chart_data(formatted_entries: list) -> str:
@@ -347,6 +358,7 @@ def one_rep_max_page(
         {
             "active_page": "1rm",
             "past_exercises": past_exercises,
+            "default_exercise": entries[0]["exercise"] if entries else "",
             "entries": entries,
             "exercises_data_json": _build_exercises_chart_data(entries),
             "today": date.today().isoformat(),
@@ -430,120 +442,6 @@ def delete_friend_view(
 
     return render(request, "partials/friends_list.html", {"friends": friends_data})
 
-
-@router.get("/queue", response_class=HTMLResponse)
-def queue_page(
-    request: Request,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
-    scheduler: SignupScheduler = Depends(get_scheduler),
-):
-    """Queue management page."""
-    queue_items = scheduler.queue_service.get_all_for_user(session.user_id, include_completed=True)
-    queue_data = [
-        {
-            "id": item.id,
-            "appointment_id": item.appointment_id,
-            "appointment_name": item.appointment_name,
-            "date": item.date_start.date().isoformat(),
-            "time_start": item.date_start.strftime("%H:%M"),
-            "time_end": item.date_end.strftime("%H:%M"),
-            "signup_opens_at": item.signup_opens_at.isoformat() if item.signup_opens_at else "",
-            "status": item.status,
-            "result_message": item.result_message,
-        }
-        for item in queue_items
-    ]
-
-    return render(
-        request,
-        "queue.html",
-        {
-            "active_page": "queue",
-            "queue_items": queue_data,
-            **get_user_context(session),
-        },
-    )
-
-
-@router.post("/queue/add", response_class=HTMLResponse)
-def add_to_queue_view(
-    request: Request,
-    appointment_id: int = Form(...),
-    date_start: str = Form(...),
-    date_end: str = Form(...),
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
-    client: WodAppClient = Depends(get_client_from_session_for_view),
-    scheduler: SignupScheduler = Depends(get_scheduler),
-    friends_service: FriendsService = Depends(get_friends_service),
-    prefs_service: PreferencesService = Depends(get_preferences_service),
-    schedule_service: ScheduleService = Depends(get_schedule_service),
-):
-    """Add to queue from calendar (htmx)."""
-    start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
-    end = datetime.strptime(date_end, "%Y-%m-%d %H:%M")
-
-    # Get appointment details
-    details = client.get_appointment_details(appointment_id, start, end)
-
-    # Parse signup open date
-    signup_opens_at = datetime.strptime(
-        details.subscription_open_date, "%d-%m-%Y %H:%M"
-    )
-
-    signup = QueuedSignup(
-        appointment_id=appointment_id,
-        appointment_name=details.name,
-        date_start=start,
-        date_end=end,
-        signup_opens_at=signup_opens_at,
-        status=QueueStatus.PENDING,
-        user_token=session.token,
-        user_id=session.user_id,
-    )
-
-    scheduler.add_signup(signup)
-
-    # Return updated calendar
-    return calendar_day_partial(
-        request=request,
-        day=start.date().isoformat(),
-        session=session,
-        client=client,
-        friends_service=friends_service,
-        prefs_service=prefs_service,
-        schedule_service=schedule_service,
-    )
-
-
-@router.delete("/queue/{queue_id}/cancel", response_class=HTMLResponse)
-def cancel_queue_view(
-    request: Request,
-    queue_id: int,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
-    scheduler: SignupScheduler = Depends(get_scheduler),
-):
-    """Cancel a queued signup (htmx)."""
-    item = scheduler.queue_service.get(queue_id)
-    if item and item.user_id == session.user_id:
-        scheduler.cancel_signup(queue_id)
-
-    queue_items = scheduler.queue_service.get_all_for_user(session.user_id, include_completed=True)
-    queue_data = [
-        {
-            "id": item.id,
-            "appointment_id": item.appointment_id,
-            "appointment_name": item.appointment_name,
-            "date": item.date_start.date().isoformat(),
-            "time_start": item.date_start.strftime("%H:%M"),
-            "time_end": item.date_end.strftime("%H:%M"),
-            "signup_opens_at": item.signup_opens_at.isoformat() if item.signup_opens_at else "",
-            "status": item.status,
-            "result_message": item.result_message,
-        }
-        for item in queue_items
-    ]
-
-    return render(request, "partials/queue_list.html", {"queue_items": queue_data})
 
 
 @router.post("/appointments/{appointment_id}/subscribe", response_class=HTMLResponse)
@@ -757,9 +655,21 @@ def one_rep_max_modal_view(
         suggested_exercises = extract_1rm_exercises(schedule.strength_specialty)
         suggested_exercises += extract_1rm_exercises(schedule.warmup_mobility)
 
-    entries = one_rep_max_service.get_all(session.user_id)
+    raw = one_rep_max_service.get_all(session.user_id)
     past_exercises = one_rep_max_service.get_exercises(session.user_id)
     today = date.today().isoformat()
+
+    formatted = [
+        {
+            "id": e.id,
+            "exercise": e.exercise,
+            "weight_kg": e.weight_kg,
+            "recorded_at": e.recorded_at.strftime("%b %d, %Y"),
+        }
+        for e in raw
+    ]
+    if suggested_exercises:
+        formatted.sort(key=lambda e: -_similarity_score(e["exercise"], suggested_exercises))
 
     return render(
         request,
@@ -767,15 +677,7 @@ def one_rep_max_modal_view(
         {
             "suggested_exercises": suggested_exercises,
             "past_exercises": past_exercises,
-            "entries": [
-                {
-                    "id": e.id,
-                    "exercise": e.exercise,
-                    "weight_kg": e.weight_kg,
-                    "recorded_at": e.recorded_at.strftime("%b %d, %Y"),
-                }
-                for e in entries
-            ],
+            "entries": formatted,
             "today": today,
         },
     )

@@ -8,12 +8,9 @@ from pydantic import BaseModel
 
 from wodplanner.api.client import AuthenticationError, WodAppClient, WodAppError
 from wodplanner.app.config import settings
-from wodplanner.app.dependencies import (
-    get_session_service,
-    require_session,
-)
+from wodplanner.app.dependencies import require_session
 from wodplanner.models.auth import AuthSession
-from wodplanner.services.session import SessionService
+from wodplanner.services import session as cookie_session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -44,34 +41,26 @@ def get_current_user(
 
 @router.post("/login")
 def login(
-    response: Response,
     username: str = Form(...),
     password: str = Form(...),
-    session_service: SessionService = Depends(get_session_service),
 ) -> RedirectResponse:
     """
     Authenticate user and create browser session.
 
-    Sets session_id cookie on success and redirects to home.
+    Sets signed session cookie on success and redirects to home.
     Redirects to /login?error=... on failure.
     """
     try:
-        # Create client and authenticate
         client = WodAppClient()
         auth_session = client.login(username, password)
         client.close()
 
-        # Create browser session
-        session_id = session_service.create(
-            auth_session,
-            expire_days=settings.session_expire_days,
-        )
+        session_value = cookie_session.encode(auth_session, settings.secret_key)
 
-        # Redirect to home with session cookie
         redirect = RedirectResponse(url="/", status_code=303)
         redirect.set_cookie(
-            key="session_id",
-            value=session_id,
+            key="session",
+            value=session_value,
             httponly=True,
             secure=settings.cookie_secure,
             samesite="lax",
@@ -79,9 +68,9 @@ def login(
         )
         return redirect
 
-    except AuthenticationError as e:
+    except AuthenticationError:
         return RedirectResponse(
-            url=f"/login?error=Invalid credentials",
+            url="/login?error=Invalid credentials",
             status_code=303,
         )
     except WodAppError as e:
@@ -92,20 +81,8 @@ def login(
 
 
 @router.post("/logout")
-def logout(
-    session_id: Annotated[str | None, Cookie()] = None,
-    session_service: SessionService = Depends(get_session_service),
-) -> RedirectResponse:
-    """
-    Log out user by clearing session.
-
-    Deletes session from database and clears cookie.
-    """
-    # Delete session from database if it exists
-    if session_id:
-        session_service.delete(session_id)
-
-    # Clear cookie and redirect to login
+def logout() -> RedirectResponse:
+    """Log out user by clearing session cookie."""
     redirect = RedirectResponse(url="/login", status_code=303)
-    redirect.delete_cookie(key="session_id")
+    redirect.delete_cookie(key="session")
     return redirect
