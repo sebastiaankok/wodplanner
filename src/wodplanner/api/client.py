@@ -436,6 +436,40 @@ class WodAppClient:
             notice=data.get("notice", ""),
         )
 
+    def get_upcoming_reservations(self) -> list[dict]:
+        """
+        Get upcoming reservations for the current user.
+
+        Returns:
+            List of dicts with id_appointment, name, date_start (datetime), sorted by date
+        """
+        params = {
+            **self._base_params(),
+            **self._auth_params(),
+            "data[service]": "gym",
+            "data[method]": "getModulesEnabledGym",
+            "data[companyImages]": "1",
+            "data[numberOutstandingInvoices]": "0",
+            "data[id_gym_group]": str(self.session.gym_id),
+            "data[gyms][0]": str(self.session.gym_id),
+        }
+
+        data = self._request(params)
+        reservations = data.get("widgets", {}).get("reservations", {})
+        company_images = data.get("companyImages", {})
+
+        result = []
+        for r in reservations.get("data", []):
+            dt = datetime.strptime(r["date_start"], "%d-%m-%Y %H:%M")
+            result.append({
+                "id_appointment": r["id_appointment"],
+                "name": r["name"],
+                "date_start": dt,
+            })
+
+        result.sort(key=lambda x: x["date_start"])
+        return result, company_images
+
     def find_friends_in_appointments(
         self,
         friend_ids: set[int],

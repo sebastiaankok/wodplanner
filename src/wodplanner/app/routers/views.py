@@ -127,6 +127,41 @@ def login_page(
 
 
 @router.get("/", response_class=HTMLResponse)
+def home_page(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    client: WodAppClient = Depends(get_client_from_session_for_view),
+):
+    """Homepage showing upcoming reservations."""
+    reservations, company_images = client.get_upcoming_reservations()
+
+    # Group by date for display
+    days: dict[str, list[dict]] = {}
+    for r in reservations:
+        day_key = r["date_start"].strftime("%Y-%m-%d")
+        if day_key not in days:
+            days[day_key] = []
+        days[day_key].append({
+            "id": r["id_appointment"],
+            "name": r["name"],
+            "time": r["date_start"].strftime("%H:%M"),
+            "weekday": r["date_start"].strftime("%A"),
+            "display_date": r["date_start"].strftime("%B %d"),
+        })
+
+    return render(
+        request,
+        "home.html",
+        {
+            "active_page": "home",
+            "days": days,
+            "gym_logo": company_images.get("logo", ""),
+            **get_user_context(session),
+        },
+    )
+
+
+@router.get("/calendar", response_class=HTMLResponse)
 def calendar_page(
     request: Request,
     day: str | None = None,

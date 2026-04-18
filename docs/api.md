@@ -263,6 +263,60 @@ data[id_appuser_li]=388211
 
 ---
 
+## Get Enabled Modules + Upcoming Reservations
+
+Fetches gym modules and user widgets including upcoming reservations.
+
+**Service**: `gym`
+**Method**: `getModulesEnabledGym`
+
+**Request Parameters**:
+```
+data[service]=gym
+data[method]=getModulesEnabledGym
+data[idc]=2495
+data[id_gym]=2495
+data[id_gym_group]=2495
+data[gyms][0]=2495
+data[companyImages]=0
+data[numberOutstandingInvoices]=0
+data[token]=<token>
+data[id_appuser_li]=388211
+```
+
+**Response** (simplified):
+```json
+{
+  "status": "OK",
+  "widgets": {
+    "reservations": {
+      "enabled": 1,
+      "data": [
+        {
+          "id_appointment": 5048373,
+          "id_agenda": 19488,
+          "name": "CrossFit",
+          "date_start": "21-04-2026 16:30"
+        },
+        {
+          "id_appointment": 5049539,
+          "id_agenda": 19488,
+          "name": "Strength Class",
+          "date_start": "22-04-2026 18:30"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Key Fields**:
+- `widgets.reservations.data[]` — upcoming classes the user is signed up for
+- `date_start` — format `DD-MM-YYYY HH:MM` (note: day-first, unlike the `agenda.day` endpoint)
+- `id_appointment` — same appointment ID used by other endpoints
+
+---
+
 ## Other Endpoints
 
 ### Load Profile Image
@@ -272,10 +326,6 @@ data[id_appuser_li]=388211
 ### Get Agendas
 - **Service**: `agenda`
 - **Method**: `getAgendas`
-
-### Get Enabled Modules
-- **Service**: `gym`
-- **Method**: `getModulesEnabledGym`
 
 ### Initialize Settings
 - **Service**: `agenda`
