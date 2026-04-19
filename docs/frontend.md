@@ -14,21 +14,35 @@ Server-rendered HTML with HTMX. Views router serves pages, API routers handle da
 
 Calendar views pass `session.gym_id` to all schedule queries. Query filter is `gym_id = ? OR gym_id IS NULL` — the NULL fallback covers rows imported before gym scoping was added.
 
+After PDF parsing, `import-schedule` collects all unique raw 1RM exercise names across all schedules and runs `resolve_exercise_interactive()` for each. Exact matches are silent. Fuzzy matches prompt: `[1] Accept match [2] Add as new [3] Rename [4] Skip`. No match prompts: `[1] Add as new [2] Rename [3] Skip`. Choosing rename recurses with the new name. New exercise names are persisted to the `exercises` table before DB save.
+
 ## 1RM Tracking
 
-`services/one_rep_max.py` provides two utilities and a service class:
+`services/one_rep_max.py` provides module-level utilities and a service class:
 
 - `has_1rm_exercise(text)` — returns `True` if `text` contains "1rm" as an exercise name (not a percentage reference like "70% 1rm"). Checks the 6 chars preceding each match for `\d+%\s*$`.
-- `extract_1rm_exercises(text)` — returns list of exercise names following non-percentage "1rm" occurrences. Captures full name up to next `A./B./C.` section delimiter, then strips parenthetical weight annotations (e.g. `(2x 20kg)`). **Uses `re.DOTALL`** — pdfplumber can split a cell across lines (e.g. `(2x\n20kg)`), and without DOTALL the `.+?` can't cross the embedded newline, causing the match to fail silently and return no exercises.
-- `OneRepMaxService` — CRUD over `one_rep_maxes` table; all methods take explicit `user_id`.
+- `extract_1rm_exercises(text)` — returns list of exercise names following non-percentage "1rm" occurrences. Captures full name (including across line breaks — pdfplumber can wrap a cell across lines) up to next `A./B./C.` section delimiter or end of string, then strips parenthetical weight annotations and collapses internal whitespace. **Uses `re.DOTALL`** so `.+?` can cross embedded newlines.
+- `resolve_exercise_interactive(raw_name, exercises)` — interactive CLI prompt (stdout/stdin). Exact match returns silently. Fuzzy match (via `difflib.get_close_matches`, cutoff 0.6) offers accept/add-new/rename/skip. No match offers add-new/rename/skip. Rename recurses. Returns a canonical name (existing or new) or `None` (skip). Caller persists new names to DB.
+- `OneRepMaxService` — manages both exercise list and user 1RM records. Key methods:
+  - `get_exercise_list()` — all exercise names from `exercises` table, alphabetically sorted
+  - `add_exercise(name)` — inserts into `exercises`; returns `False` if duplicate
+  - `validate_exercise(name)` — checks `exercises` table; used server-side before insert
+  - `match_exercise(name, cutoff=0.6)` — fuzzy matches against `exercises` table via difflib
+  - `get_max_for_exercise(user_id, exercise)` — `MAX(weight_kg)` for the percentage calculator
+  - `get_exercises(user_id)` — distinct exercise names the user has actually logged (for chart selector)
+  - CRUD: `add()`, `get_all()`, `get_for_exercise()`, `delete()` — all scoped by `user_id`
 
-**Calendar enrichment**: `calendar_day_partial` calls `schedule_service.find_for_appointment()` per appointment and sets `has_1rm=True` on the appointment dict when `strength_specialty` or `warmup_mobility` contains a 1rm exercise. Triggers a dumbbell icon (`.btn-1rm`, purple) in `partials/calendar_content.html`.
+**Calendar enrichment**: sets `has_1rm=True` on the appointment dict when `strength_specialty`, `warmup_mobility`, **or `metcon`** contains a 1rm exercise. Triggers a dumbbell icon (`.btn-1rm`, purple) in `partials/calendar_content.html`.
 
-**Modal**: clicking the icon does `hx-get="/appointments/{id}/1rm"` → loads `partials/one_rep_max_modal.html` into `#one-rep-max-modal-container`. Modal contains a log form (exercise pre-filled from schedule, datalist from past exercises) and history table partial. History is sorted by `_similarity_score` against `suggested_exercises`: exact name match = 2, substring/word overlap = 1, no match = 0 — so relevant past entries float to the top.
+**Modal**: clicking the icon does `hx-get="/appointments/{id}/1rm"` → loads `partials/one_rep_max_modal.html` into `#one-rep-max-modal-container`. Raw exercise names extracted from the schedule are fuzzy-matched to canonical names via `match_exercise()`; the first match pre-selects the `<select>` dropdown. Full exercise list (`exercises` table) is always available in the dropdown. History is sorted by `_similarity_score` against `suggested_exercises` so relevant past entries float to the top.
 
-**1RM page** (`/1rm`): chart (Chart.js CDN, line chart) with exercise dropdown — auto-selects first exercise on load. "+ Log" button toggles a collapsible form; exercise input defaults to the most recently logged exercise (`entries[0].exercise`). History table below. After add/delete HTMX swaps `#one-rep-max-history`; the partial carries updated chart data in `data-exercises` JSON attribute; `htmx:afterSwap` listener refreshes the Chart.js instance and dropdown without a page reload.
+**1RM page** (`/1rm`): chart (Chart.js CDN, line chart) with exercise dropdown (shows only exercises the user has logged) — auto-selects first on load. "+ Log" button toggles a collapsible form with a `<select>` populated from `exercises` table (full canonical list). Exercise defaults to most recently logged (`entries[0].exercise`). History table below. After add/delete HTMX swaps `#one-rep-max-history`; the partial carries updated chart data in `data-exercises` JSON attribute; `htmx:afterSwap` listener refreshes Chart.js and dropdown without page reload.
 
-**`.form-control` class**: defined in `style.css` with explicit `background-color: white; color: var(--gray-900)`. Required to prevent white-on-white datalist text when OS is in dark mode (browser applies dark native styles to the dropdown while the input background stays white without an explicit declaration).
+**Percentage calculator**: appears below the card header when an exercise with data is selected. Two-column stat display (Percentage | Weight) with a range slider (50–100%, step 5). Max weight for the selected exercise is computed client-side from `__1rmData` (already embedded in page as JSON). Weight updates on every slider move: `Math.round(max * pct/100 * 2) / 2` rounds to nearest 0.5 kg. Slider fill color is kept in sync via a CSS custom property `--fill` set inline by `syncSliderFill()`.
+
+**`add-1rm` CLI**: `add-1rm [--exercise NAME] [--db PATH]` — adds an exercise to the `exercises` table. Uses `resolve_exercise_interactive()` for the same fuzzy-match/rename/skip flow as the PDF importer. Prints existing list when `--exercise` is omitted.
+
+**`.form-control` class**: defined in `style.css` with explicit `background-color: white; color: var(--gray-900)`. Required to prevent white-on-white select/input text when OS is in dark mode.
 
 ## Dark Mode
 

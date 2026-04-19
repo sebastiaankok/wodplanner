@@ -209,6 +209,7 @@ def calendar_page(
         appt_has_1rm = schedule is not None and (
             has_1rm_exercise(schedule.strength_specialty)
             or has_1rm_exercise(schedule.warmup_mobility)
+            or has_1rm_exercise(schedule.metcon)
         )
 
         # Construct actual datetime for this instance (template date may be historical)
@@ -305,6 +306,7 @@ def calendar_day_partial(
         appt_has_1rm = schedule is not None and (
             has_1rm_exercise(schedule.strength_specialty)
             or has_1rm_exercise(schedule.warmup_mobility)
+            or has_1rm_exercise(schedule.metcon)
         )
 
         # Construct actual datetime for this instance (template date may be historical)
@@ -385,6 +387,7 @@ def one_rep_max_page(
     """1RM tracking page."""
     raw = one_rep_max_service.get_all(session.user_id)
     past_exercises = one_rep_max_service.get_exercises(session.user_id)
+    exercises = one_rep_max_service.get_exercise_list()
     entries = _format_1rm_entries(raw)
 
     return render(
@@ -392,6 +395,7 @@ def one_rep_max_page(
         "one_rep_max.html",
         {
             "active_page": "1rm",
+            "exercises": exercises,
             "past_exercises": past_exercises,
             "default_exercise": entries[0]["exercise"] if entries else "",
             "entries": entries,
@@ -686,13 +690,20 @@ def one_rep_max_modal_view(
     schedule_date = date.fromisoformat(date_start.split(" ")[0])
     schedule = schedule_service.find_for_appointment(class_name, schedule_date, gym_id=session.gym_id)
 
-    suggested_exercises: list[str] = []
+    raw_suggested: list[str] = []
     if schedule:
-        suggested_exercises = extract_1rm_exercises(schedule.strength_specialty)
-        suggested_exercises += extract_1rm_exercises(schedule.warmup_mobility)
+        raw_suggested = extract_1rm_exercises(schedule.strength_specialty)
+        raw_suggested += extract_1rm_exercises(schedule.warmup_mobility)
 
+    # Map raw extracted names to canonical exercises via fuzzy match
+    suggested_exercises: list[str] = []
+    for s in raw_suggested:
+        matched = one_rep_max_service.match_exercise(s) if not one_rep_max_service.validate_exercise(s) else s
+        if matched and matched not in suggested_exercises:
+            suggested_exercises.append(matched)
+
+    exercises = one_rep_max_service.get_exercise_list()
     raw = one_rep_max_service.get_all(session.user_id)
-    past_exercises = one_rep_max_service.get_exercises(session.user_id)
     today = date.today().isoformat()
 
     formatted = [
@@ -712,7 +723,7 @@ def one_rep_max_modal_view(
         "partials/one_rep_max_modal.html",
         {
             "suggested_exercises": suggested_exercises,
-            "past_exercises": past_exercises,
+            "exercises": exercises,
             "entries": formatted,
             "today": today,
         },
@@ -730,8 +741,8 @@ def add_one_rep_max_view(
 ):
     """Add a 1rm entry (htmx)."""
     exercise = exercise.strip()
-    if not exercise or len(exercise) > 100:
-        raise HTTPException(status_code=400, detail="Exercise name must be 1–100 characters.")
+    if not one_rep_max_service.validate_exercise(exercise):
+        raise HTTPException(status_code=422, detail=f"Unknown exercise: '{exercise}'.")
     if not (0 < weight_kg < 1000):
         raise HTTPException(status_code=400, detail="Weight must be between 0 and 1000 kg.")
     try:

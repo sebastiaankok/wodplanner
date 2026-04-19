@@ -20,7 +20,8 @@ WAL mode is persistent (stored in DB file header) — set once on first connecti
 - `friends` — scoped per `owner_user_id`; unique on `(owner_user_id, appuser_id)`
 - `preferences` — scoped per `user_id`; primary key `(user_id, key)`; value is JSON-encoded
 - `schedules` — scoped per `gym_id`; unique on `(date, class_type, gym_id)`; `gym_id` nullable for legacy rows imported before gym scoping was added
-- `one_rep_maxes` — scoped per `user_id`; columns: `id`, `user_id`, `exercise`, `weight_kg`, `recorded_at` (ISO date), `notes`, `created_at`
+- `exercises` — canonical list of 1RM exercise names; columns: `id`, `name` (UNIQUE), `created_at`; seeded with 28 predefined exercises on first run if table is empty; extended via `add-1rm` CLI
+- `one_rep_maxes` — scoped per `user_id`; columns: `id`, `user_id`, `exercise` (must match a name in `exercises`), `weight_kg`, `recorded_at` (ISO date), `notes`, `created_at`
 
 ## Auth
 

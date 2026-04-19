@@ -9,6 +9,7 @@ from pathlib import Path
 import pdfplumber
 
 from wodplanner.models.schedule import Schedule
+from wodplanner.services.one_rep_max import OneRepMaxService, extract_1rm_exercises, has_1rm_exercise, resolve_exercise_interactive
 from wodplanner.services.schedule import ScheduleService, normalize_class_name
 
 
@@ -291,6 +292,31 @@ def main():
     if args.dry_run:
         print("\n[Dry run - not saving to database]")
         sys.exit(0)
+
+    # Resolve 1RM exercises found in the PDF against the predefined list
+    orm_service = OneRepMaxService(args.db)
+    exercises = orm_service.get_exercise_list()
+
+    all_raw: list[str] = []
+    for s in schedules:
+        if has_1rm_exercise(s.strength_specialty) or has_1rm_exercise(s.warmup_mobility):
+            all_raw.extend(extract_1rm_exercises(s.strength_specialty))
+            all_raw.extend(extract_1rm_exercises(s.warmup_mobility))
+
+    unique_raw = list(dict.fromkeys(all_raw))
+    if unique_raw:
+        print("\n--- 1RM Exercise Matching ---")
+        for raw_name in unique_raw:
+            resolved = resolve_exercise_interactive(raw_name, exercises)
+            if resolved is None:
+                print(f'  Skipped "{raw_name}"')
+            elif resolved not in exercises:
+                orm_service.add_exercise(resolved)
+                exercises.append(resolved)
+                exercises.sort()
+                print(f'  Added new exercise: "{resolved}"')
+            else:
+                print(f'  Matched "{raw_name}" → "{resolved}"')
 
     # Save to database
     print(f"\nSaving to database: {args.db}")
