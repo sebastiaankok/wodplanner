@@ -24,6 +24,10 @@ pytest
 import-schedule schedule.pdf --year 2026 --gym-id 2495
 import-schedule schedule.pdf --year 2026 --gym-id 2495 --dry-run
 
+# Manage 1RM exercise list (fuzzy-match, add new, rename)
+add-1rm --exercise "Back Squat"
+add-1rm  # interactive: shows existing list, prompts for name
+
 # Backup database (safe during live writes, keeps 7 by default)
 backup-db
 backup-db --db-path /data/wodplanner.db --backup-dir /data/backups --keep 7
