@@ -63,6 +63,7 @@ Environment variables (all optional for web usage):
 - `SECRET_KEY` — cookie signing key; random default invalidates sessions on restart; set in production
 - `WODAPP_USERNAME` / `WODAPP_PASSWORD` — only needed for CLI tools, not web
 - `API_CACHE_TTL_SECONDS` — TTL for non-user-specific API response cache (default: 600 = 10 min); set lower for faster refresh, higher to reduce API load
+- `LOG_LEVEL` — logging verbosity: `DEBUG`, `INFO` (default), `WARNING`, `ERROR`; applies to all wodplanner loggers
 
 ## Further Reading
 
