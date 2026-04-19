@@ -694,6 +694,7 @@ def one_rep_max_modal_view(
     if schedule:
         raw_suggested = extract_1rm_exercises(schedule.strength_specialty)
         raw_suggested += extract_1rm_exercises(schedule.warmup_mobility)
+        raw_suggested += extract_1rm_exercises(schedule.metcon)
 
     # Map raw extracted names to canonical exercises via fuzzy match
     suggested_exercises: list[str] = []
