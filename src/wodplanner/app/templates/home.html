@@ -31,8 +31,9 @@
     {% endfor %}
 </div>
 {% else %}
-<div class="card">
-    <span class="text-muted">No upcoming classes scheduled.</span>
+<div class="card" style="text-align: center; padding: 2rem 1rem;">
+    <p class="text-muted" style="margin: 0 0 0.75rem;">No upcoming classes scheduled.</p>
+    <a href="/calendar" class="btn btn-sm btn-secondary">Browse calendar</a>
 </div>
 {% endif %}
 {% endblock %}

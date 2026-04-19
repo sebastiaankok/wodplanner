@@ -108,17 +108,30 @@ class WodAppClient:
 
     def _request(self, params: dict[str, str]) -> dict[str, Any]:
         """Make a POST request to the API."""
-        logger.debug(
-            "WodApp API %s.%s",
+        user = (
+            f"user:{self._session.user_id} ({self._session.firstname})"
+            if self._session
+            else "unauthenticated"
+        )
+        logger.info(
+            "%s → %s.%s",
+            user,
             params.get("data[service]", "?"),
             params.get("data[method]", "?"),
         )
-        response = self._client.post(
-            self.BASE_URL,
-            data=params,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        response.raise_for_status()
+        try:
+            response = self._client.post(
+                self.BASE_URL,
+                data=params,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (502, 503, 504):
+                raise WodAppError("WodApp service is temporarily unavailable. Please try again later.")
+            raise WodAppError(f"API request failed with status {e.response.status_code}")
+        except httpx.TransportError as e:
+            raise WodAppError(f"Cannot reach WodApp service: {e}")
         data = response.json()
 
         if data.get("status") != "OK":

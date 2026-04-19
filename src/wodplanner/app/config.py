@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     wodapp_username: str | None = None
     wodapp_password: str | None = None
 
+    # Logging
+    log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
+
     # Cache configuration
     api_cache_ttl_seconds: int = 600
 

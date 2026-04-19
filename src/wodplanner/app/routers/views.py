@@ -1,5 +1,6 @@
 """HTML views for the web frontend."""
 
+import hashlib
 import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -95,6 +96,12 @@ router = APIRouter(tags=["views"])
 # Setup templates
 templates_dir = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=templates_dir)
+
+_css_path = templates_dir.parent / "static" / "css" / "style.css"
+try:
+    templates.env.globals["css_version"] = hashlib.md5(_css_path.read_bytes()).hexdigest()[:8]
+except Exception:
+    templates.env.globals["css_version"] = "1"
 
 
 def render(request: Request, name: str, context: dict):
@@ -727,6 +734,8 @@ def one_rep_max_modal_view(
             "exercises": exercises,
             "entries": formatted,
             "today": today,
+            "show_date": False,
+            "preset_date": schedule_date.isoformat(),
         },
     )
 

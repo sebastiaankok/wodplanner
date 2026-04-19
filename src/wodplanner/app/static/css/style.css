@@ -585,6 +585,31 @@ body {
     flex: 0 0 auto;
 }
 
+/* Modal form: 2-row grid on all screen sizes */
+.one-rm-form--modal .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
+    gap: 0.5rem;
+}
+
+.one-rm-form--modal .form-row > :nth-child(1) {
+    grid-column: 1 / -1;
+}
+
+.one-rm-form--modal .form-row > :nth-child(2) {
+    grid-column: 1;
+}
+
+.one-rm-form--modal .form-row > :nth-child(3) {
+    grid-column: 2;
+}
+
+.one-rm-form--modal .form-group-submit .btn {
+    width: 100%;
+    justify-content: center;
+}
+
 .one-rm-form label {
     font-size: 0.75rem;
     font-weight: 500;
@@ -1131,6 +1156,7 @@ body {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 0.5rem;
+        align-items: end;
     }
 
     .one-rm-form .form-row > :nth-child(1) {
@@ -1141,15 +1167,23 @@ body {
         grid-column: 1;
     }
 
+    /* date field (3-child form) or save button (3-child form without date) */
     .one-rm-form .form-row > :nth-child(3) {
         grid-column: 2;
     }
 
+    /* save button when date is present (4-child form) */
     .one-rm-form .form-row > :nth-child(4) {
         grid-column: 1 / -1;
         display: flex;
         justify-content: flex-end;
         align-items: center;
+    }
+
+    /* save button full-width when it sits in col 2 (no-date form) */
+    .one-rm-form .form-group-submit .btn {
+        width: 100%;
+        justify-content: center;
     }
 
     .one-rm-form .form-group,

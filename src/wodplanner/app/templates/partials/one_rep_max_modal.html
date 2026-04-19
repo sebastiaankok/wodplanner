@@ -7,7 +7,10 @@
         <form hx-post="/one-rep-maxes/add"
               hx-target="#one-rep-max-history"
               hx-swap="outerHTML"
-              class="one-rm-form">
+              class="one-rm-form one-rm-form--modal">
+            {% if not show_date|default(true) %}
+            <input type="hidden" name="recorded_at" value="{{ preset_date }}">
+            {% endif %}
             <div class="form-row">
                 <div class="form-group">
                     <label for="1rm-exercise">Exercise</label>
@@ -32,6 +35,7 @@
                            required
                            class="form-control">
                 </div>
+                {% if show_date|default(true) %}
                 <div class="form-group form-group-narrow">
                     <label for="1rm-date">Date</label>
                     <input type="date"
@@ -41,6 +45,7 @@
                            required
                            class="form-control">
                 </div>
+                {% endif %}
                 <div class="form-group form-group-submit">
                     <label>&nbsp;</label>
                     <button type="submit" class="btn btn-primary btn-sm">Save</button>
