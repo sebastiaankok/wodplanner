@@ -27,6 +27,7 @@ api = [
 [project.scripts]
 import-schedule = "wodplanner.cli.import_schedule:main"
 backup-db = "wodplanner.cli.backup_db:main"
+add-1rm = "wodplanner.cli.add_1rm:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]
