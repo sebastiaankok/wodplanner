@@ -650,8 +650,6 @@ body {
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--gray-400, #9ca3af);
-    align-self: flex-end;
-    padding-bottom: 0.2rem;
 }
 
 .one-rm-slider-row {
@@ -669,11 +667,18 @@ body {
     text-align: center;
 }
 
+.one-rm-inline-val {
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
 .one-rm-pct-slider {
     --fill: 100%;
     -webkit-appearance: none;
     appearance: none;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     height: 8px;
     border-radius: 4px;
     background: linear-gradient(to right, #7c3aed var(--fill), #e2e8f0 var(--fill));

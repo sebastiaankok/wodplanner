@@ -68,17 +68,13 @@
         </select>
     </div>
     <div class="one-rm-pct-section" id="pct-section" style="display:none;">
-        <div class="one-rm-pct-row">
-            <span id="pct-display" class="one-rm-pct-val one-rm-pct-pct">100%</span>
-            <span class="one-rm-pct-sep">of 1RM =</span>
-            <span id="pct-weight" class="one-rm-pct-val one-rm-pct-kg">—</span>
-        </div>
         <div class="one-rm-slider-row">
-            <span class="one-rm-slider-end">50%</span>
             <input type="range" id="pct-slider" class="one-rm-pct-slider"
                    min="50" max="100" value="100" step="5"
                    oninput="setPct(parseInt(this.value,10)); syncSliderFill(this)">
-            <span class="one-rm-slider-end">100%</span>
+            <span id="pct-display" class="one-rm-pct-pct one-rm-inline-val">100%</span>
+            <span class="one-rm-pct-sep">–</span>
+            <span id="pct-weight" class="one-rm-pct-kg one-rm-inline-val">—</span>
         </div>
     </div>
     <div class="one-rm-chart-container">

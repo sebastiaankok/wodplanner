@@ -91,8 +91,8 @@ def extract_1rm_exercises(text: str | None) -> list[str]:
     if not text:
         return []
     results = []
-    # Capture everything up to the next exercise letter (e.g. "B.") or end of string
-    for m in re.finditer(r'1rm\s+(.+?)(?=\s+[A-Z]\.\s|\s*\Z)', text, re.IGNORECASE | re.DOTALL):
+    # Capture up to next exercise letter (e.g. "B.") or end of line
+    for m in re.finditer(r'1rm\s+(.+?)(?=\s+[A-Z]\.\s|\s*$)', text, re.IGNORECASE | re.MULTILINE):
         preceding = text[max(0, m.start() - 6):m.start()]
         if not re.search(r'\d+%\s*$', preceding):
             # Strip parenthetical annotations, collapse internal whitespace/newlines
