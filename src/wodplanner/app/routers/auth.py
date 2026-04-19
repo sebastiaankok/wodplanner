@@ -1,8 +1,9 @@
 """Authentication endpoints."""
 
+import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, Form, Response
+from fastapi import APIRouter, Cookie, Depends, Form, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
@@ -11,6 +12,9 @@ from wodplanner.app.config import settings
 from wodplanner.app.dependencies import require_session
 from wodplanner.models.auth import AuthSession
 from wodplanner.services import session as cookie_session
+from wodplanner.services.login_limiter import limiter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -41,6 +45,7 @@ def get_current_user(
 
 @router.post("/login")
 def login(
+    request: Request,
     username: str = Form(...),
     password: str = Form(...),
 ) -> RedirectResponse:
@@ -50,11 +55,22 @@ def login(
     Sets signed session cookie on success and redirects to home.
     Redirects to /login?error=... on failure.
     """
+    ip = request.client.host if request.client else "unknown"
+
+    blocked, remaining = limiter.is_blocked(ip)
+    if blocked:
+        logger.warning("Rate-limiting login attempt from %s (%.0fs remaining)", ip, remaining)
+        return RedirectResponse(
+            url=f"/login?error=Too many failed attempts. Try again in {int(remaining) + 1}s.",
+            status_code=303,
+        )
+
     try:
         client = WodAppClient()
         auth_session = client.login(username, password)
         client.close()
 
+        limiter.record_success(ip)
         session_value = cookie_session.encode(auth_session, settings.secret_key)
 
         redirect = RedirectResponse(url="/", status_code=303)
@@ -74,11 +90,13 @@ def login(
         return redirect
 
     except AuthenticationError:
+        limiter.record_failure(ip)
         return RedirectResponse(
             url="/login?error=Invalid credentials",
             status_code=303,
         )
     except WodAppError as e:
+        limiter.record_failure(ip)
         return RedirectResponse(
             url=f"/login?error=Login failed: {e}",
             status_code=303,
