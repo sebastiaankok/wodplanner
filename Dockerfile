@@ -2,9 +2,13 @@ FROM python:3.12-slim
 
 WORKDIR /app
 COPY pyproject.toml .
-COPY src/ src/
 
-RUN pip install --no-cache-dir ".[api]"
+# Stub package so pip can resolve deps without real source
+RUN mkdir -p src/wodplanner && touch src/wodplanner/__init__.py
+RUN pip install --no-cache-dir -e ".[api]"
+
+# Real source overwrites stub; editable install points here
+COPY src/ src/
 
 # SQLite DB lives here — mount a PVC to /data
 WORKDIR /data
