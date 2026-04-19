@@ -68,13 +68,13 @@
         </select>
     </div>
     <div class="one-rm-pct-section" id="pct-section" style="display:none;">
-        <div class="one-rm-slider-row">
-            <input type="range" id="pct-slider" class="one-rm-pct-slider"
-                   min="50" max="100" value="100" step="5"
-                   oninput="setPct(parseInt(this.value,10)); syncSliderFill(this)">
-            <span id="pct-display" class="one-rm-pct-pct one-rm-inline-val">100%</span>
-            <span class="one-rm-pct-sep">–</span>
-            <span id="pct-weight" class="one-rm-pct-kg one-rm-inline-val">—</span>
+        <div class="one-rm-pct-center">
+            <div class="one-rm-pct-controls">
+                <button class="one-rm-pct-btn" onclick="stepPct(-5)">−</button>
+                <span id="pct-display" class="one-rm-pct-pct one-rm-pct-label">100%</span>
+                <button class="one-rm-pct-btn" onclick="stepPct(+5)">+</button>
+            </div>
+            <span id="pct-weight" class="one-rm-pct-kg one-rm-big-weight">—</span>
         </div>
     </div>
     <div class="one-rm-chart-container">
@@ -99,6 +99,10 @@ var __1rmChart = null;
 var __1rmLogFormOpen = false;
 var __1rmMaxWeight = null;
 var __1rmCurrentPct = 100;
+function stepPct(delta) {
+    setPct(Math.min(100, Math.max(0, __1rmCurrentPct + delta)));
+}
+
 function toggle1rmLogForm() {
     __1rmLogFormOpen = !__1rmLogFormOpen;
     document.getElementById('log-form-card').style.display = __1rmLogFormOpen ? 'block' : 'none';
