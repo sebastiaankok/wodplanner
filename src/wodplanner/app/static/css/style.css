@@ -311,7 +311,8 @@ body {
     cursor: pointer;
 }
 
-.filter-btn-wrapper {
+.filter-btn-wrapper,
+.tooltip-btn-wrapper {
     position: relative;
 }
 
@@ -320,14 +321,22 @@ body {
     50% { box-shadow: 0 0 0 5px rgba(37, 99, 235, 0); }
 }
 
-.filter-btn-wrapper.has-tooltip .filters-toggle-btn {
+.filter-btn-wrapper.has-tooltip,
+.tooltip-btn-wrapper.has-tooltip {
+    z-index: 201;
+}
+
+.filter-btn-wrapper.has-tooltip .filters-toggle-btn,
+.tooltip-btn-wrapper.has-tooltip > button {
     animation: tooltip-pulse 1.5s ease-in-out infinite;
     border-color: var(--primary);
     color: var(--primary);
 }
 
-.filter-btn-wrapper.has-tooltip {
-    z-index: 201;
+.tooltip-btn-wrapper.has-tooltip .current-date {
+    display: inline-block;
+    animation: tooltip-pulse 1.5s ease-in-out infinite;
+    border-radius: 4px;
 }
 
 .tooltip-backdrop {
@@ -431,7 +440,7 @@ body {
 }
 
 .appointment.is-past {
-    opacity: 0.5;
+    opacity: 1;
     border-left-color: var(--gray-300);
     background: var(--gray-50);
 }

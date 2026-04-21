@@ -5,8 +5,15 @@
     </div>
 
     {% if appointments %}
+    {% set ns = namespace(schedule_done=False, friends_done=False, one_rm_done=False) %}
     <div class="appointments">
         {% for appt in appointments %}
+        {% set is_first_schedule = not ns.schedule_done %}
+        {% set is_first_friends = not ns.friends_done %}
+        {% set is_first_1rm = not ns.one_rm_done and appt.has_1rm %}
+        {% set ns.schedule_done = True %}
+        {% set ns.friends_done = True %}
+        {% if appt.has_1rm %}{% set ns.one_rm_done = True %}{% endif %}
         <div class="appointment status-{{ appt.status }}{% if appt.is_past %} is-past{% endif %}">
             <div class="appointment-time">
                 {{ appt.time_start }} - {{ appt.time_end }}
@@ -40,49 +47,73 @@
             </div>
             <div class="appointment-actions">
                 {% if appt.has_1rm %}
-                <button class="btn btn-icon btn-sm btn-1rm"
-                        hx-get="/appointments/{{ appt.id }}/1rm?date_start={{ appt.date_start }}%20{{ appt.time_start }}&class_name={{ appt.name | urlencode }}"
-                        hx-target="#one-rep-max-modal-container"
-                        hx-swap="innerHTML"
-                        onclick="open1rmModal()"
-                        title="Log 1 rep max">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                        <line x1="6" y1="6" x2="6" y2="18"/>
-                        <line x1="4" y1="8" x2="4" y2="16"/>
-                        <line x1="18" y1="6" x2="18" y2="18"/>
-                        <line x1="20" y1="8" x2="20" y2="16"/>
-                        <line x1="6" y1="12" x2="18" y2="12"/>
-                    </svg>
-                </button>
+                <div class="tooltip-btn-wrapper{% if is_first_1rm and show_1rm_tooltip %} has-tooltip{% endif %}">
+                    <button class="btn btn-icon btn-sm btn-1rm"
+                            hx-get="/appointments/{{ appt.id }}/1rm?date_start={{ appt.date_start }}%20{{ appt.time_start }}&class_name={{ appt.name | urlencode }}"
+                            hx-target="#one-rep-max-modal-container"
+                            hx-swap="innerHTML"
+                            onclick="open1rmModal(); dismissTooltip('1rm', this.closest('.tooltip-btn-wrapper'));"
+                            title="Log 1 rep max">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <line x1="6" y1="6" x2="6" y2="18"/>
+                            <line x1="4" y1="8" x2="4" y2="16"/>
+                            <line x1="18" y1="6" x2="18" y2="18"/>
+                            <line x1="20" y1="8" x2="20" y2="16"/>
+                            <line x1="6" y1="12" x2="18" y2="12"/>
+                        </svg>
+                    </button>
+                    {% if is_first_1rm and show_1rm_tooltip %}
+                    <div id="tooltip-1rm" class="filter-tooltip">
+                        <p>This class has a 1RM exercise. Tap to log your score.</p>
+                        <button class="btn btn-sm" onclick="dismissTooltip('1rm', this.closest('.tooltip-btn-wrapper'))">Got it</button>
+                    </div>
+                    {% endif %}
+                </div>
                 {% endif %}
-                <button class="btn btn-icon btn-sm"
-                        hx-get="/appointments/{{ appt.id }}/schedule?date_start={{ appt.date_start }}%20{{ appt.time_start }}&class_name={{ appt.name | urlencode }}"
-                        hx-target="#schedule-modal-container"
-                        hx-swap="innerHTML"
-                        onclick="openScheduleModal()"
-                        title="View workout">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                </button>
-                <button class="btn btn-icon btn-sm{% if appt.friends %} has-friends{% endif %}"
-                        hx-get="/appointments/{{ appt.id }}/people?date_start={{ appt.date_start }}%20{{ appt.time_start }}&date_end={{ appt.date_end }}%20{{ appt.time_end }}"
-                        hx-target="#people-modal-container"
-                        hx-swap="innerHTML"
-                        onclick="openPeopleModal()"
-                        title="View participants{% if appt.friends %} ({{ appt.friends|length }} friend{{ 's' if appt.friends|length != 1 }}){% endif %}">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="9" cy="7" r="4"></circle>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                    </svg>
-                    {% if appt.friends %}<span class="friend-count">{{ appt.friends|length }}</span>{% endif %}
-                </button>
+                <div class="tooltip-btn-wrapper{% if is_first_schedule and active_tooltip == 'schedule' %} has-tooltip{% endif %}">
+                    <button class="btn btn-icon btn-sm"
+                            hx-get="/appointments/{{ appt.id }}/schedule?date_start={{ appt.date_start }}%20{{ appt.time_start }}&class_name={{ appt.name | urlencode }}"
+                            hx-target="#schedule-modal-container"
+                            hx-swap="innerHTML"
+                            onclick="openScheduleModal(); dismissTooltip('schedule', this.closest('.tooltip-btn-wrapper'));"
+                            title="View workout">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                    </button>
+                    {% if is_first_schedule %}
+                    <div id="tooltip-schedule" class="filter-tooltip" {% if active_tooltip != 'schedule' %}hidden{% endif %}>
+                        <p>View the workout details for this class.</p>
+                        <button class="btn btn-sm" onclick="dismissTooltip('schedule', this.closest('.tooltip-btn-wrapper'))">Got it</button>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="tooltip-btn-wrapper{% if is_first_friends and active_tooltip == 'friends' %} has-tooltip{% endif %}">
+                    <button class="btn btn-icon btn-sm{% if appt.friends %} has-friends{% endif %}"
+                            hx-get="/appointments/{{ appt.id }}/people?date_start={{ appt.date_start }}%20{{ appt.time_start }}&date_end={{ appt.date_end }}%20{{ appt.time_end }}"
+                            hx-target="#people-modal-container"
+                            hx-swap="innerHTML"
+                            onclick="openPeopleModal(); dismissTooltip('friends', this.closest('.tooltip-btn-wrapper'));"
+                            title="View participants{% if appt.friends %} ({{ appt.friends|length }} friend{{ 's' if appt.friends|length != 1 }}){% endif %}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        {% if appt.friends %}<span class="friend-count">{{ appt.friends|length }}</span>{% endif %}
+                    </button>
+                    {% if is_first_friends %}
+                    <div id="tooltip-friends" class="filter-tooltip" {% if active_tooltip != 'friends' %}hidden{% endif %}>
+                        <p>See who's joining — friends shown in blue.</p>
+                        <button class="btn btn-sm" onclick="dismissTooltip('friends', this.closest('.tooltip-btn-wrapper'))">Got it</button>
+                    </div>
+                    {% endif %}
+                </div>
                 {% if not appt.is_past %}
                     {% if appt.status == 'subscribed' or appt.status == 'waiting' %}
                     <button class="btn btn-danger btn-sm"
@@ -94,7 +125,6 @@
                         Sign out
                     </button>
                     {% elif appt.signup_open %}
-                        {# Signup is open - show sign up or waiting list #}
                         {% if appt.status == 'open' %}
                         <button class="btn btn-primary btn-sm"
                                 hx-post="/appointments/{{ appt.id }}/subscribe"

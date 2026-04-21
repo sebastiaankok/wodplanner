@@ -168,6 +168,21 @@ def home_page(
     )
 
 
+_TOOLTIP_SEQUENCE = ["filter", "today", "date_picker", "friends", "schedule"]
+_HEADER_TOOLTIPS = {"filter", "today", "date_picker"}
+
+
+def _get_tooltip_context(dismissed: set, appt_data: list) -> dict:
+    active = next((t for t in _TOOLTIP_SEQUENCE if t not in dismissed), None)
+    any_has_1rm = any(a["has_1rm"] for a in appt_data)
+    show_1rm = "1rm" not in dismissed and any_has_1rm
+    return {
+        "active_tooltip": active,
+        "show_1rm_tooltip": show_1rm,
+        "show_backdrop": active in _HEADER_TOOLTIPS,
+    }
+
+
 @router.get("/calendar", response_class=HTMLResponse)
 def calendar_page(
     request: Request,
@@ -187,7 +202,7 @@ def calendar_page(
     friend_ids = friends_service.get_appuser_ids(session.user_id)
     friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
-    dismissed_tooltips = prefs_service.get_dismissed_tooltips(session.user_id)
+    dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
 
     # Build appointment data with friends
     appt_data = []
@@ -262,7 +277,7 @@ def calendar_page(
             "today": date.today().isoformat(),
             "current_date": target_date.isoformat(),
             "filters": filters,
-            "show_filter_tooltip": "filter" not in dismissed_tooltips,
+            **_get_tooltip_context(dismissed, appt_data),
             **get_user_context(session),
         },
     )
@@ -287,7 +302,7 @@ def calendar_day_partial(
     friend_ids = friends_service.get_appuser_ids(session.user_id)
     friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
-    dismissed_tooltips = prefs_service.get_dismissed_tooltips(session.user_id)
+    dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
 
     appt_data = []
     for appt in appointments:
@@ -360,7 +375,7 @@ def calendar_day_partial(
             "today": date.today().isoformat(),
             "current_date": target_date.isoformat(),
             "filters": filters,
-            "show_filter_tooltip": "filter" not in dismissed_tooltips,
+            **_get_tooltip_context(dismissed, appt_data),
         },
     )
 

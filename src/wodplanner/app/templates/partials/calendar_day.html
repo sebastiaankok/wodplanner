@@ -1,6 +1,6 @@
 <!-- Out-of-band swap for backdrop -->
 <div id="tooltip-backdrop-slot" hx-swap-oob="true">
-    {% if show_filter_tooltip %}<div class="tooltip-backdrop"></div>{% endif %}
+    {% if show_backdrop %}<div class="tooltip-backdrop"></div>{% endif %}
 </div>
 
 <!-- Out-of-band swap for navigation buttons -->
@@ -8,26 +8,36 @@
     <button hx-get="/calendar/{{ prev_date }}" hx-target="#calendar-content" hx-swap="innerHTML" title="Previous day">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
-    <div class="date-picker-wrapper">
-        <span class="current-date" onclick="toggleCalendar()" data-date="{{ current_date }}">{{ display_date }}</span>
+    <div class="date-picker-wrapper{% if active_tooltip == 'date_picker' %} tooltip-btn-wrapper has-tooltip{% endif %}">
+        <span class="current-date" onclick="toggleCalendar(); dismissTooltip('date_picker', this.closest('.tooltip-btn-wrapper'));" data-date="{{ current_date }}">{{ display_date }}</span>
         <div id="calendar-dropdown" class="calendar-dropdown"></div>
+        <div id="tooltip-date_picker" class="filter-tooltip" {% if active_tooltip != 'date_picker' %}hidden{% endif %}>
+            <p>Tap the date to jump to any day.</p>
+            <button class="btn btn-sm" onclick="dismissTooltip('date_picker', this.closest('.tooltip-btn-wrapper'))">Got it</button>
+        </div>
     </div>
     <button hx-get="/calendar/{{ next_date }}" hx-target="#calendar-content" hx-swap="innerHTML" title="Next day">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"></polyline></svg>
     </button>
-    <button hx-get="/calendar/{{ today }}" hx-target="#calendar-content" hx-swap="innerHTML" title="Go to today">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"></circle></svg>
-    </button>
-    <div class="filter-btn-wrapper{% if show_filter_tooltip %} has-tooltip{% endif %}">
-        <button class="filters-toggle-btn" id="filters-toggle-btn" onclick="toggleFilters(); dismissFilterTooltip();" title="Toggle filters">
+    <div class="tooltip-btn-wrapper{% if active_tooltip == 'today' %} has-tooltip{% endif %}">
+        <button hx-get="/calendar/{{ today }}" hx-target="#calendar-content" hx-swap="innerHTML"
+                onclick="dismissTooltip('today', this.closest('.tooltip-btn-wrapper'));"
+                title="Go to today">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"></circle></svg>
+        </button>
+        <div id="tooltip-today" class="filter-tooltip" {% if active_tooltip != 'today' %}hidden{% endif %}>
+            <p>Tap to go back to today's schedule.</p>
+            <button class="btn btn-sm" onclick="dismissTooltip('today', this.closest('.tooltip-btn-wrapper'))">Got it</button>
+        </div>
+    </div>
+    <div class="filter-btn-wrapper{% if active_tooltip == 'filter' %} has-tooltip{% endif %}">
+        <button class="filters-toggle-btn" id="filters-toggle-btn" onclick="toggleFilters(); dismissTooltip('filter', this.closest('.filter-btn-wrapper'));" title="Toggle filters">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
         </button>
-        {% if show_filter_tooltip %}
-        <div id="filter-tooltip" class="filter-tooltip">
-            <p>Hide class types you don't need for a cleaner overview.</p>
-            <button class="btn btn-sm" onclick="dismissFilterTooltip()">Got it</button>
+        <div id="tooltip-filter" class="filter-tooltip" {% if active_tooltip != 'filter' %}hidden{% endif %}>
+            <p>Hide classes you don't need, for a cleaner overview.</p>
+            <button class="btn btn-sm" onclick="dismissTooltip('filter', this.closest('.filter-btn-wrapper'))">Got it</button>
         </div>
-        {% endif %}
     </div>
 </div>
 
