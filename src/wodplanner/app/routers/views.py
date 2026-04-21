@@ -187,6 +187,7 @@ def calendar_page(
     friend_ids = friends_service.get_appuser_ids(session.user_id)
     friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
+    dismissed_tooltips = prefs_service.get_dismissed_tooltips(session.user_id)
 
     # Build appointment data with friends
     appt_data = []
@@ -261,6 +262,7 @@ def calendar_page(
             "today": date.today().isoformat(),
             "current_date": target_date.isoformat(),
             "filters": filters,
+            "show_filter_tooltip": "filter" not in dismissed_tooltips,
             **get_user_context(session),
         },
     )
@@ -285,6 +287,7 @@ def calendar_day_partial(
     friend_ids = friends_service.get_appuser_ids(session.user_id)
     friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
+    dismissed_tooltips = prefs_service.get_dismissed_tooltips(session.user_id)
 
     appt_data = []
     for appt in appointments:
@@ -357,6 +360,7 @@ def calendar_day_partial(
             "today": date.today().isoformat(),
             "current_date": target_date.isoformat(),
             "filters": filters,
+            "show_filter_tooltip": "filter" not in dismissed_tooltips,
         },
     )
 
@@ -383,6 +387,17 @@ def toggle_filter(
         prefs_service=prefs_service,
         schedule_service=schedule_service,
     )
+
+
+@router.post("/tooltips/dismiss/{tooltip_id}", response_class=HTMLResponse)
+def dismiss_tooltip(
+    tooltip_id: str,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    prefs_service: PreferencesService = Depends(get_preferences_service),
+):
+    """Dismiss a tooltip and persist the state."""
+    prefs_service.dismiss_tooltip(session.user_id, tooltip_id)
+    return HTMLResponse("")
 
 
 @router.get("/1rm", response_class=HTMLResponse)

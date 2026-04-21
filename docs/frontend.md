@@ -6,7 +6,7 @@ Server-rendered HTML with HTMX. Views router serves pages, API routers handle da
 
 ## OOB Swap Gotcha
 
-`calendar.html` and `partials/calendar_day.html` both contain date-nav and filters HTML. `calendar_day.html` replaces them via `hx-swap-oob="true"` on every navigation/filter change. **Any change to date-nav or filters HTML must be made in both files.**
+`calendar.html` and `partials/calendar_day.html` both contain date-nav and filters HTML. `calendar_day.html` replaces them via `hx-swap-oob="true"` on every navigation/filter change. **Any change to date-nav or filters HTML must be made in both files.** This includes the `.filter-btn-wrapper` tooltip markup — both files must stay in sync.
 
 ## Schedule Import
 
@@ -66,3 +66,15 @@ Dismissing (or accepting install) sets `pwa-prompt-dismissed` in localStorage �
 ## Calendar Filters
 
 Filter state stored in `preferences` table as `hidden_class_types` JSON list (per `user_id`). Defaults to `[]` — new users see all classes. UI label is **"Hide:"** — a checked checkbox means that class type is in `hidden_class_types` (hidden). Toggle endpoint `POST /filters/toggle/{class_type}` adds/removes the type from the list and returns a full calendar content swap.
+
+## Tooltips
+
+One-time onboarding hints stored in `preferences` table as `dismissed_tooltips` JSON list (per `user_id`). Defaults to `[]` — tooltip shows until dismissed. Dismissal is persistent: survives logout/login and page reload.
+
+**Flow**: template renders tooltip conditionally on `show_filter_tooltip` (passed from view). User clicks "Got it" → `hx-post="/tooltips/dismiss/{tooltip_id}"` with `hx-target="#filter-tooltip" hx-swap="outerHTML"` → endpoint calls `PreferencesService.dismiss_tooltip()`, returns empty string → HTMX replaces the tooltip element with nothing.
+
+**Adding new tooltips**: add a new `tooltip_id` string, check it against `dismissed_tooltips` in the view, pass a `show_{id}_tooltip` bool to the template. No schema change needed — `dismissed_tooltips` is an unbounded JSON array.
+
+**Service methods** (`services/preferences.py`):
+- `get_dismissed_tooltips(user_id)` — returns list of dismissed tooltip IDs
+- `dismiss_tooltip(user_id, tooltip_id)` — appends ID if not already present (idempotent)

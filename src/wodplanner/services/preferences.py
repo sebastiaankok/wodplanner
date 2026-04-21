@@ -88,6 +88,16 @@ class PreferencesService:
         self.set_hidden_class_types(user_id, hidden)
         return hidden
 
+    def get_dismissed_tooltips(self, user_id: int) -> list[str]:
+        value = self._get(user_id, "dismissed_tooltips", "[]")
+        return json.loads(value)
+
+    def dismiss_tooltip(self, user_id: int, tooltip_id: str) -> None:
+        dismissed = self.get_dismissed_tooltips(user_id)
+        if tooltip_id not in dismissed:
+            dismissed.append(tooltip_id)
+            self._set(user_id, "dismissed_tooltips", json.dumps(dismissed))
+
     def get_all(self, user_id: int) -> UserPreferences:
         return UserPreferences(
             hidden_class_types=self.get_hidden_class_types(user_id),

@@ -311,6 +311,43 @@ body {
     cursor: pointer;
 }
 
+.filter-btn-wrapper {
+    position: relative;
+}
+
+.filter-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    min-width: 170px;
+    z-index: 200;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    text-align: center;
+}
+
+.filter-tooltip::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    right: 10px;
+    width: 10px;
+    height: 10px;
+    background: white;
+    border-left: 1px solid var(--gray-200);
+    border-top: 1px solid var(--gray-200);
+    transform: rotate(45deg);
+}
+
+.filter-tooltip p {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin-bottom: 0.5rem;
+}
+
 /* Cards */
 .card {
     background: white;
