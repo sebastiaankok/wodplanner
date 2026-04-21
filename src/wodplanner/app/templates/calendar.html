@@ -15,7 +15,7 @@
         <div class="date-picker-wrapper{% if active_tooltip == 'date_picker' %} tooltip-btn-wrapper has-tooltip{% endif %}">
             <span class="current-date" onclick="toggleCalendar(); dismissTooltip('date_picker', this.closest('.tooltip-btn-wrapper'));" data-date="{{ current_date }}">{{ display_date }}</span>
             <div id="calendar-dropdown" class="calendar-dropdown"></div>
-            <div id="tooltip-date_picker" class="filter-tooltip" {% if active_tooltip != 'date_picker' %}hidden{% endif %}>
+            <div id="tooltip-date_picker" class="filter-tooltip date-picker" {% if active_tooltip != 'date_picker' %}hidden{% endif %}>
                 <p>Tap the date to jump to any day.</p>
                 <button class="btn btn-sm" onclick="dismissTooltip('date_picker', this.closest('.tooltip-btn-wrapper'))">Got it</button>
             </div>
@@ -81,15 +81,17 @@ function dismissTooltip(id, wrapper) {
 
     if (idx >= 0) {
         tooltip.hidden = true;
+        tooltip.setAttribute('hidden', '');
         var shown = false;
         for (var i = idx + 1; i < TOOLTIP_SEQUENCE.length; i++) {
             var nextId = TOOLTIP_SEQUENCE[i];
             var nextTooltip = document.getElementById('tooltip-' + nextId);
             if (nextTooltip) {
                 nextTooltip.hidden = false;
-                var nextWrapper = nextTooltip.closest('.tooltip-btn-wrapper, .filter-btn-wrapper');
+                nextTooltip.removeAttribute('hidden');
+                var nextWrapper = nextTooltip.closest('.tooltip-btn-wrapper, .filter-btn-wrapper, .date-picker-wrapper');
                 if (nextWrapper) nextWrapper.classList.add('has-tooltip');
-                if (slot) slot.innerHTML = HEADER_TOOLTIPS.has(nextId) ? '<div class="tooltip-backdrop"></div>' : '';
+                if (slot) slot.innerHTML = '<div class="tooltip-backdrop"></div>';
                 shown = true;
                 break;
             }
