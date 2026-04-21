@@ -1,5 +1,6 @@
 """Schedule service for managing workout schedules."""
 
+import re
 import sqlite3
 from datetime import date, datetime
 from pathlib import Path
@@ -32,35 +33,32 @@ CLASS_NAME_MAPPING: dict[str, list[str]] = {
 
 def normalize_class_name(class_name: str) -> str:
     """Normalize a class name to its canonical form."""
-    # Strip whitespace and normalize
-    normalized = class_name.strip()
+    normalized = re.sub(r'\s+', ' ', class_name).strip()
 
-    # Check direct mapping
     if normalized in CLASS_NAME_MAPPING:
         return CLASS_NAME_MAPPING[normalized][0]
 
-    # Check if it's an alias
     for canonical, aliases in CLASS_NAME_MAPPING.items():
         if normalized in aliases:
             return canonical
 
-    # Return as-is if no mapping found
     return normalized
 
 
 def get_all_class_aliases(class_name: str) -> list[str]:
-    """Get all possible aliases for a class name."""
+    """Get all DB class_type values that could match this API class name."""
     normalized = normalize_class_name(class_name)
+    results: set[str] = set()
 
     if normalized in CLASS_NAME_MAPPING:
-        return CLASS_NAME_MAPPING[normalized]
+        results.update(CLASS_NAME_MAPPING[normalized])
 
-    # Check if we need to search in aliases
+    # Reverse lookup: canonical names where this class appears as an alias
     for canonical, aliases in CLASS_NAME_MAPPING.items():
         if class_name in aliases or normalized in aliases:
-            return aliases
+            results.add(canonical)
 
-    return [class_name]
+    return list(results) if results else [class_name]
 
 
 class ScheduleService:

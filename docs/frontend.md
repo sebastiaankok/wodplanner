@@ -12,6 +12,10 @@ Server-rendered HTML with HTMX. Views router serves pages, API routers handle da
 
 `import-schedule` CLI parses CrossFit Purmerend PDF schedules (Dutch format) using pdfplumber. Extracts workout details per class type: warmup/mobility, strength/specialty, metcon. Stored in `schedules` table scoped to a gym via `--gym-id` (required arg). Unique constraint is `(date, class_type, gym_id)`. Class names normalized via `CLASS_NAME_MAPPING` in `services/schedule.py` to match API appointment names (e.g. "CF101" → "CrossFit 101").
 
+**Class name normalization**: pdfplumber can emit class names with embedded newlines when the PDF cell wraps (e.g. `"CrossFit\n& Teen Athlete"`). `normalize_class_name()` collapses all internal whitespace (`re.sub(r'\s+', ' ', ...)`) before lookup, so "CrossFit\n& Teen Athlete" and "CrossFit & Teen Athlete" always resolve to the same canonical key. **Do not revert this to `.strip()` only.**
+
+**Reverse alias lookup**: `get_all_class_aliases()` does bidirectional resolution. If the API reports a class as "CrossFit" but the PDF schedule only has a combined "CrossFit & Teen Athlete" entry, the lookup still finds the schedule because `CLASS_NAME_MAPPING["CrossFit & Teen Athlete"] = ["CrossFit", "Teen Athlete"]` — "CrossFit" appears as an alias, so `get_all_class_aliases("CrossFit")` returns `["CrossFit", "CrossFit & Teen Athlete"]` and the SQL query covers both.
+
 Calendar views pass `session.gym_id` to all schedule queries. Query filter is `gym_id = ? OR gym_id IS NULL` — the NULL fallback covers rows imported before gym scoping was added.
 
 After PDF parsing, `import-schedule` collects all unique raw 1RM exercise names across all schedules and runs `resolve_exercise_interactive()` for each. Exact matches are silent. Fuzzy matches prompt: `[1] Accept match [2] Add as new [3] Rename [4] Skip`. No match prompts: `[1] Add as new [2] Rename [3] Skip`. Choosing rename recurses with the new name. New exercise names are persisted to the `exercises` table before DB save.
@@ -21,7 +25,7 @@ After PDF parsing, `import-schedule` collects all unique raw 1RM exercise names 
 `services/one_rep_max.py` provides module-level utilities and a service class:
 
 - `has_1rm_exercise(text)` — returns `True` if `text` contains "1rm" as an exercise name (not a percentage reference like "70% 1rm"). Checks the 6 chars preceding each match for `\d+%\s*$`.
-- `extract_1rm_exercises(text)` — returns list of exercise names following non-percentage "1rm" occurrences. Captures full name (including across line breaks — pdfplumber can wrap a cell across lines) up to next `A./B./C.` section delimiter or end of string, then strips parenthetical weight annotations and collapses internal whitespace. **Uses `re.DOTALL`** so `.+?` can cross embedded newlines.
+- `extract_1rm_exercises(text)` — returns list of exercise names following non-percentage "1rm" occurrences. Captures full name (including across line breaks — pdfplumber can wrap a cell across lines) up to next `A./B./C.` section delimiter or end of string, then strips parenthetical weight annotations and collapses internal whitespace. **Uses `re.DOTALL` + `\Z`** so `.+?` can cross embedded newlines and `$` doesn't short-circuit at line end. **Do not change to `re.MULTILINE` or `$`** — that breaks multi-line exercise names like "Future Method\nMiniband Small Grip Benchpress".
 - `resolve_exercise_interactive(raw_name, exercises)` — interactive CLI prompt (stdout/stdin). Exact match returns silently. Fuzzy match (via `difflib.get_close_matches`, cutoff 0.6) offers accept/add-new/rename/skip. No match offers add-new/rename/skip. Rename recurses. Returns a canonical name (existing or new) or `None` (skip). Caller persists new names to DB.
 - `OneRepMaxService` — manages both exercise list and user 1RM records. Key methods:
   - `get_exercise_list()` — all exercise names from `exercises` table, alphabetically sorted
