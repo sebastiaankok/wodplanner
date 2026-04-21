@@ -315,6 +315,31 @@ body {
     position: relative;
 }
 
+@keyframes tooltip-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
+    50% { box-shadow: 0 0 0 5px rgba(37, 99, 235, 0); }
+}
+
+.filter-btn-wrapper.has-tooltip .filters-toggle-btn {
+    animation: tooltip-pulse 1.5s ease-in-out infinite;
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.filter-btn-wrapper.has-tooltip {
+    z-index: 201;
+}
+
+.tooltip-backdrop {
+    position: fixed;
+    inset: 0;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    background: rgba(0, 0, 0, 0.15);
+    z-index: 200;
+    pointer-events: none;
+}
+
 .filter-tooltip {
     position: absolute;
     top: calc(100% + 8px);
