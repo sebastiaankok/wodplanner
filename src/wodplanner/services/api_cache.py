@@ -25,3 +25,9 @@ class ApiCacheService:
     def set(self, key: str, value: Any) -> None:
         with self._lock:
             self._cache[key] = (value, time.monotonic() + self._ttl)
+
+    def invalidate(self, key: str) -> None:
+        """Remove a cache entry by key."""
+        with self._lock:
+            self._cache.pop(key, None)
+            logger.debug("Cache invalidated: %s", key)

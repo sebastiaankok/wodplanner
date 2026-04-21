@@ -215,7 +215,8 @@ def calendar_page(
         if friend_ids:
             try:
                 members, _ = client.get_appointment_members(
-                    appt.id_appointment, appt.date_start, appt.date_end
+                    appt.id_appointment, appt.date_start, appt.date_end,
+                    expected_total=appt.total_subscriptions
                 )
                 for member in members:
                     if member.id_appuser in friend_ids:
@@ -314,7 +315,8 @@ def calendar_day_partial(
         if friend_ids:
             try:
                 members, _ = client.get_appointment_members(
-                    appt.id_appointment, appt.date_start, appt.date_end
+                    appt.id_appointment, appt.date_start, appt.date_end,
+                    expected_total=appt.total_subscriptions
                 )
                 for member in members:
                     if member.id_appuser in friend_ids:

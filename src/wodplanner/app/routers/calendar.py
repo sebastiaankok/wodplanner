@@ -69,6 +69,7 @@ def get_day_schedule(
                     appt.id_appointment,
                     appt.date_start,
                     appt.date_end,
+                    expected_total=appt.total_subscriptions,
                 )
                 for member in members:
                     if member.id_appuser in friend_ids:

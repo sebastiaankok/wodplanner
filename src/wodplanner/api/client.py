@@ -494,6 +494,7 @@ class WodAppClient:
         appointment_id: int,
         date_start: datetime,
         date_end: datetime,
+        expected_total: int | None = None,
     ) -> tuple[list[Member], WaitingList]:
         """Return subscribed members and waiting list. Cached when ApiCacheService is available."""
         cache_key = f"{self.session.agenda_id}:{appointment_id}:{date_start.isoformat()}:{date_end.isoformat()}"
@@ -501,7 +502,12 @@ class WodAppClient:
         if self._cache:
             cached = self._cache.get(cache_key)
             if cached is not None:
-                return cached
+                # If we have an expected total, check if the cached member list matches it
+                if expected_total is not None and len(cached[0]) != expected_total:
+                    logger.debug("Cache stale (count mismatch): %s", cache_key)
+                    self._cache.invalidate(cache_key)
+                else:
+                    return cached
 
         details = self.get_appointment_details(appointment_id, date_start, date_end)
         result = (details.subscriptions.members, details.waitinglist)
@@ -538,6 +544,7 @@ class WodAppClient:
                 appt.id_appointment,
                 appt.date_start,
                 appt.date_end,
+                expected_total=appt.total_subscriptions,
             )
 
             friends_found = [m for m in members if m.id_appuser in friend_ids]
