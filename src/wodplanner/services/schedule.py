@@ -27,7 +27,7 @@ CLASS_NAME_MAPPING: dict[str, list[str]] = {
     "Strongman": ["Strongman"],
     "Strongman101": ["Strongman101", "Strongman 101"],
     "Gymnastics 101": ["Gymnastics 101"],
-    "HyCross 101": ["HyCross 101", "Hyrox 101"],
+    "HyCross 101": ["HyCross 101", "Hyrox 101", "HyCross101"],
 }
 
 
