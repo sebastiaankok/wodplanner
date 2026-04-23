@@ -216,6 +216,16 @@ class ScheduleService(BaseService):
         """Find a schedule that matches an appointment name and date."""
         return self.get_by_date_and_class(appointment_date, appointment_name, gym_id=gym_id)
 
+    def get_all_for_date(self, schedule_date: date, gym_id: int | None = None) -> dict[str, Schedule]:
+        """All schedules for a date, keyed by every known alias — O(1) lookup by API class name."""
+        schedules = self.get_by_date(schedule_date, gym_id)
+        result: dict[str, Schedule] = {}
+        for s in schedules:
+            result[s.class_type] = s
+            for alias in get_all_class_aliases(s.class_type):
+                result[alias] = s
+        return result
+
     def get_all(self) -> list[Schedule]:
         """Get all schedules."""
         with self._get_connection() as conn:

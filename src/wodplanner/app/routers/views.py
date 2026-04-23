@@ -5,7 +5,6 @@ import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -22,6 +21,7 @@ from wodplanner.app.dependencies import (
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
+from wodplanner.services.calendar_view import build_calendar_view, is_signup_open
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.one_rep_max import OneRepMaxService, extract_1rm_exercises, has_1rm_exercise
 from wodplanner.services.preferences import PreferencesService
@@ -29,9 +29,6 @@ from wodplanner.services.schedule import ScheduleService
 
 # Class types that can be filtered
 FILTERABLE_CLASS_TYPES = ["Open Gym", "CF101", "Teen Athlete", "HyCross", "CF Boxing", "Gymnastics", "Strength", "Small Group Strength Class"]
-
-# Timezone for calculations
-TZ = ZoneInfo("Europe/Amsterdam")
 
 
 def _format_1rm_entries(entries):
@@ -72,24 +69,6 @@ def _build_exercises_chart_data(formatted_entries: list) -> str:
         data[ex].sort(key=lambda x: x["date"])
     return json.dumps(data).replace("</", "<\\/")
 
-
-def is_signup_open(appt_name: str, appt_start: datetime) -> bool:
-    """Check if signup is currently open for an appointment.
-
-    Regular classes: open 7 days before class start
-    CF101 classes: open 14 weeks before class start
-    """
-    now = datetime.now(TZ)
-    appt_start_tz = appt_start.replace(tzinfo=TZ) if appt_start.tzinfo is None else appt_start
-
-    if "CF101" in appt_name or "101" in appt_name:
-        # 14 weeks = 98 days
-        signup_opens = appt_start_tz - timedelta(weeks=14)
-    else:
-        # 7 days
-        signup_opens = appt_start_tz - timedelta(days=7)
-
-    return now >= signup_opens
 
 router = APIRouter(tags=["views"])
 
@@ -198,72 +177,12 @@ def calendar_page(
     prev_date = (target_date - timedelta(days=1)).isoformat()
     next_date = (target_date + timedelta(days=1)).isoformat()
 
-    appointments = client.get_day_schedule(target_date)
-    friend_ids = friends_service.get_appuser_ids(session.user_id)
-    friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
-
-    # Build appointment data with friends
-    appt_data = []
-    for appt in appointments:
-        # Filter hidden class types
-        if appt.name in hidden_types:
-            continue
-
-        friends_in_class = []
-        if friend_ids:
-            try:
-                members, _ = client.get_appointment_members(
-                    appt.id_appointment, appt.date_start, appt.date_end,
-                    expected_total=appt.total_subscriptions
-                )
-                for member in members:
-                    if member.id_appuser in friend_ids:
-                        friend = friends_map.get(member.id_appuser)
-                        friends_in_class.append({
-                            "id": member.id_appuser,
-                            "name": friend.name if friend else member.name,
-                        })
-            except Exception:
-                pass
-
-        # Check if workout contains a 1rm exercise
-        schedule = schedule_service.find_for_appointment(appt.name, target_date, gym_id=session.gym_id)
-        appt_has_1rm = schedule is not None and (
-            has_1rm_exercise(schedule.strength_specialty)
-            or has_1rm_exercise(schedule.warmup_mobility)
-            or has_1rm_exercise(schedule.metcon)
-        )
-
-        # Construct actual datetime for this instance (template date may be historical)
-        actual_start = datetime.combine(target_date, appt.date_start.time())
-        actual_end = datetime.combine(target_date, appt.date_end.time())
-        now = datetime.now()
-
-        appt_data.append({
-            "id": appt.id_appointment,
-            "name": appt.name,
-            "date_start": target_date.isoformat(),
-            "date_end": target_date.isoformat(),
-            "time_start": appt.date_start.strftime("%H:%M"),
-            "time_end": appt.date_end.strftime("%H:%M"),
-            "spots_taken": appt.total_subscriptions,
-            "spots_total": appt.max_subscriptions,
-            "status": appt.status,
-            "friends": friends_in_class,
-            "has_1rm": appt_has_1rm,
-            "signup_open": is_signup_open(appt.name, actual_start),
-            "is_past": actual_start < now,
-        })
+    appt_data = build_calendar_view(session, target_date, client, friends_service, schedule_service, hidden_types)
 
     weekday = target_date.strftime("%A")
-
-    # Build filter state
-    filters = [
-        {"name": t, "hidden": t in hidden_types}
-        for t in FILTERABLE_CLASS_TYPES
-    ]
+    filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
 
     return render(
         request,
@@ -299,71 +218,12 @@ def calendar_day_partial(
     prev_date = (target_date - timedelta(days=1)).isoformat()
     next_date = (target_date + timedelta(days=1)).isoformat()
 
-    appointments = client.get_day_schedule(target_date)
-    friend_ids = friends_service.get_appuser_ids(session.user_id)
-    friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
-
-    appt_data = []
-    for appt in appointments:
-        # Filter hidden class types
-        if appt.name in hidden_types:
-            continue
-
-        friends_in_class = []
-        if friend_ids:
-            try:
-                members, _ = client.get_appointment_members(
-                    appt.id_appointment, appt.date_start, appt.date_end,
-                    expected_total=appt.total_subscriptions
-                )
-                for member in members:
-                    if member.id_appuser in friend_ids:
-                        friend = friends_map.get(member.id_appuser)
-                        friends_in_class.append({
-                            "id": member.id_appuser,
-                            "name": friend.name if friend else member.name,
-                        })
-            except Exception:
-                pass
-
-        # Check if workout contains a 1rm exercise
-        schedule = schedule_service.find_for_appointment(appt.name, target_date, gym_id=session.gym_id)
-        appt_has_1rm = schedule is not None and (
-            has_1rm_exercise(schedule.strength_specialty)
-            or has_1rm_exercise(schedule.warmup_mobility)
-            or has_1rm_exercise(schedule.metcon)
-        )
-
-        # Construct actual datetime for this instance (template date may be historical)
-        actual_start = datetime.combine(target_date, appt.date_start.time())
-        actual_end = datetime.combine(target_date, appt.date_end.time())
-        now = datetime.now()
-
-        appt_data.append({
-            "id": appt.id_appointment,
-            "name": appt.name,
-            "date_start": target_date.isoformat(),
-            "date_end": target_date.isoformat(),
-            "time_start": appt.date_start.strftime("%H:%M"),
-            "time_end": appt.date_end.strftime("%H:%M"),
-            "spots_taken": appt.total_subscriptions,
-            "spots_total": appt.max_subscriptions,
-            "status": appt.status,
-            "friends": friends_in_class,
-            "has_1rm": appt_has_1rm,
-            "signup_open": is_signup_open(appt.name, actual_start),
-            "is_past": actual_start < now,
-        })
+    appt_data = build_calendar_view(session, target_date, client, friends_service, schedule_service, hidden_types)
 
     weekday = target_date.strftime("%A")
-
-    # Build filter state
-    filters = [
-        {"name": t, "hidden": t in hidden_types}
-        for t in FILTERABLE_CLASS_TYPES
-    ]
+    filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
 
     return render(
         request,

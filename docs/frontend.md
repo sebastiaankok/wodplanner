@@ -18,6 +18,21 @@ Server-rendered HTML with HTMX. Views router serves pages, API routers handle da
 
 Calendar views pass `session.gym_id` to all schedule queries. Query filter is `gym_id = ? OR gym_id IS NULL` — the NULL fallback covers rows imported before gym scoping was added.
 
+`ScheduleService.get_all_for_date(date, gym_id)` fetches all schedules for a date in one query and returns `dict[str, Schedule]` keyed by every known alias for each class type. Used by the calendar view builder to avoid per-appointment DB queries.
+
+## Calendar View Builder
+
+`services/calendar_view.py` — shared logic for both `calendar_page` and `calendar_day_partial`.
+
+**`build_calendar_view(session, target_date, client, friends_service, schedule_service, hidden_types) -> list[dict]`**:
+1. Fetches appointments via `client.get_day_schedule()`
+2. Filters hidden class types
+3. Pre-loads all schedules for the date via `schedule_service.get_all_for_date()` — one DB query, O(1) per-appointment lookup
+4. If user has friends: parallelizes `get_appointment_members()` calls across a `ThreadPoolExecutor(max_workers=5)` — bounded to avoid overloading upstream API
+5. Failures in member fetch are caught and logged as warnings; affected appointments render with empty friends list
+
+`is_signup_open(appt_name, appt_start)` also lives here (not in `views.py`). Regular classes open 7 days before start; CF101/101 classes open 14 weeks before.
+
 After PDF parsing, `import-schedule` collects all unique raw 1RM exercise names across all schedules and runs `resolve_exercise_interactive()` for each. Exact matches are silent. Fuzzy matches prompt: `[1] Accept match [2] Add as new [3] Rename [4] Skip`. No match prompts: `[1] Add as new [2] Rename [3] Skip`. Choosing rename recurses with the new name. New exercise names are persisted to the `exercises` table before DB save.
 
 ## 1RM Tracking

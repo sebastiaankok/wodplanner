@@ -344,7 +344,7 @@ The `appointment` endpoint returns `subscriptions.members[]` with:
 **Strategy**:
 1. Store a list of friend `id_appuser` values
 2. For each day, fetch appointments using `day` method
-3. For each appointment, call `WodAppClient.get_appointment_members()` which returns only member lists
+3. Fetch all member lists in parallel via `ThreadPoolExecutor(max_workers=5)` in `services/calendar_view.py` — avoids N sequential round-trips; bounded concurrency to avoid rate-limiting upstream
 4. Check if any friend's `id_appuser` is in `subscriptions.members[]`
 
 **User-specific vs. cacheable data**:
