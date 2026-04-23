@@ -18,29 +18,6 @@ Goal: reduce the surface area that breaks with each feature, cut the calendar pa
 
 Ordered by impact × effort. Each item is independently mergeable.
 
-### P0 — Eliminate calendar N+1 (biggest user-visible win)
-
-**Problem:** `src/wodplanner/app/routers/views.py:209-229` and `:309-329` call `client.get_appointment_members()` inside a loop over every appointment, then `schedule_service.find_for_appointment()` once per appointment at `:232` and `:332`. Each API call pays full network round-trip on cache miss.
-
-**Fix:**
-1. Extract `build_calendar_view(session, target_date, client, services) -> list[dict]` into a new `src/wodplanner/services/calendar_view.py`. Both `calendar_page` and `calendar_day_partial` call it — kills the 96-LOC duplication.
-2. Inside, pre-fetch all schedules for the date in one query: add `ScheduleService.get_all_for_date(date, gym_id) -> dict[str, Schedule]` keyed by class-name (resolve aliases up front, once).
-3. Parallelize `get_appointment_members()` calls with `asyncio.gather` or `concurrent.futures.ThreadPoolExecutor` (httpx is sync here — thread pool is the low-friction path). Bounded concurrency (e.g. 5) to avoid upstream rate limits.
-4. Replace bare `except Exception: pass` with logged warnings — keep the partial-render behavior but make failures observable.
-
-**Files:** `src/wodplanner/app/routers/views.py`, `src/wodplanner/services/schedule.py`, new `src/wodplanner/services/calendar_view.py`.
-
-### P1 — Collapse API client subscribe/unsubscribe duplication
-
-**Problem:** `src/wodplanner/api/client.py:315-456` — `subscribe`, `unsubscribe`, `subscribe_waitinglist`, `unsubscribe_waitinglist` are ~95% identical; only `action` and `method` differ. Datetime formatting repeats across all four.
-
-**Fix:**
-1. Extract private `_subscription_request(method: str, action: str, id_appointment: int, date_start: datetime, date_end: datetime)` handling the shared params, then have the four public methods become two-line wrappers.
-2. Centralize `"%Y-%m-%d %H:%M"` formatting in one helper (`_fmt_api_datetime`).
-3. Add exponential backoff + retry for 502/503/504 in `_request` (lines 129-134). Cap retries at 2 with jitter; preserve the current user-facing error on exhaustion.
-
-**Files:** `src/wodplanner/api/client.py`.
-
 ### P1 — Preferences batch fetch + single friends query
 
 **Problem:**
@@ -116,37 +93,3 @@ Ordered by impact × effort. Each item is independently mergeable.
 - Replacing `pdfplumber` — heavy but works, used only by one CLI tool.
 - Async API client rewrite — the sync client + bounded thread pool (P0) gets most of the latency win without touching every call site.
 - Cache eviction policy in `api_cache.py` — unbounded growth is theoretical; cache keys are bounded by (gym × date × appointment).
-
----
-
-## Verification
-
-**Per-change:**
-- Each P0/P1 item lands as its own PR with a focused diff.
-- New tests for the touched service(s) — coverage bar isn't numeric, just "the refactor is provably equivalent."
-
-**End-to-end smoke (after P0 lands):**
-1. `pip install -e ".[api,dev]"` — clean install.
-2. `uvicorn wodplanner.app.main:app --reload` — server boots, lifespan migration runs once (check logs).
-3. Log in via browser, load `/calendar` on a day with ≥5 classes.
-4. Network tab: confirm one `get_day_schedule` call + parallel (not sequential) `get_appointment_members` calls.
-5. Navigate day-to-day via HTMX partial — filter/date-nav render correctly from shared partial (P1).
-6. Hide a class type — filter persists across reload (preferences path still works).
-7. `pytest` — all tests pass.
-8. `ruff check src tests` — clean.
-
-**Rollback:** each PR is independently revertable; migration registry is additive (no destructive schema changes in P0/P1).
-
----
-
-## Critical files reference
-
-| Concern | File |
-|---|---|
-| Calendar views (N+1, duplication) | `src/wodplanner/app/routers/views.py:186-382` |
-| API client (subscribe dup, retry) | `src/wodplanner/api/client.py:91-141, 315-456` |
-| Service init duplication | `src/wodplanner/services/{schedule,friends,preferences,one_rep_max}.py` |
-| Shared connection | `src/wodplanner/services/db.py` |
-| Templates (OOB dup) | `src/wodplanner/app/templates/calendar.html`, `.../partials/calendar_day.html` |
-| Settings | `src/wodplanner/app/config.py` |
-| Pyproject | `pyproject.toml` |
