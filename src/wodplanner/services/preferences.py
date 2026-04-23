@@ -12,6 +12,7 @@ from wodplanner.services.base import BaseService
 class UserPreferences:
     """User preferences."""
     hidden_class_types: list[str] = field(default_factory=list)
+    dismissed_tooltips: list[str] = field(default_factory=list)
 
 
 def _migrate_v300(conn: sqlite3.Connection) -> None:
@@ -98,7 +99,21 @@ class PreferencesService(BaseService):
             dismissed.append(tooltip_id)
             self._set(user_id, "dismissed_tooltips", json.dumps(dismissed))
 
+    def get_for_user(self, user_id: int) -> UserPreferences:
+        """Get all preferences for a user in a single query."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT key, value FROM preferences WHERE user_id = ?",
+                (user_id,),
+            ).fetchall()
+        prefs = UserPreferences()
+        for row in rows:
+            key, value = row["key"], row["value"]
+            if key == "hidden_class_types":
+                prefs.hidden_class_types = json.loads(value)
+            elif key == "dismissed_tooltips":
+                prefs.dismissed_tooltips = json.loads(value)
+        return prefs
+
     def get_all(self, user_id: int) -> UserPreferences:
-        return UserPreferences(
-            hidden_class_types=self.get_hidden_class_types(user_id),
-        )
+        return self.get_for_user(user_id)

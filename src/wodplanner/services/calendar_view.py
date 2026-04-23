@@ -62,8 +62,9 @@ def build_calendar_view(
     appointments = client.get_day_schedule(target_date)
     visible = [a for a in appointments if a.name not in hidden_types]
 
-    friend_ids = friends_service.get_appuser_ids(session.user_id)
-    friends_map = {f.appuser_id: f for f in friends_service.get_all(session.user_id)}
+    friends = friends_service.get_all(session.user_id)
+    friend_ids = {f.appuser_id for f in friends}
+    friends_map = {f.appuser_id: f for f in friends}
 
     schedule_map = schedule_service.get_all_for_date(target_date, gym_id=session.gym_id)
 

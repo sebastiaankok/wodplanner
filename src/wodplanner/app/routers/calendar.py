@@ -1,12 +1,18 @@
 """Calendar and schedule endpoints."""
 
 from datetime import date
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from wodplanner.api.client import WodAppClient
-from wodplanner.app.dependencies import get_client_from_session, get_friends_service
+from wodplanner.app.dependencies import (
+    get_client_from_session,
+    get_friends_service,
+    require_session,
+)
+from wodplanner.models.auth import AuthSession
 from wodplanner.services.friends import FriendsService
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
@@ -47,6 +53,7 @@ def get_day_schedule(
     include_friends: bool = Query(
         default=False, description="Include friends info (slower, fetches details)"
     ),
+    session: Annotated[AuthSession, Depends(require_session)] = None,
     client: WodAppClient = Depends(get_client_from_session),
     friends_service: FriendsService = Depends(get_friends_service),
 ) -> DayScheduleResponse:
@@ -54,9 +61,9 @@ def get_day_schedule(
     target_date = day or date.today()
     appointments = client.get_day_schedule(target_date)
 
-    # Get friend IDs for lookup
-    friend_ids = friends_service.get_appuser_ids() if include_friends else set()
-    friends_map = {f.appuser_id: f for f in friends_service.get_all()} if include_friends else {}
+    friends = friends_service.get_all(session.user_id) if include_friends else []
+    friend_ids = {f.appuser_id for f in friends}
+    friends_map = {f.appuser_id: f for f in friends}
 
     result_appointments = []
     for appt in appointments:
@@ -112,6 +119,7 @@ def get_week_schedule(
     include_friends: bool = Query(
         default=False, description="Include friends info (slower, fetches details)"
     ),
+    session: Annotated[AuthSession, Depends(require_session)] = None,
     client: WodAppClient = Depends(get_client_from_session),
     friends_service: FriendsService = Depends(get_friends_service),
 ) -> list[DayScheduleResponse]:
@@ -120,9 +128,9 @@ def get_week_schedule(
 
     start = start_date or date.today()
 
-    # Get friend IDs for lookup (once, not per day)
-    friend_ids = friends_service.get_appuser_ids() if include_friends else set()
-    friends_map = {f.appuser_id: f for f in friends_service.get_all()} if include_friends else {}
+    friends = friends_service.get_all(session.user_id) if include_friends else []
+    friend_ids = {f.appuser_id for f in friends}
+    friends_map = {f.appuser_id: f for f in friends}
 
     result = []
 
