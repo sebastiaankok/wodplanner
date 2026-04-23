@@ -97,7 +97,7 @@
                     {% endif %}
                 </div>
                 <div class="tooltip-btn-wrapper{% if is_first_friends and active_tooltip == 'friends' %} has-tooltip{% endif %}">
-                    <button class="btn btn-icon btn-sm{% if appt.friends %} has-friends{% endif %}"
+                    <button class="btn btn-icon btn-sm{% if appt.friends %} has-friends{% endif %}{% if appt.is_past %} is-past{% endif %}"
                             hx-get="/appointments/{{ appt.id }}/people?date_start={{ appt.date_start }}%20{{ appt.time_start }}&date_end={{ appt.date_end }}%20{{ appt.time_end }}"
                             hx-target="#people-modal-container"
                             hx-swap="innerHTML"

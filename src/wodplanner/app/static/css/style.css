@@ -469,6 +469,15 @@ body {
     cursor: not-allowed;
 }
 
+.appointment.is-past .btn-icon.is-past {
+    opacity: 0.5;
+}
+
+.appointment.is-past .btn-icon.is-past.has-friends {
+    color: var(--gray-500);
+    border-color: var(--gray-300);
+}
+
 .appointment-time {
     font-weight: 600;
     font-size: 0.875rem;
