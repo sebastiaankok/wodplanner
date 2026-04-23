@@ -8,6 +8,7 @@ from datetime import date, datetime
 from wodplanner.models.one_rep_max import OneRepMax
 from wodplanner.services import migrations
 from wodplanner.services.base import BaseService
+from wodplanner.utils.dates import parse_iso_date, parse_iso_datetime
 
 _SEED_EXERCISES: list[str] = [
     "Snatch",
@@ -149,9 +150,9 @@ class OneRepMaxService(BaseService):
             user_id=row["user_id"],
             exercise=row["exercise"],
             weight_kg=row["weight_kg"],
-            recorded_at=date.fromisoformat(row["recorded_at"]),
+            recorded_at=parse_iso_date(row["recorded_at"]),
             notes=row["notes"],
-            created_at=datetime.fromisoformat(row["created_at"]),
+            created_at=parse_iso_datetime(row["created_at"]),
         )
 
     def add(self, user_id: int, exercise: str, weight_kg: float, recorded_at: date, notes: str | None = None) -> OneRepMax:

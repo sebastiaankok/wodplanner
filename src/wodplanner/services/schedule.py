@@ -7,6 +7,7 @@ from datetime import date, datetime
 from wodplanner.models.schedule import Schedule
 from wodplanner.services import migrations
 from wodplanner.services.base import BaseService
+from wodplanner.utils.dates import parse_iso_date, parse_iso_datetime
 
 # Mapping from PDF class names to possible API names
 CLASS_NAME_MAPPING: dict[str, list[str]] = {
@@ -121,14 +122,14 @@ class ScheduleService(BaseService):
         return Schedule(
             id=row["id"],
             gym_id=row["gym_id"],
-            date=date.fromisoformat(row["date"]),
+            date=parse_iso_date(row["date"]),
             class_type=row["class_type"],
             warmup_mobility=row["warmup_mobility"],
             strength_specialty=row["strength_specialty"],
             metcon=row["metcon"],
             raw_content=row["raw_content"],
             source_file=row["source_file"],
-            created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
+            created_at=parse_iso_datetime(row["created_at"]) if row["created_at"] else None,
         )
 
     def _execute_add(self, conn: sqlite3.Connection, schedule: Schedule) -> int | None:

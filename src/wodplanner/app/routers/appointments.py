@@ -1,12 +1,11 @@
 """Appointment detail and subscription endpoints."""
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from wodplanner.api.client import WodAppClient, WodAppError
 from wodplanner.app.dependencies import get_client_from_session
+from wodplanner.utils.dates import parse_api_datetime
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
@@ -62,8 +61,8 @@ def get_appointment_details(
 ) -> AppointmentDetailResponse:
     """Get detailed information about an appointment including participants."""
     try:
-        start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
-        end = datetime.strptime(date_end, "%Y-%m-%d %H:%M")
+        start = parse_api_datetime(date_start)
+        end = parse_api_datetime(date_end)
     except ValueError:
         raise HTTPException(
             status_code=400,
@@ -109,8 +108,8 @@ def subscribe_to_appointment(
 ) -> SubscribeResponse:
     """Subscribe to an appointment."""
     try:
-        start = datetime.strptime(request.date_start, "%Y-%m-%d %H:%M")
-        end = datetime.strptime(request.date_end, "%Y-%m-%d %H:%M")
+        start = parse_api_datetime(request.date_start)
+        end = parse_api_datetime(request.date_end)
     except ValueError:
         raise HTTPException(
             status_code=400,
@@ -135,8 +134,8 @@ def subscribe_to_waitinglist(
 ) -> SubscribeResponse:
     """Subscribe to an appointment's waiting list."""
     try:
-        start = datetime.strptime(request.date_start, "%Y-%m-%d %H:%M")
-        end = datetime.strptime(request.date_end, "%Y-%m-%d %H:%M")
+        start = parse_api_datetime(request.date_start)
+        end = parse_api_datetime(request.date_end)
     except ValueError:
         raise HTTPException(
             status_code=400,

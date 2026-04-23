@@ -6,6 +6,7 @@ from datetime import datetime
 from wodplanner.models.friends import Friend
 from wodplanner.services import migrations
 from wodplanner.services.base import BaseService
+from wodplanner.utils.dates import parse_iso_datetime
 
 
 def _migrate_v200(conn: sqlite3.Connection) -> None:
@@ -63,7 +64,7 @@ class FriendsService(BaseService):
             owner_user_id=row["owner_user_id"],
             appuser_id=row["appuser_id"],
             name=row["name"],
-            added_at=datetime.fromisoformat(row["added_at"]),
+            added_at=parse_iso_datetime(row["added_at"]),
         )
 
     def add(self, owner_user_id: int, appuser_id: int, name: str) -> Friend:
