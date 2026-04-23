@@ -433,7 +433,7 @@ body {
     grid-template-columns: 100px minmax(0, 1fr) auto auto;
     gap: 1rem;
     align-items: center;
-    padding: 1rem;
+    padding: 0.6rem;
     background: var(--gray-50);
     border-radius: 0.375rem;
     border-left: 4px solid var(--gray-300);
@@ -480,6 +480,16 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+.spots-icon {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    .spots-icon {
+        display: inline;
+    }
 }
 
 .status-icon {
