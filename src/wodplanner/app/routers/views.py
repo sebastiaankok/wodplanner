@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -29,7 +29,7 @@ from wodplanner.services.one_rep_max import (
 )
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
-from wodplanner.utils.dates import parse_iso_date, parse_api_datetime
+from wodplanner.utils.dates import parse_api_datetime, parse_iso_date
 
 # Class types that can be filtered
 FILTERABLE_CLASS_TYPES = ["Open Gym", "CF101", "Teen Athlete", "HyCross", "CF Boxing", "Gymnastics", "Strength", "Small Group Strength Class"]
