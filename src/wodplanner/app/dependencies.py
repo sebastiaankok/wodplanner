@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Cookie, Depends, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
 
 from wodplanner.api.client import WodAppClient
 from wodplanner.app.config import settings

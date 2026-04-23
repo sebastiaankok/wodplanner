@@ -11,19 +11,20 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# Configure logging — use uvicorn's formatter for consistent style
+from uvicorn.logging import DefaultFormatter  # noqa: E402
+
 from wodplanner.api.client import AuthenticationError, WodAppError
 from wodplanner.app.config import settings
 from wodplanner.app.dependencies import _get_db_path
 from wodplanner.app.routers import appointments, auth, calendar, friends, schedules, views
+
 # Import services so their migrations register at import time
 from wodplanner.services import friends as _friends_svc  # noqa: F401
 from wodplanner.services import one_rep_max as _orm_svc  # noqa: F401
 from wodplanner.services import preferences as _prefs_svc  # noqa: F401
 from wodplanner.services import schedule as _schedule_svc  # noqa: F401
 from wodplanner.services.migrations import ensure_migrations
-
-# Configure logging — use uvicorn's formatter for consistent style
-from uvicorn.logging import DefaultFormatter  # noqa: E402
 
 numeric_level = getattr(logging, settings.log_level.upper(), logging.INFO)
 logging.basicConfig(level=numeric_level)

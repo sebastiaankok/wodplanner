@@ -8,18 +8,17 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-logger = logging.getLogger(__name__)
-
 from wodplanner.models.auth import AuthSession, LoginResponse
 from wodplanner.models.calendar import (
     Appointment,
     AppointmentDetails,
-    DaySchedule,
     Member,
     SubscribeResponse,
     Subscriptions,
     WaitingList,
 )
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from wodplanner.services.api_cache import ApiCacheService

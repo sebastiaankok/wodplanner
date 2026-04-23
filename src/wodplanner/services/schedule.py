@@ -8,7 +8,6 @@ from wodplanner.models.schedule import Schedule
 from wodplanner.services import migrations
 from wodplanner.services.base import BaseService
 
-
 # Mapping from PDF class names to possible API names
 CLASS_NAME_MAPPING: dict[str, list[str]] = {
     "CrossFit": ["CrossFit"],

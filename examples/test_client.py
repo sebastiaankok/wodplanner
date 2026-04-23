@@ -2,7 +2,7 @@
 """Test script to verify the WodApp API client works."""
 
 import os
-from datetime import date, timedelta
+from datetime import date
 
 from wodplanner.api import WodAppClient
 

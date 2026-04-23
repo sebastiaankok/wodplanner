@@ -21,9 +21,12 @@ from wodplanner.app.dependencies import (
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
-from wodplanner.services.calendar_view import build_calendar_view, is_signup_open
+from wodplanner.services.calendar_view import build_calendar_view
 from wodplanner.services.friends import FriendsService
-from wodplanner.services.one_rep_max import OneRepMaxService, extract_1rm_exercises, has_1rm_exercise
+from wodplanner.services.one_rep_max import (
+    OneRepMaxService,
+    extract_1rm_exercises,
+)
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
 

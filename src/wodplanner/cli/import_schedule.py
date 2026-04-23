@@ -10,9 +10,13 @@ import pdfplumber
 
 from wodplanner.models.schedule import Schedule
 from wodplanner.services.migrations import ensure_migrations
-from wodplanner.services.one_rep_max import OneRepMaxService, extract_1rm_exercises, has_1rm_exercise, resolve_exercise_interactive
+from wodplanner.services.one_rep_max import (
+    OneRepMaxService,
+    extract_1rm_exercises,
+    has_1rm_exercise,
+    resolve_exercise_interactive,
+)
 from wodplanner.services.schedule import ScheduleService, normalize_class_name
-
 
 # Dutch month names to month numbers
 DUTCH_MONTHS = {
