@@ -464,6 +464,11 @@ body {
     background: var(--gray-50);
 }
 
+.appointment.is-past .btn[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .appointment-time {
     font-weight: 600;
     font-size: 0.875rem;

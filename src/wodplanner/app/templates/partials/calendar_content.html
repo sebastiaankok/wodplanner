@@ -118,8 +118,9 @@
                     </div>
                     {% endif %}
                 </div>
-                {% if not appt.is_past %}
-                    {% if appt.status == 'subscribed' or appt.status == 'waiting' %}
+                {% if appt.is_past %}
+                    <button class="btn btn-secondary btn-sm" disabled>Closed</button>
+                {% elif appt.status == 'subscribed' or appt.status == 'waiting' %}
                     <button class="btn btn-danger btn-sm"
                             hx-post="/appointments/{{ appt.id }}/unsubscribe"
                             hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}", "is_waitinglist": "{{ 'true' if appt.status == 'waiting' else 'false' }}"}'
@@ -128,24 +129,23 @@
                             hx-confirm="Sign out of {{ appt.name }}?">
                         Sign out
                     </button>
-                    {% elif appt.signup_open %}
-                        {% if appt.status == 'open' %}
-                        <button class="btn btn-primary btn-sm"
-                                hx-post="/appointments/{{ appt.id }}/subscribe"
-                                hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}"}'
-                                hx-target="#calendar-content"
-                                hx-swap="innerHTML">
-                            Sign up
-                        </button>
-                        {% elif appt.status == 'closed' %}
-                        <button class="btn btn-warning btn-sm"
-                                hx-post="/appointments/{{ appt.id }}/waitinglist"
-                                hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}"}'
-                                hx-target="#calendar-content"
-                                hx-swap="innerHTML">
-                            Sign up
-                        </button>
-                        {% endif %}
+                {% elif appt.signup_open %}
+                    {% if appt.status == 'open' %}
+                    <button class="btn btn-primary btn-sm"
+                            hx-post="/appointments/{{ appt.id }}/subscribe"
+                            hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}"}'
+                            hx-target="#calendar-content"
+                            hx-swap="innerHTML">
+                        Sign up
+                    </button>
+                    {% elif appt.status == 'closed' %}
+                    <button class="btn btn-warning btn-sm"
+                            hx-post="/appointments/{{ appt.id }}/waitinglist"
+                            hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}"}'
+                            hx-target="#calendar-content"
+                            hx-swap="innerHTML">
+                        Sign up
+                    </button>
                     {% endif %}
                 {% endif %}
             </div>
