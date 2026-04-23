@@ -34,5 +34,5 @@ app.wodapp.nl_har
 .coverage
 htmlcov/
 
-wodplanner.db
+wodplanner.db*
 .env
