@@ -1,6 +1,8 @@
 """WodApp API client for interacting with ws.paynplan.nl."""
 
 import logging
+import random
+import time
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -106,6 +108,13 @@ class WodAppClient:
             "data[idc]": str(self.session.gym_id),
         }
 
+    _RETRY_STATUSES = {502, 503, 504}
+    _MAX_RETRIES = 2
+
+    @staticmethod
+    def _fmt_api_datetime(dt: datetime) -> str:
+        return dt.strftime("%Y-%m-%d %H:%M")
+
     def _request(self, params: dict[str, str]) -> dict[str, Any]:
         """Make a POST request to the API."""
         user = (
@@ -119,19 +128,25 @@ class WodAppClient:
             params.get("data[service]", "?"),
             params.get("data[method]", "?"),
         )
-        try:
-            response = self._client.post(
-                self.BASE_URL,
-                data=params,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            response.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code in (502, 503, 504):
-                raise WodAppError("WodApp service is temporarily unavailable. Please try again later.")
-            raise WodAppError(f"API request failed with status {e.response.status_code}")
-        except httpx.TransportError as e:
-            raise WodAppError(f"Cannot reach WodApp service: {e}")
+        response = None
+        for attempt in range(self._MAX_RETRIES + 1):
+            try:
+                response = self._client.post(
+                    self.BASE_URL,
+                    data=params,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                response.raise_for_status()
+                break
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code in self._RETRY_STATUSES and attempt < self._MAX_RETRIES:
+                    time.sleep(2**attempt + random.uniform(0, 1))
+                    continue
+                if e.response.status_code in self._RETRY_STATUSES:
+                    raise WodAppError("WodApp service is temporarily unavailable. Please try again later.")
+                raise WodAppError(f"API request failed with status {e.response.status_code}")
+            except httpx.TransportError as e:
+                raise WodAppError(f"Cannot reach WodApp service: {e}")
         data = response.json()
 
         if data.get("status") != "OK":
@@ -267,8 +282,8 @@ class WodAppClient:
             "data[method]": "appointment",
             "data[id_agenda]": str(self.session.agenda_id),
             "data[id]": str(appointment_id),
-            "data[date_start]": date_start.strftime("%Y-%m-%d %H:%M"),
-            "data[date_end]": date_end.strftime("%Y-%m-%d %H:%M"),
+            "data[date_start]": self._fmt_api_datetime(date_start),
+            "data[date_end]": self._fmt_api_datetime(date_end),
         }
 
         data = self._request(params)
@@ -312,35 +327,25 @@ class WodAppClient:
             employee_name=result.get("employee_name", ""),
         )
 
-    def subscribe(
+    def _subscription_request(
         self,
-        appointment_id: int,
+        method: str,
+        action: str,
+        id_appointment: int,
         date_start: datetime,
         date_end: datetime,
     ) -> SubscribeResponse:
-        """
-        Subscribe to an appointment.
-
-        Args:
-            appointment_id: The appointment ID
-            date_start: Start datetime of the appointment
-            date_end: End datetime of the appointment
-
-        Returns:
-            SubscribeResponse with success status
-        """
         params = {
             **self._base_params(),
             **self._auth_params(),
             "data[service]": "agenda",
-            "data[method]": "subscribeAppointment",
+            "data[method]": method,
             "data[id_agenda]": str(self.session.agenda_id),
-            "data[id]": str(appointment_id),
-            "data[date_start_org]": date_start.strftime("%Y-%m-%d %H:%M"),
-            "data[date_end_org]": date_end.strftime("%Y-%m-%d %H:%M"),
-            "data[action]": "subscribe",
+            "data[id]": str(id_appointment),
+            "data[date_start_org]": self._fmt_api_datetime(date_start),
+            "data[date_end_org]": self._fmt_api_datetime(date_end),
+            "data[action]": action,
         }
-
         data = self._request(params)
         return SubscribeResponse(
             status=data["status"],
@@ -348,112 +353,21 @@ class WodAppClient:
             subscribedWithSuccess=data.get("subscribedWithSuccess", 0),
         )
 
-    def unsubscribe(
-        self,
-        appointment_id: int,
-        date_start: datetime,
-        date_end: datetime,
-    ) -> SubscribeResponse:
-        """
-        Unsubscribe from an appointment.
+    def subscribe(self, appointment_id: int, date_start: datetime, date_end: datetime) -> SubscribeResponse:
+        """Subscribe to an appointment."""
+        return self._subscription_request("subscribeAppointment", "subscribe", appointment_id, date_start, date_end)
 
-        Args:
-            appointment_id: The appointment ID
-            date_start: Start datetime of the appointment
-            date_end: End datetime of the appointment
+    def unsubscribe(self, appointment_id: int, date_start: datetime, date_end: datetime) -> SubscribeResponse:
+        """Unsubscribe from an appointment."""
+        return self._subscription_request("subscribeAppointment", "unsubscribe", appointment_id, date_start, date_end)
 
-        Returns:
-            SubscribeResponse with success status
-        """
-        params = {
-            **self._base_params(),
-            **self._auth_params(),
-            "data[service]": "agenda",
-            "data[method]": "subscribeAppointment",
-            "data[id_agenda]": str(self.session.agenda_id),
-            "data[id]": str(appointment_id),
-            "data[date_start_org]": date_start.strftime("%Y-%m-%d %H:%M"),
-            "data[date_end_org]": date_end.strftime("%Y-%m-%d %H:%M"),
-            "data[action]": "unsubscribe",
-        }
+    def subscribe_waitinglist(self, appointment_id: int, date_start: datetime, date_end: datetime) -> SubscribeResponse:
+        """Subscribe to an appointment's waiting list."""
+        return self._subscription_request("subscribeWaitingList", "subscribe", appointment_id, date_start, date_end)
 
-        data = self._request(params)
-        return SubscribeResponse(
-            status=data["status"],
-            notice=data.get("notice", ""),
-            subscribedWithSuccess=data.get("subscribedWithSuccess", 0),
-        )
-
-    def unsubscribe_waitinglist(
-        self,
-        appointment_id: int,
-        date_start: datetime,
-        date_end: datetime,
-    ) -> SubscribeResponse:
-        """
-        Unsubscribe from an appointment's waiting list.
-
-        Args:
-            appointment_id: The appointment ID
-            date_start: Start datetime of the appointment
-            date_end: End datetime of the appointment
-
-        Returns:
-            SubscribeResponse with success status
-        """
-        params = {
-            **self._base_params(),
-            **self._auth_params(),
-            "data[service]": "agenda",
-            "data[method]": "subscribeWaitingList",
-            "data[id_agenda]": str(self.session.agenda_id),
-            "data[id]": str(appointment_id),
-            "data[date_start_org]": date_start.strftime("%Y-%m-%d %H:%M"),
-            "data[date_end_org]": date_end.strftime("%Y-%m-%d %H:%M"),
-            "data[action]": "unsubscribe",
-        }
-
-        data = self._request(params)
-        return SubscribeResponse(
-            status=data["status"],
-            notice=data.get("notice", ""),
-            subscribedWithSuccess=data.get("subscribedWithSuccess", 0),
-        )
-
-    def subscribe_waitinglist(
-        self,
-        appointment_id: int,
-        date_start: datetime,
-        date_end: datetime,
-    ) -> SubscribeResponse:
-        """
-        Subscribe to an appointment's waiting list.
-
-        Args:
-            appointment_id: The appointment ID
-            date_start: Start datetime of the appointment
-            date_end: End datetime of the appointment
-
-        Returns:
-            SubscribeResponse with success status
-        """
-        params = {
-            **self._base_params(),
-            **self._auth_params(),
-            "data[service]": "agenda",
-            "data[method]": "subscribeWaitingList",
-            "data[id_agenda]": str(self.session.agenda_id),
-            "data[id]": str(appointment_id),
-            "data[date_start_org]": date_start.strftime("%Y-%m-%d %H:%M"),
-            "data[date_end_org]": date_end.strftime("%Y-%m-%d %H:%M"),
-            "data[action]": "subscribe",
-        }
-
-        data = self._request(params)
-        return SubscribeResponse(
-            status=data["status"],
-            notice=data.get("notice", ""),
-        )
+    def unsubscribe_waitinglist(self, appointment_id: int, date_start: datetime, date_end: datetime) -> SubscribeResponse:
+        """Unsubscribe from an appointment's waiting list."""
+        return self._subscription_request("subscribeWaitingList", "unsubscribe", appointment_id, date_start, date_end)
 
     def get_upcoming_reservations(self) -> list[dict]:
         """
