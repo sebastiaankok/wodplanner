@@ -17,6 +17,7 @@ from wodplanner.models.calendar import (
     Subscriptions,
     WaitingList,
 )
+from wodplanner.utils.dates import fmt_api_datetime, parse_iso_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -109,10 +110,6 @@ class WodAppClient:
 
     _RETRY_STATUSES = {502, 503, 504}
     _MAX_RETRIES = 2
-
-    @staticmethod
-    def _fmt_api_datetime(dt: datetime) -> str:
-        return dt.strftime("%Y-%m-%d %H:%M")
 
     def _request(self, params: dict[str, str]) -> dict[str, Any]:
         """Make a POST request to the API."""
@@ -244,8 +241,8 @@ class WodAppClient:
                     id_appointment_type=item["id_appointment_type"],
                     id_parent=item["id_parent"],
                     name=item["name"],
-                    date_start=datetime.fromisoformat(item["date_start"]),
-                    date_end=datetime.fromisoformat(item["date_end"]),
+                    date_start=parse_iso_datetime(item["date_start"]),
+                    date_end=parse_iso_datetime(item["date_end"]),
                     max_subscriptions=item["max_subscriptions"],
                     total_subscriptions=item["total_subscriptions"],
                     status=item["status"],
@@ -281,8 +278,8 @@ class WodAppClient:
             "data[method]": "appointment",
             "data[id_agenda]": str(self.session.agenda_id),
             "data[id]": str(appointment_id),
-            "data[date_start]": self._fmt_api_datetime(date_start),
-            "data[date_end]": self._fmt_api_datetime(date_end),
+            "data[date_start]": fmt_api_datetime(date_start),
+            "data[date_end]": fmt_api_datetime(date_end),
         }
 
         data = self._request(params)
@@ -308,8 +305,8 @@ class WodAppClient:
             id_appointment=result["id_appointment"],
             id_appointment_type=result["id_appointment_type"],
             name=result["name"],
-            date_start=datetime.fromisoformat(result["date_start"]),
-            date_end=datetime.fromisoformat(result["date_end"]),
+            date_start=parse_iso_datetime(result["date_start"]),
+            date_end=parse_iso_datetime(result["date_end"]),
             max_subscriptions=result["max_subscriptions"],
             waiting_list=result.get("waiting_list", 0),
             number_hours_before_subscription_opens=result.get(
@@ -341,8 +338,8 @@ class WodAppClient:
             "data[method]": method,
             "data[id_agenda]": str(self.session.agenda_id),
             "data[id]": str(id_appointment),
-            "data[date_start_org]": self._fmt_api_datetime(date_start),
-            "data[date_end_org]": self._fmt_api_datetime(date_end),
+            "data[date_start_org]": fmt_api_datetime(date_start),
+            "data[date_end_org]": fmt_api_datetime(date_end),
             "data[action]": action,
         }
         data = self._request(params)

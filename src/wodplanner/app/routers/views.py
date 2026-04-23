@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -29,6 +29,7 @@ from wodplanner.services.one_rep_max import (
 )
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
+from wodplanner.utils.dates import parse_api_datetime, parse_iso_date
 
 # Class types that can be filtered
 FILTERABLE_CLASS_TYPES = ["Open Gym", "CF101", "Teen Athlete", "HyCross", "CF Boxing", "Gymnastics", "Strength", "Small Group Strength Class"]
@@ -176,7 +177,7 @@ def calendar_page(
     schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Main calendar page."""
-    target_date = date.fromisoformat(day) if day else date.today()
+    target_date = parse_iso_date(day) if day else date.today()
     prev_date = (target_date - timedelta(days=1)).isoformat()
     next_date = (target_date + timedelta(days=1)).isoformat()
 
@@ -217,7 +218,7 @@ def calendar_day_partial(
     schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Calendar day partial for htmx updates."""
-    target_date = date.fromisoformat(day)
+    target_date = parse_iso_date(day)
     prev_date = (target_date - timedelta(days=1)).isoformat()
     next_date = (target_date + timedelta(days=1)).isoformat()
 
@@ -398,8 +399,8 @@ def subscribe_view(
     schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Subscribe to appointment from calendar (htmx)."""
-    start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
-    end = datetime.strptime(date_end, "%Y-%m-%d %H:%M")
+    start = parse_api_datetime(date_start)
+    end = parse_api_datetime(date_end)
 
     client.subscribe(appointment_id, start, end)
 
@@ -428,8 +429,8 @@ def waitinglist_view(
     schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Join waiting list from calendar (htmx)."""
-    start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
-    end = datetime.strptime(date_end, "%Y-%m-%d %H:%M")
+    start = parse_api_datetime(date_start)
+    end = parse_api_datetime(date_end)
 
     client.subscribe_waitinglist(appointment_id, start, end)
 
@@ -459,8 +460,8 @@ def unsubscribe_view(
     schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Unsubscribe from appointment (htmx)."""
-    start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
-    end = datetime.strptime(date_end, "%Y-%m-%d %H:%M")
+    start = parse_api_datetime(date_start)
+    end = parse_api_datetime(date_end)
 
     if is_waitinglist == "true":
         client.unsubscribe_waitinglist(appointment_id, start, end)
@@ -490,8 +491,8 @@ def people_modal_view(
     friends_service: FriendsService = Depends(get_friends_service),
 ):
     """Get participants for an appointment (htmx modal)."""
-    start = datetime.strptime(date_start, "%Y-%m-%d %H:%M")
-    end = datetime.strptime(date_end, "%Y-%m-%d %H:%M")
+    start = parse_api_datetime(date_start)
+    end = parse_api_datetime(date_end)
 
     details = client.get_appointment_details(appointment_id, start, end)
     friend_ids = friends_service.get_appuser_ids(session.user_id)
@@ -562,7 +563,7 @@ def schedule_modal_view(
 ):
     """Get workout schedule for an appointment (htmx modal)."""
     # Parse date from date_start (format: "YYYY-MM-DD HH:MM")
-    schedule_date = date.fromisoformat(date_start.split(" ")[0])
+    schedule_date = parse_iso_date(date_start.split(" ")[0])
 
     # Look up schedule by date and class name
     schedule = schedule_service.get_by_date_and_class(schedule_date, class_name, gym_id=session.gym_id)
@@ -589,7 +590,7 @@ def one_rep_max_modal_view(
     one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
 ):
     """Get 1rm tracker modal for an appointment (htmx modal)."""
-    schedule_date = date.fromisoformat(date_start.split(" ")[0])
+    schedule_date = parse_iso_date(date_start.split(" ")[0])
     schedule = schedule_service.find_for_appointment(class_name, schedule_date, gym_id=session.gym_id)
 
     raw_suggested: list[str] = []
@@ -651,7 +652,7 @@ def add_one_rep_max_view(
     if not (0 < weight_kg < 1000):
         raise HTTPException(status_code=400, detail="Weight must be between 0 and 1000 kg.")
     try:
-        entry_date = date.fromisoformat(recorded_at)
+        entry_date = parse_iso_date(recorded_at)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format.")
     one_rep_max_service.add(
