@@ -1,6 +1,50 @@
 # Database
 
-SQLite (`wodplanner.db`). Schema auto-created on first run.
+SQLite (`wodplanner.db`). Schema created and upgraded by migration registry on first run.
+
+## Schema migrations
+
+Schema lives in a central registry (`services/migrations.py`), not inline in service constructors. Each service module registers its migrations at import time; the registry applies pending ones once per process per db_path.
+
+### Registration
+
+Services call `migrations.register(version, description, sql_or_callable)` at module load. `sql` is either a SQL string (run via `executescript`) or a callable `(conn) -> None` for procedural migrations (e.g. column-presence checks).
+
+Version ranges per service (keep grouped, avoid collisions):
+
+| Range | Service |
+|-------|---------|
+| 100–199 | `schedule` |
+| 200–299 | `friends` |
+| 300–399 | `preferences` |
+| 400–499 | `one_rep_max` |
+
+### Applying migrations
+
+- **App**: FastAPI lifespan handler in `app/main.py` calls `ensure_migrations(db_path)` at startup. Applied versions logged at INFO.
+- **CLI tools** (`add-1rm`, `import-schedule`): call `ensure_migrations(db_path)` before using any service.
+- **Tests**: use `migrations._reset_for_tests()` to clear the process-level applied-paths cache when re-using a DB path across fixtures.
+
+`ensure_migrations` is idempotent — locked, once per (process, resolved db_path). Service constructors do **not** run migrations; constructing a service against an un-migrated DB will fail on first query.
+
+### `schema_migrations` table
+
+Tracks which versions have been applied:
+
+| Column | Type |
+|--------|------|
+| `version` | INTEGER PRIMARY KEY |
+| `description` | TEXT |
+| `applied_at` | TEXT (ISO timestamp) |
+
+On an existing pre-registry prod DB (schema already in final state, no `schema_migrations` table yet), baseline migrations re-run as no-ops: `CREATE TABLE IF NOT EXISTS` skips, seed migrations check row count, ALTER-path migrations check column existence. Data is preserved; all versions are then recorded as applied.
+
+### Adding a new migration
+
+1. Pick the next free version in the service's range.
+2. Add a `_migrate_vNNN(conn)` function (or raw SQL string) in the service module.
+3. Call `migrations.register(NNN, "short description", _migrate_vNNN)` at module scope.
+4. Migrations must be idempotent if they may collide with pre-existing final-state schemas — guard `ALTER`/`DROP` with `PRAGMA table_info` / `sqlite_master` checks.
 
 ## Connection settings
 

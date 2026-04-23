@@ -9,6 +9,7 @@ from pathlib import Path
 import pdfplumber
 
 from wodplanner.models.schedule import Schedule
+from wodplanner.services.migrations import ensure_migrations
 from wodplanner.services.one_rep_max import OneRepMaxService, extract_1rm_exercises, has_1rm_exercise, resolve_exercise_interactive
 from wodplanner.services.schedule import ScheduleService, normalize_class_name
 
@@ -292,6 +293,8 @@ def main():
     if args.dry_run:
         print("\n[Dry run - not saving to database]")
         sys.exit(0)
+
+    ensure_migrations(args.db)
 
     # Resolve 1RM exercises found in the PDF against the predefined list
     orm_service = OneRepMaxService(args.db)

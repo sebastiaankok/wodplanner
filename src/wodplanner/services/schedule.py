@@ -3,10 +3,10 @@
 import re
 import sqlite3
 from datetime import date, datetime
-from pathlib import Path
 
 from wodplanner.models.schedule import Schedule
-from wodplanner.services.db import get_connection
+from wodplanner.services import migrations
+from wodplanner.services.base import BaseService
 
 
 # Mapping from PDF class names to possible API names
@@ -61,64 +61,61 @@ def get_all_class_aliases(class_name: str) -> list[str]:
     return list(results) if results else [class_name]
 
 
-class ScheduleService:
+def _migrate_v100(conn: sqlite3.Connection) -> None:
+    """Create schedules table and backfill gym_id column for ancient DBs."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            gym_id INTEGER,
+            date DATE NOT NULL,
+            class_type TEXT NOT NULL,
+            warmup_mobility TEXT,
+            strength_specialty TEXT,
+            metcon TEXT,
+            raw_content TEXT,
+            source_file TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(date, class_type, gym_id)
+        )
+        """
+    )
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(schedules)")]
+    if "gym_id" not in cols:
+        conn.execute(
+            """
+            CREATE TABLE schedules_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gym_id INTEGER,
+                date DATE NOT NULL,
+                class_type TEXT NOT NULL,
+                warmup_mobility TEXT,
+                strength_specialty TEXT,
+                metcon TEXT,
+                raw_content TEXT,
+                source_file TEXT,
+                created_at TEXT NOT NULL,
+                UNIQUE(date, class_type, gym_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO schedules_new
+            SELECT id, NULL, date, class_type, warmup_mobility,
+                   strength_specialty, metcon, raw_content, source_file, created_at
+            FROM schedules
+            """
+        )
+        conn.execute("DROP TABLE schedules")
+        conn.execute("ALTER TABLE schedules_new RENAME TO schedules")
+
+
+migrations.register(100, "create schedules table (with gym_id)", _migrate_v100)
+
+
+class ScheduleService(BaseService):
     """Service for managing workout schedules with SQLite storage."""
-
-    def __init__(self, db_path: str | Path = "wodplanner.db") -> None:
-        self.db_path = Path(db_path)
-        self._init_db()
-
-    def _get_connection(self) -> sqlite3.Connection:
-        return get_connection(self.db_path)
-
-    def _init_db(self) -> None:
-        """Initialize the database schema."""
-        with self._get_connection() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS schedules (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    gym_id INTEGER,
-                    date DATE NOT NULL,
-                    class_type TEXT NOT NULL,
-                    warmup_mobility TEXT,
-                    strength_specialty TEXT,
-                    metcon TEXT,
-                    raw_content TEXT,
-                    source_file TEXT,
-                    created_at TEXT NOT NULL,
-                    UNIQUE(date, class_type, gym_id)
-                )
-            """)
-            conn.commit()
-            self._migrate_db(conn)
-
-    def _migrate_db(self, conn: sqlite3.Connection) -> None:
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(schedules)")]
-        if "gym_id" not in cols:
-            conn.execute("""
-                CREATE TABLE schedules_new (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    gym_id INTEGER,
-                    date DATE NOT NULL,
-                    class_type TEXT NOT NULL,
-                    warmup_mobility TEXT,
-                    strength_specialty TEXT,
-                    metcon TEXT,
-                    raw_content TEXT,
-                    source_file TEXT,
-                    created_at TEXT NOT NULL,
-                    UNIQUE(date, class_type, gym_id)
-                )
-            """)
-            conn.execute("""
-                INSERT INTO schedules_new
-                SELECT id, NULL, date, class_type, warmup_mobility,
-                       strength_specialty, metcon, raw_content, source_file, created_at
-                FROM schedules
-            """)
-            conn.execute("DROP TABLE schedules")
-            conn.execute("ALTER TABLE schedules_new RENAME TO schedules")
-            conn.commit()
 
     def _row_to_model(self, row: sqlite3.Row) -> Schedule:
         """Convert a database row to a Schedule model."""

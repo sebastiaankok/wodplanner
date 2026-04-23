@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from wodplanner.services.migrations import ensure_migrations
 from wodplanner.services.one_rep_max import OneRepMaxService, resolve_exercise_interactive
 
 
@@ -22,6 +23,7 @@ def main():
     )
     args = parser.parse_args()
 
+    ensure_migrations(args.db)
     service = OneRepMaxService(args.db)
     exercises = service.get_exercise_list()
 

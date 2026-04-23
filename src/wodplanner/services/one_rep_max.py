@@ -4,10 +4,10 @@ import difflib
 import re
 import sqlite3
 from datetime import date, datetime
-from pathlib import Path
 
 from wodplanner.models.one_rep_max import OneRepMax
-from wodplanner.services.db import get_connection
+from wodplanner.services import migrations
+from wodplanner.services.base import BaseService
 
 _SEED_EXERCISES: list[str] = [
     "Snatch",
@@ -103,41 +103,46 @@ def extract_1rm_exercises(text: str | None) -> list[str]:
     return results
 
 
-class OneRepMaxService:
-    def __init__(self, db_path: str | Path = "wodplanner.db") -> None:
-        self.db_path = Path(db_path)
-        self._init_db()
+def _migrate_v400(conn: sqlite3.Connection) -> None:
+    """Create exercises and one_rep_maxes tables."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS exercises (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS one_rep_maxes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            exercise TEXT NOT NULL,
+            weight_kg REAL NOT NULL,
+            recorded_at TEXT NOT NULL,
+            notes TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
 
-    def _get_connection(self) -> sqlite3.Connection:
-        return get_connection(self.db_path)
 
-    def _init_db(self) -> None:
-        with self._get_connection() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS exercises (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL UNIQUE,
-                    created_at TEXT NOT NULL
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS one_rep_maxes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    exercise TEXT NOT NULL,
-                    weight_kg REAL NOT NULL,
-                    recorded_at TEXT NOT NULL,
-                    notes TEXT,
-                    created_at TEXT NOT NULL
-                )
-            """)
-            if conn.execute("SELECT COUNT(*) FROM exercises").fetchone()[0] == 0:
-                conn.executemany(
-                    "INSERT OR IGNORE INTO exercises (name, created_at) VALUES (?, ?)",
-                    [(name, datetime.now().isoformat()) for name in _SEED_EXERCISES],
-                )
-            conn.commit()
+def _migrate_v401(conn: sqlite3.Connection) -> None:
+    """Seed default exercise list if empty."""
+    if conn.execute("SELECT COUNT(*) FROM exercises").fetchone()[0] == 0:
+        conn.executemany(
+            "INSERT OR IGNORE INTO exercises (name, created_at) VALUES (?, ?)",
+            [(name, datetime.now().isoformat()) for name in _SEED_EXERCISES],
+        )
 
+
+migrations.register(400, "create exercises and one_rep_maxes tables", _migrate_v400)
+migrations.register(401, "seed default exercises", _migrate_v401)
+
+
+class OneRepMaxService(BaseService):
     def _row_to_model(self, row: sqlite3.Row) -> OneRepMax:
         return OneRepMax(
             id=row["id"],

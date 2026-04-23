@@ -1,8 +1,9 @@
 """FastAPI application entry point."""
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Callable
+from typing import AsyncIterator, Callable
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +13,14 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from wodplanner.api.client import AuthenticationError, WodAppError
 from wodplanner.app.config import settings
+from wodplanner.app.dependencies import _get_db_path
 from wodplanner.app.routers import appointments, auth, calendar, friends, schedules, views
+# Import services so their migrations register at import time
+from wodplanner.services import friends as _friends_svc  # noqa: F401
+from wodplanner.services import one_rep_max as _orm_svc  # noqa: F401
+from wodplanner.services import preferences as _prefs_svc  # noqa: F401
+from wodplanner.services import schedule as _schedule_svc  # noqa: F401
+from wodplanner.services.migrations import ensure_migrations
 
 # Configure logging — use uvicorn's formatter for consistent style
 from uvicorn.logging import DefaultFormatter  # noqa: E402
@@ -51,10 +59,23 @@ class CloudflareIPMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Run pending schema migrations once at startup."""
+    db_path = _get_db_path()
+    ran = ensure_migrations(db_path)
+    if ran:
+        logger.info("Applied %d migration(s) on %s: %s", len(ran), db_path, ran)
+    else:
+        logger.debug("No pending migrations on %s", db_path)
+    yield
+
+
 app = FastAPI(
     title="WodPlanner API",
     description="Custom API for WodApp - schedule viewing and signup",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Mount static files

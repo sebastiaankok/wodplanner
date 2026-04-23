@@ -2,59 +2,60 @@
 
 import sqlite3
 from datetime import datetime
-from pathlib import Path
 
 from wodplanner.models.friends import Friend
-from wodplanner.services.db import get_connection
+from wodplanner.services import migrations
+from wodplanner.services.base import BaseService
 
 
-class FriendsService:
+def _migrate_v200(conn: sqlite3.Connection) -> None:
+    """Create friends table; migrate old single-column UNIQUE(appuser_id) schema."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS friends (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_user_id INTEGER NOT NULL DEFAULT 0,
+            appuser_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            added_at TEXT NOT NULL,
+            UNIQUE(owner_user_id, appuser_id)
+        )
+        """
+    )
+    table_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='friends'"
+    ).fetchone()[0]
+    needs_migration = (
+        "owner_user_id" not in table_sql or "UNIQUE(owner_user_id" not in table_sql
+    )
+    if needs_migration:
+        conn.execute("ALTER TABLE friends RENAME TO friends_old")
+        conn.execute(
+            """
+            CREATE TABLE friends (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                owner_user_id INTEGER NOT NULL DEFAULT 0,
+                appuser_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                added_at TEXT NOT NULL,
+                UNIQUE(owner_user_id, appuser_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO friends (id, owner_user_id, appuser_id, name, added_at)
+            SELECT id, 0, appuser_id, name, added_at FROM friends_old
+            """
+        )
+        conn.execute("DROP TABLE friends_old")
+
+
+migrations.register(200, "create friends table (owner-scoped)", _migrate_v200)
+
+
+class FriendsService(BaseService):
     """Service for managing friends with SQLite storage."""
-
-    def __init__(self, db_path: str | Path = "wodplanner.db") -> None:
-        self.db_path = Path(db_path)
-        self._init_db()
-
-    def _get_connection(self) -> sqlite3.Connection:
-        return get_connection(self.db_path)
-
-    def _init_db(self) -> None:
-        """Initialize the database schema."""
-        with self._get_connection() as conn:
-            conn.execute("BEGIN")
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS friends (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    owner_user_id INTEGER NOT NULL DEFAULT 0,
-                    appuser_id INTEGER NOT NULL,
-                    name TEXT NOT NULL,
-                    added_at TEXT NOT NULL,
-                    UNIQUE(owner_user_id, appuser_id)
-                )
-            """)
-            # Migrate old schema: had UNIQUE(appuser_id) alone, needs UNIQUE(owner_user_id, appuser_id)
-            table_sql = conn.execute(
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name='friends'"
-            ).fetchone()[0]
-            needs_migration = "owner_user_id" not in table_sql or "UNIQUE(owner_user_id" not in table_sql
-            if needs_migration:
-                conn.execute("ALTER TABLE friends RENAME TO friends_old")
-                conn.execute("""
-                    CREATE TABLE friends (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        owner_user_id INTEGER NOT NULL DEFAULT 0,
-                        appuser_id INTEGER NOT NULL,
-                        name TEXT NOT NULL,
-                        added_at TEXT NOT NULL,
-                        UNIQUE(owner_user_id, appuser_id)
-                    )
-                """)
-                conn.execute("""
-                    INSERT INTO friends (id, owner_user_id, appuser_id, name, added_at)
-                    SELECT id, 0, appuser_id, name, added_at FROM friends_old
-                """)
-                conn.execute("DROP TABLE friends_old")
-            conn.commit()
 
     def _row_to_model(self, row: sqlite3.Row) -> Friend:
         return Friend(
