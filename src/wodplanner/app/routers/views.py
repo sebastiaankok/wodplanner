@@ -499,12 +499,16 @@ def people_modal_view(
     current_user_id = session.user_id
 
     participants = []
+    friend_ids_str = {str(fid) for fid in friend_ids}
     for member in details.subscriptions.members:
-        is_self = str(member.id_appuser) == str(current_user_id)
+        member_id = str(member.id_appuser)
+        current_id = str(current_user_id)
+        is_self = member_id == current_id
+        is_friend = member_id in friend_ids_str
         participants.append({
             "id": member.id_appuser,
             "name": member.name,
-            "is_friend": member.id_appuser in friend_ids,
+            "is_friend": is_friend,
             "is_self": is_self,
         })
 
