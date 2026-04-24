@@ -182,6 +182,7 @@ class WodAppClient:
         self._session = AuthSession(
             token=login_resp.token,
             user_id=login_resp.id_user,
+            appuser_id=login_resp.id_appuser,
             username=login_resp.username,
             firstname=login_resp.firstname,
             gym_id=gym.id_gym,

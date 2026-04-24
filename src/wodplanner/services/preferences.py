@@ -89,6 +89,13 @@ class PreferencesService(BaseService):
         self.set_hidden_class_types(user_id, hidden)
         return hidden
 
+    def get_my_appuser_id(self, user_id: int) -> int | None:
+        value = self._get(user_id, "my_appuser_id", "")
+        return int(value) if value else None
+
+    def set_my_appuser_id(self, user_id: int, appuser_id: int) -> None:
+        self._set(user_id, "my_appuser_id", str(appuser_id))
+
     def get_dismissed_tooltips(self, user_id: int) -> list[str]:
         value = self._get(user_id, "dismissed_tooltips", "[]")
         return json.loads(value)

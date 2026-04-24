@@ -54,6 +54,7 @@ data[id_appuser_li]=
 {
   "status": "OK",
   "id_user": 388211,
+  "id_appuser": 388211,
   "username": "user@example.com",
   "firstname": "Sebastiaan",
   "token": "40fff8ae77408d6f9aed4e72a60a354c",
@@ -70,7 +71,8 @@ data[id_appuser_li]=
 
 **Key Response Fields**:
 - `token` - Use this for all subsequent authenticated requests
-- `id_user` - Your user ID (use as `id_appuser_li`)
+- `id_user` - User account ID; used as `id_appuser_li` in all subsequent requests
+- `id_appuser` - App-user ID; may differ from `id_user`; matches `id_appuser` in `subscriptions.members[]`. Use this (not `id_user`) to detect whether the current user appears in a participant list. May be absent from the response — fall back to `id_user` if so.
 - `gyms[].id_gym` - Gym ID for gym-specific requests
 
 ---
@@ -339,13 +341,21 @@ data[id_appuser_li]=388211
 
 The `appointment` endpoint returns `subscriptions.members[]` with:
 - `name` - First name of participant
-- `id_appuser` - Unique user ID
+- `id_appuser` - Unique app-user ID
 
 **Strategy**:
 1. Store a list of friend `id_appuser` values
 2. For each day, fetch appointments using `day` method
 3. Fetch all member lists in parallel via `ThreadPoolExecutor(max_workers=5)` in `services/calendar_view.py` — avoids N sequential round-trips; bounded concurrency to avoid rate-limiting upstream
 4. Check if any friend's `id_appuser` is in `subscriptions.members[]`
+
+**Self-detection**: the WodApp login response does **not** return the user's `id_appuser`; `id_user` and `id_appuser` are different values. Resolution strategy:
+
+1. Prefer `session.appuser_id` (from login response `id_appuser`, reserved — likely stays `None`)
+2. Fall back to `preferences.get_my_appuser_id(user_id)` — persisted after one-time discovery
+3. On first-time discovery: match `member.name == session.firstname` against the participant list; accept **only if exactly one member matches** (ambiguous matches are skipped to avoid wrong self-assignment). Persist the matched `id_appuser` to `preferences` so subsequent loads use pure ID comparison.
+
+Never compare against `session.user_id` for member identity — `id_user` is an account ID used for request auth (`id_appuser_li`), not the member/subscription ID.
 
 **User-specific vs. cacheable data**:
 

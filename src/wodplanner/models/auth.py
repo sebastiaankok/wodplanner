@@ -19,6 +19,7 @@ class LoginResponse(BaseModel):
     status: str
     notice: str = ""
     id_user: int
+    id_appuser: int | None = None
     username: str
     firstname: str
     token: str
@@ -30,6 +31,7 @@ class AuthSession(BaseModel):
 
     token: str
     user_id: int
+    appuser_id: int | None = None
     username: str
     firstname: str
     gym_id: int

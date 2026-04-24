@@ -489,6 +489,7 @@ def people_modal_view(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
+    prefs_service: PreferencesService = Depends(get_preferences_service),
 ):
     """Get participants for an appointment (htmx modal)."""
     start = parse_api_datetime(date_start)
@@ -496,15 +497,25 @@ def people_modal_view(
 
     details = client.get_appointment_details(appointment_id, start, end)
     friend_ids = friends_service.get_appuser_ids(session.user_id)
-    current_user_id = session.user_id
+    members = details.subscriptions.members
+
+    # Resolve current user's id_appuser: prefer session, then stored pref, then
+    # one-time name-match discovery (only when exactly one member matches, to
+    # avoid wrong self-assignment on name collision).
+    current_appuser_id = session.appuser_id or prefs_service.get_my_appuser_id(session.user_id)
+    if not current_appuser_id:
+        name_matches = [m for m in members if m.name == session.firstname]
+        if len(name_matches) == 1:
+            current_appuser_id = name_matches[0].id_appuser
+            prefs_service.set_my_appuser_id(session.user_id, current_appuser_id)
 
     participants = []
-    for member in details.subscriptions.members:
+    for member in members:
         participants.append({
             "id": member.id_appuser,
             "name": member.name,
             "is_friend": member.id_appuser in friend_ids,
-            "is_self": member.id_appuser == current_user_id,
+            "is_self": member.id_appuser == current_appuser_id,
         })
 
     # Sort: self first, then friends, then alphabetically
