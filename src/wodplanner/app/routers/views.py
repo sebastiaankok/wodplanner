@@ -500,11 +500,12 @@ def people_modal_view(
 
     participants = []
     for member in details.subscriptions.members:
+        is_self = str(member.id_appuser) == str(current_user_id)
         participants.append({
             "id": member.id_appuser,
             "name": member.name,
             "is_friend": member.id_appuser in friend_ids,
-            "is_self": member.id_appuser == current_user_id,
+            "is_self": is_self,
         })
 
     # Sort: self first, then friends, then alphabetically
