@@ -248,3 +248,53 @@ class TestExtractSchedulesFromPdf:
 
         assert len(result) == 1
         assert result[0].class_type == "Gymnastics"
+
+    def test_empty_table_is_skipped(self, tmp_path):
+        table = [[]]
+        with patch("pdfplumber.open", return_value=self._mock_pdf([[table]])):
+            result = extract_schedules_from_pdf(tmp_path / "test.pdf", 2026)
+        assert result == []
+
+    def test_empty_row_is_skipped(self, tmp_path):
+        table = [
+            ["Maandag 14 April", None, None, None],
+            [None, None, None, None],
+            ["CrossFit", "warmup", "strength", "metcon"],
+        ]
+        with patch("pdfplumber.open", return_value=self._mock_pdf([[table]])):
+            result = extract_schedules_from_pdf(tmp_path / "test.pdf", 2026)
+        assert len(result) == 1
+
+    def test_continuation_row_appends_strength_specialty(self, tmp_path):
+        table = [
+            ["Maandag 14 April", None, None, None],
+            ["CrossFit", "Warmup", "Squat 5x5", "21-15-9"],
+            [None, None, "at 80%", None],
+        ]
+        with patch("pdfplumber.open", return_value=self._mock_pdf([[table]])):
+            result = extract_schedules_from_pdf(tmp_path / "test.pdf", 2026)
+
+        assert len(result) == 1
+        assert "80%" in result[0].strength_specialty
+
+    def test_continuation_row_appends_metcon(self, tmp_path):
+        table = [
+            ["Maandag 14 April", None, None, None],
+            ["CrossFit", "Warmup", "Squat", "21-15-9"],
+            [None, None, None, "with 45lb bar"],
+        ]
+        with patch("pdfplumber.open", return_value=self._mock_pdf([[table]])):
+            result = extract_schedules_from_pdf(tmp_path / "test.pdf", 2026)
+
+        assert len(result) == 1
+        assert "45lb bar" in result[0].metcon
+
+    def test_first_cell_none_skipped(self, tmp_path):
+        table = [
+            ["Maandag 14 April", None, None, None],
+            ["CrossFit", "warmup", "strength", "metcon"],
+            [None, "extra warmup", None, None],
+        ]
+        with patch("pdfplumber.open", return_value=self._mock_pdf([[table]])):
+            result = extract_schedules_from_pdf(tmp_path / "test.pdf", 2026)
+        assert len(result) == 1

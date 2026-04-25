@@ -14,12 +14,23 @@ WodPlanner is a custom frontend for WodApp (app.wodapp.nl), a CrossFit class sch
 # Install (with API server support)
 pip install -e ".[api]"
 
+# Install test dependencies (needed to run tests)
+pip install -e ".[api,dev]"
+
 # Run server
 uvicorn wodplanner.app.main:app --reload
 
 # Run tests
 pytest
+
+# Run tests with coverage
+pytest --cov=wodplanner --cov-report=term-missing
+
+# Lint
 ruff check .
+
+# Type check
+mypy src
 
 # Import workout schedule from PDF (--dry-run to preview)
 import-schedule schedule.pdf --year 2026 --gym-id 2495
