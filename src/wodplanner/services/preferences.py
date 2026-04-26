@@ -3,6 +3,7 @@
 import json
 import sqlite3
 from dataclasses import dataclass, field
+from typing import cast
 
 from wodplanner.services import migrations
 from wodplanner.services.base import BaseService
@@ -75,7 +76,7 @@ class PreferencesService(BaseService):
 
     def get_hidden_class_types(self, user_id: int) -> list[str]:
         value = self._get(user_id, "hidden_class_types", "[]")
-        return json.loads(value)
+        return cast("list[str]", json.loads(value))
 
     def set_hidden_class_types(self, user_id: int, types: list[str]) -> None:
         self._set(user_id, "hidden_class_types", json.dumps(types))
@@ -98,7 +99,7 @@ class PreferencesService(BaseService):
 
     def get_dismissed_tooltips(self, user_id: int) -> list[str]:
         value = self._get(user_id, "dismissed_tooltips", "[]")
-        return json.loads(value)
+        return cast("list[str]", json.loads(value))
 
     def dismiss_tooltip(self, user_id: int, tooltip_id: str) -> None:
         dismissed = self.get_dismissed_tooltips(user_id)

@@ -13,7 +13,6 @@ from wodplanner.models.calendar import (
     WaitingList,
 )
 
-
 _TOMORROW = date.today() + timedelta(days=1)
 _CALENDAR_URL = f"/calendar?day={_TOMORROW.isoformat()}"
 

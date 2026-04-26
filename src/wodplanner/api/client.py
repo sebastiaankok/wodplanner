@@ -4,7 +4,7 @@ import logging
 import random
 import time
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 
@@ -143,13 +143,17 @@ class WodAppClient:
                 raise WodAppError(f"API request failed with status {e.response.status_code}")
             except httpx.TransportError as e:
                 raise WodAppError(f"Cannot reach WodApp service: {e}")
+        assert response is not None
         data = response.json()
 
         if data.get("status") != "OK":
             notice = data.get("notice", "Unknown error")
             raise WodAppError(f"API error: {notice}")
 
-        return data
+        return cast("dict[str, Any]", data)
+
+    def _request_typed(self, params: dict[str, str]) -> dict[str, Any]:
+        return self._request(params)
 
     def login(self, username: str, password: str) -> AuthSession:
         """
@@ -207,7 +211,9 @@ class WodAppClient:
         agendas = data.get("resultset", [])
 
         if agendas:
-            self._session.agenda_id = agendas[0].get("id_agenda")
+            sess = self._session
+            assert sess is not None
+            sess.agenda_id = agendas[0].get("id_agenda")
 
     def get_day_schedule(self, day: date | None = None) -> list[Appointment]:
         """
@@ -366,12 +372,12 @@ class WodAppClient:
         """Unsubscribe from an appointment's waiting list."""
         return self._subscription_request("subscribeWaitingList", "unsubscribe", appointment_id, date_start, date_end)
 
-    def get_upcoming_reservations(self) -> list[dict]:
+    def get_upcoming_reservations(self) -> tuple[list[dict], dict]:
         """
         Get upcoming reservations for the current user.
 
         Returns:
-            List of dicts with id_appointment, name, date_start (datetime), sorted by date
+            Tuple of (list of dicts with id_appointment, name, date_start (datetime), sorted by date, company_images)
         """
         params = {
             **self._base_params(),
@@ -413,12 +419,13 @@ class WodAppClient:
         if self._cache:
             cached = self._cache.get(cache_key)
             if cached is not None:
+                cached_members, cached_wl = cast("tuple[list[Member], WaitingList]", cached)
                 # If we have an expected total, check if the cached member list matches it
-                if expected_total is not None and len(cached[0]) != expected_total:
+                if expected_total is not None and len(cached_members) != expected_total:
                     logger.debug("Cache stale (count mismatch): %s", cache_key)
                     self._cache.invalidate(cache_key)
                 else:
-                    return cached
+                    return cached_members, cached_wl
 
         details = self.get_appointment_details(appointment_id, date_start, date_end)
         result = (details.subscriptions.members, details.waitinglist)

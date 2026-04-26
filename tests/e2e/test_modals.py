@@ -8,7 +8,8 @@ from playwright.sync_api import expect
 _TOMORROW = date.today() + timedelta(days=1)
 _CALENDAR_URL = f"/calendar?day={_TOMORROW.isoformat()}"
 
-from wodplanner.models.calendar import (
+
+from wodplanner.models.calendar import (  # noqa: E402
     Appointment,
     AppointmentDetails,
     Member,

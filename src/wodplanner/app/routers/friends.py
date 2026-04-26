@@ -1,5 +1,7 @@
 """Friends management endpoints."""
 
+from typing import cast
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -35,7 +37,7 @@ def list_friends(
     friends = friends_service.get_all(session.user_id)
     return [
         FriendResponse(
-            id=f.id,
+            id=cast(int, f.id),
             appuser_id=f.appuser_id,
             name=f.name,
             added_at=f.added_at.isoformat() if f.added_at else "",
@@ -53,7 +55,7 @@ def add_friend(
     """Add a friend by their WodApp user ID."""
     friend = friends_service.add(session.user_id, request.appuser_id, request.name)
     return FriendResponse(
-        id=friend.id,
+        id=cast(int, friend.id),
         appuser_id=friend.appuser_id,
         name=friend.name,
         added_at=friend.added_at.isoformat() if friend.added_at else "",
@@ -71,7 +73,7 @@ def get_friend(
     if not friend:
         raise HTTPException(status_code=404, detail="Friend not found")
     return FriendResponse(
-        id=friend.id,
+        id=cast(int, friend.id),
         appuser_id=friend.appuser_id,
         name=friend.name,
         added_at=friend.added_at.isoformat() if friend.added_at else "",

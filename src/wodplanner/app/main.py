@@ -3,7 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Callable
+from typing import AsyncIterator, Callable, cast
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,7 +57,7 @@ class CloudflareIPMiddleware(BaseHTTPMiddleware):
         cf_ip = request.headers.get("CF-Connecting-IP")
         if cf_ip:
             request.scope["client"] = (cf_ip, 0)
-        return await call_next(request)
+        return cast(Response, await call_next(request))
 
 
 @asynccontextmanager

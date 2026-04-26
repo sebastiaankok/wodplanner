@@ -1,13 +1,13 @@
 """E2E tests for mobile/responsive layout (iPhone 13 viewport)."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import pytest
 from playwright.sync_api import expect
 
+from wodplanner.app.config import settings
 from wodplanner.models.auth import AuthSession
 from wodplanner.models.calendar import Appointment
-from wodplanner.app.config import settings
 from wodplanner.services import session as cookie_session
 
 _IPHONE_VIEWPORT = {"width": 390, "height": 844}

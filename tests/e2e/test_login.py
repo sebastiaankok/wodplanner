@@ -1,9 +1,10 @@
 """E2E tests for login and authentication flows."""
 
 import re
+from unittest.mock import patch
+
 import pytest
 from playwright.sync_api import expect
-from unittest.mock import patch
 
 from wodplanner.api.client import AuthenticationError
 from wodplanner.services.login_limiter import limiter
