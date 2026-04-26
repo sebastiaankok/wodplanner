@@ -3,7 +3,7 @@
 import secrets
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import ConfigDict, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -34,9 +34,7 @@ class Settings(BaseSettings):
             self.cookie_secure = self.environment == "production"
         return self
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
 settings = Settings()

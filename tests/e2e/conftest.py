@@ -62,7 +62,9 @@ def live_server(tmp_path_factory):
     )
 
     port = _free_port()
-    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
+    config = uvicorn.Config(
+        app, host="127.0.0.1", port=port, log_level="error", ws="wsproto"
+    )
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
