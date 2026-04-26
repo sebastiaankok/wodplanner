@@ -3,7 +3,7 @@
 ## Running locally
 
 ```bash
-# All tests
+# Unit tests (fast, no browser)
 pytest
 
 # With coverage report
@@ -13,6 +13,12 @@ pytest --cov=wodplanner --cov-report=term-missing
 pytest tests/services/test_schedule.py
 pytest tests/services/test_schedule.py::TestScheduleService::test_upsert_updates_existing
 
+# E2E browser tests (requires Playwright Chromium)
+pytest tests/e2e/ --browser chromium
+
+# E2E headed + slow motion (visual sanity check)
+pytest tests/e2e/ --browser chromium --headed --slowmo 500
+
 # Lint
 ruff check .
 
@@ -20,17 +26,46 @@ ruff check .
 mypy src/
 ```
 
-Current coverage: **98%** across 409 tests.
+Current coverage: **98%** across 409 unit tests + 33 E2E tests.
+
+### First-time Playwright setup
+
+```bash
+pip install -e ".[api,dev]"
+playwright install chromium
+```
 
 ## CI
 
 `.github/workflows/ci.yml` runs on every push: `ruff check .` then `pytest`. Uses Python 3.12 with pip caching. Docker build is a separate workflow (`docker.yml`, runs on `main` and version tags only).
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push: `ruff check .` then `pytest`. Uses Python 3.12 with pip caching. Docker build is a separate workflow (`docker.yml`, runs on `main` and version tags only).
+
+To add E2E to CI:
+
+```yaml
+- run: pip install -e ".[api,dev]"
+- run: playwright install --with-deps chromium
+- run: pytest tests/e2e/ --browser chromium
+```
 
 ## Test structure
 
 ```
 tests/
 ├── conftest.py                          # shared db_path / clean_registry fixtures
+├── e2e/
+│   ├── conftest.py                      # live_server, mock_wodapp_client, authed_context, page
+│   ├── test_login.py                    # redirect, bad creds, rate limiter
+│   ├── test_calendar_nav.py             # HTMX date nav, OOB swap sync (#date-nav, #filters)
+│   ├── test_filters.py                  # toggleFilters() JS, filter POST persistence
+│   ├── test_appointment_actions.py      # subscribe → calendar refresh, people modal
+│   ├── test_modals.py                   # schedule/people modal open/close
+│   ├── test_one_rep_max.py              # log form toggle, add/delete entry
+│   ├── test_friends.py                  # delete flow, per-user scoping
+│   └── test_mobile.py                   # iPhone viewport, responsive layout
 ├── api/
 │   ├── test_client.py                   # WodAppClient happy paths + cache
 │   └── test_client_retry.py             # 502/503 retries, transport errors, status != OK
@@ -125,6 +160,65 @@ app.include_router(router)
 # call route, assert handler response, then remove route
 ```
 
+### `tests/e2e/conftest.py` — Playwright fixtures
+
+E2E tests run against a real FastAPI server in a background thread — no `TestClient` magic, full HTMX and JS execution.
+
+#### `live_server` (session scope)
+
+Starts uvicorn on a free port against a temp SQLite DB. Patches `WodAppClient.from_session` at the class level to return the current per-test `_mock_holder[0]` value, so every request to the live server uses the test's mock.
+
+```python
+def test_something(page, mock_wodapp_client):
+    mock_wodapp_client.get_day_schedule.return_value = [...]
+    page.goto("/calendar")
+    ...
+```
+
+#### `mock_wodapp_client` (function scope)
+
+`MagicMock(spec=WodAppClient)` swapped into `_mock_holder` before each test, cleared after. Default return values: `get_upcoming_reservations → ([], {})`, `get_day_schedule → []`. Tests override per-call return values or use `side_effect` for multi-call sequences.
+
+#### `authed_context` (function scope)
+
+`BrowserContext` with a signed session cookie (encoded via `cookie_session.encode(auth_session, settings.secret_key)`) — same signing key the live server uses, so the cookie is valid.
+
+#### `page` (function scope)
+
+Authenticated page derived from `authed_context`. Pre-dismisses all tooltips for the test user before yielding, so tooltip overlays don't intercept clicks.
+
+#### `unauthed_page` (function scope)
+
+Browser page with no session cookie — used for login/redirect tests.
+
+#### DB isolation
+
+All E2E tests share a single session-scoped temp DB. Tests needing isolated state use distinct `user_id`s (filters: 100, friends: 200/201) or clean up explicitly at the end of the test.
+
+#### Patching in live-server tests
+
+For routes that call `WodAppClient()` directly (e.g. the login route), use `unittest.mock.patch` in the test body — it modifies the same module object the server thread uses:
+
+```python
+def test_login_bad_credentials_shows_error(unauthed_page):
+    with patch("wodplanner.app.routers.auth.WodAppClient") as MockClient:
+        MockClient.return_value.login.side_effect = AuthenticationError("bad")
+        unauthed_page.fill("input[name=username]", "x@x.com")
+        unauthed_page.fill("input[name=password]", "bad")
+        unauthed_page.click("button[type=submit]")
+    expect(unauthed_page.locator(".login-error")).to_contain_text("Invalid")
+```
+
+#### Waiting for HTMX swaps
+
+Use `page.expect_response(lambda r: "/path" in r.url)` to wait for the XHR to complete before asserting DOM state. Playwright's `expect(locator)` assertions auto-retry, so you can also just assert directly after a click and let the timeout handle the wait.
+
+```python
+with page.expect_response(lambda r: "/calendar/2026-04-25" in r.url):
+    page.get_by_title("Previous day").click()
+expect(page.locator(".current-date")).to_have_text("April 25, 2026")
+```
+
 ## Mocking pdfplumber
 
 `extract_schedules_from_pdf` tested via `unittest.mock.patch("pdfplumber.open")`. Mock provides fake table data (list of rows) — no real PDF needed.
@@ -151,8 +245,9 @@ def _mock_pdf(self, tables_per_page):
 
 | Tool | Config section | Notes |
 |------|---------------|-------|
-| pytest | `[tool.pytest.ini_options]` | `testpaths = ["tests"]` |
+| pytest | `[tool.pytest.ini_options]` | `testpaths = ["tests"]`; `e2e` marker registered |
 | pytest-cov | dev dep | Run via `pytest --cov=wodplanner` |
+| pytest-playwright | dev dep | Browser tests; run `playwright install chromium` once |
 | ruff | `[tool.ruff]` | `line-length = 100`; selects E, F, I; E501 ignored (pre-existing long lines) |
 | mypy | `[tool.mypy]` | `python_version = "3.11"`, `warn_return_any`, `ignore_missing_imports`; not strict |
 
@@ -163,4 +258,5 @@ def _mock_pdf(self, tables_per_page):
 - **New router**: `tests/app/routers/test_<name>.py`. Use `app_client` + `session_cookie` for authenticated requests; assign return values on `mock_wodapp_client` for API stubs.
 - **New view requiring HTML rendering**: assert status + presence of key strings (e.g. exercise name, partial wrapper id), not full HTML diffs.
 - **New CLI subcommand**: pure-function tests for parsers, plus a `main()` test that uses `monkeypatch.setattr("sys.argv", [...])` and patches I/O (`pdfplumber.open`, `input`, etc.).
-```
+- **New HTMX behavior or JS feature**: add to the relevant `tests/e2e/test_*.py`. Use `mock_wodapp_client` to control server data, `page.expect_response(...)` to wait for XHR, and service classes to seed/verify DB state. Keep `user_id` distinct from 42 if the test writes to the preferences or friends table.
+- **New template element that needs E2E targeting**: prefer `get_by_role` / `get_by_text` / `get_by_title`; add `data-testid` only when role/text is ambiguous.

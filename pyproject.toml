@@ -16,6 +16,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.0.0",
+    "pytest-playwright>=0.5.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
 ]
@@ -38,6 +39,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "e2e: end-to-end browser tests (run with: pytest tests/e2e/)",
+]
 
 [tool.ruff]
 line-length = 100
