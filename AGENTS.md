@@ -26,6 +26,9 @@ pytest
 # Run tests with coverage
 pytest --cov=wodplanner --cov-report=term-missing
 
+# Run e2e tests
+pytest tests/e2e/ --browser chromium
+
 # Lint
 ruff check .
 
