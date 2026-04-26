@@ -31,7 +31,7 @@ Calendar views pass `session.gym_id` to all schedule queries. Query filter is `g
 4. If user has friends: parallelizes `get_appointment_members()` calls across a `ThreadPoolExecutor(max_workers=5)` — bounded to avoid overloading upstream API
 5. Failures in member fetch are caught and logged as warnings; affected appointments render with empty friends list
 
-`is_signup_open(appt_name, appt_start)` also lives here (not in `views.py`). Regular classes open 7 days before start; CF101/101 classes open 14 weeks before.
+`is_signup_open(appt_name, appt_start)` also lives here (not in `views.py`). Regular classes open 7 days before start; CF101 classes open 14 weeks before.
 
 After PDF parsing, `import-schedule` collects all unique raw 1RM exercise names across all schedules and runs `resolve_exercise_interactive()` for each. Exact matches are silent. Fuzzy matches prompt: `[1] Accept match [2] Add as new [3] Rename [4] Skip`. No match prompts: `[1] Add as new [2] Rename [3] Skip`. Choosing rename recurses with the new name. New exercise names are persisted to the `exercises` table before DB save.
 

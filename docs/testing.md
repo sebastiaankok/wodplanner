@@ -153,7 +153,7 @@ def _mock_pdf(self, tables_per_page):
 |------|---------------|-------|
 | pytest | `[tool.pytest.ini_options]` | `testpaths = ["tests"]` |
 | pytest-cov | dev dep | Run via `pytest --cov=wodplanner` |
-| ruff | `[tool.ruff]` | `line-length = 100`; selects E, F, I; E501 ignored (pre-existing long lines) |
+| ruff | `[tool.ruff]` | `line-length = 100`; selects `E`, `F`, `I`; E501 ignored (pre-existing long lines) |
 | mypy | `[tool.mypy]` | `python_version = "3.11"`, `warn_return_any`, `ignore_missing_imports`; not strict |
 
 ## Adding new tests

@@ -77,7 +77,7 @@ Environment variables (all optional for web usage):
 - `API_CACHE_TTL_SECONDS` — TTL for non-user-specific API response cache (default: 600 = 10 min); set lower for faster refresh, higher to reduce API load
 - `LOG_LEVEL` — logging verbosity: `DEBUG`, `INFO` (default), `WARNING`, `ERROR`; applies to all wodplanner loggers
 
-## Further Reading
+## Further reading
 
 - [docs/api.md](docs/api.md) — external API, API client, auth dependencies, auto-signup flow
 - [docs/frontend.md](docs/frontend.md) — HTMX patterns, OOB swap gotcha, schedule import

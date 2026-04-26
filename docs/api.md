@@ -351,7 +351,7 @@ The `appointment` endpoint returns `subscriptions.members[]` with:
 
 **Self-detection**: the WodApp login response does **not** return the user's `id_appuser`; `id_user` and `id_appuser` are different values. Resolution strategy:
 
-1. Prefer `session.appuser_id` (from login response `id_appuser`, reserved — likely stays `None`)
+1. Prefer `session.appuser_id` (from login response `id_appuser`, reserved field — likely stays `None`)
 2. Fall back to `preferences.get_my_appuser_id(user_id)` — persisted after one-time discovery
 3. On first-time discovery: match `member.name == session.firstname` against the participant list; accept **only if exactly one member matches** (ambiguous matches are skipped to avoid wrong self-assignment). Persist the matched `id_appuser` to `preferences` so subsequent loads use pure ID comparison.
 
