@@ -53,7 +53,7 @@ def get_day_schedule(
     include_friends: bool = Query(
         default=False, description="Include friends info (slower, fetches details)"
     ),
-    session: Annotated[AuthSession, Depends(require_session)] = None,
+    session: Annotated[AuthSession, Depends(require_session)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session),
     friends_service: FriendsService = Depends(get_friends_service),
 ) -> DayScheduleResponse:
@@ -119,7 +119,7 @@ def get_week_schedule(
     include_friends: bool = Query(
         default=False, description="Include friends info (slower, fetches details)"
     ),
-    session: Annotated[AuthSession, Depends(require_session)] = None,
+    session: Annotated[AuthSession, Depends(require_session)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session),
     friends_service: FriendsService = Depends(get_friends_service),
 ) -> list[DayScheduleResponse]:

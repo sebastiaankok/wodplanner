@@ -4,7 +4,7 @@ import hashlib
 import json
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -119,7 +119,7 @@ def login_page(
 @router.get("/", response_class=HTMLResponse)
 def home_page(
     request: Request,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
 ):
     """Homepage showing upcoming reservations."""
@@ -170,7 +170,7 @@ def _get_tooltip_context(dismissed: set, appt_data: list) -> dict:
 def calendar_page(
     request: Request,
     day: str | None = None,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
@@ -183,7 +183,7 @@ def calendar_page(
 
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
-    appt_data = build_calendar_view(session, target_date, client, friends_service, schedule_service, hidden_types)
+    appt_data = build_calendar_view(session, target_date, client, friends_service, schedule_service, set(hidden_types))
 
     weekday = target_date.strftime("%A")
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
@@ -211,7 +211,7 @@ def calendar_page(
 def calendar_day_partial(
     request: Request,
     day: str,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
@@ -224,7 +224,7 @@ def calendar_day_partial(
 
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
-    appt_data = build_calendar_view(session, target_date, client, friends_service, schedule_service, hidden_types)
+    appt_data = build_calendar_view(session, target_date, client, friends_service, schedule_service, set(hidden_types))
 
     weekday = target_date.strftime("%A")
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
@@ -251,7 +251,7 @@ def toggle_filter(
     request: Request,
     class_type: str,
     current_date: str = Form(...),
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
@@ -273,7 +273,7 @@ def toggle_filter(
 @router.post("/tooltips/dismiss/{tooltip_id}", response_class=HTMLResponse)
 def dismiss_tooltip(
     tooltip_id: str,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     prefs_service: PreferencesService = Depends(get_preferences_service),
 ):
     """Dismiss a tooltip and persist the state."""
@@ -284,7 +284,7 @@ def dismiss_tooltip(
 @router.get("/1rm", response_class=HTMLResponse)
 def one_rep_max_page(
     request: Request,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
 ):
     """1RM tracking page."""
@@ -312,7 +312,7 @@ def one_rep_max_page(
 @router.get("/friends", response_class=HTMLResponse)
 def friends_page(
     request: Request,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
 ):
     """Friends management page."""
@@ -343,7 +343,7 @@ def add_friend_view(
     request: Request,
     appuser_id: int = Form(...),
     name: str = Form(...),
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
 ):
     """Add a friend (htmx form submission)."""
@@ -366,7 +366,7 @@ def add_friend_view(
 def delete_friend_view(
     request: Request,
     friend_id: int,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
 ):
     """Delete a friend (htmx)."""
@@ -392,7 +392,7 @@ def subscribe_view(
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
@@ -422,7 +422,7 @@ def waitinglist_view(
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
@@ -453,7 +453,7 @@ def unsubscribe_view(
     date_start: str = Form(...),
     date_end: str = Form(...),
     is_waitinglist: str = Form("false"),
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
@@ -486,7 +486,7 @@ def people_modal_view(
     appointment_id: int,
     date_start: str,
     date_end: str,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
@@ -519,7 +519,7 @@ def people_modal_view(
         })
 
     # Sort: self first, then friends, then alphabetically
-    participants.sort(key=lambda p: (not p["is_self"], not p["is_friend"], p["name"].lower()))
+    participants.sort(key=lambda p: (not p["is_self"], not p["is_friend"], str(p["name"]).lower()))
 
     return render(
         request,
@@ -544,7 +544,7 @@ def add_friend_from_people(
     appointment_id: int = Form(...),
     date_start: str = Form(...),
     date_end: str = Form(...),
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
 ):
@@ -569,7 +569,7 @@ def schedule_modal_view(
     appointment_id: int,
     date_start: str,
     class_name: str,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Get workout schedule for an appointment (htmx modal)."""
@@ -596,7 +596,7 @@ def one_rep_max_modal_view(
     appointment_id: int,
     date_start: str,
     class_name: str,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     schedule_service: ScheduleService = Depends(get_schedule_service),
     one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
 ):
@@ -631,7 +631,7 @@ def one_rep_max_modal_view(
         for e in raw
     ]
     if suggested_exercises:
-        formatted.sort(key=lambda e: -_similarity_score(e["exercise"], suggested_exercises))
+        formatted.sort(key=lambda e: -_similarity_score(cast("str", e["exercise"]), suggested_exercises))
 
     return render(
         request,
@@ -653,7 +653,7 @@ def add_one_rep_max_view(
     exercise: str = Form(...),
     weight_kg: float = Form(...),
     recorded_at: str = Form(...),
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
 ):
     """Add a 1rm entry (htmx)."""
@@ -689,7 +689,7 @@ def add_one_rep_max_view(
 def delete_one_rep_max_view(
     request: Request,
     entry_id: int,
-    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
 ):
     """Delete a 1rm entry (htmx)."""

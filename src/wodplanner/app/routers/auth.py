@@ -83,7 +83,7 @@ def login(
             key="session",
             value=session_value,
             httponly=True,
-            secure=settings.cookie_secure,
+            secure=settings.cookie_secure if settings.cookie_secure is not None else False,
             samesite="lax",
             max_age=cookie_max_age,
         )

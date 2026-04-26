@@ -23,6 +23,7 @@ dev = [
 api = [
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.29.0",
+    "wsproto>=1.2.0",
     "itsdangerous>=2.0.0",
     "jinja2>=3.0.0",
     "python-multipart>=0.0.7",
@@ -55,6 +56,7 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
 
 [tool.setuptools.packages.find]
 where = ["src"]

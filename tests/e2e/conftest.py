@@ -33,7 +33,7 @@ def _free_port() -> int:
 def live_server(tmp_path_factory):
     """Start the FastAPI app on a background thread; yield its base URL."""
     import uvicorn
-    from wodplanner.app.main import app
+
     from wodplanner.app.dependencies import (
         get_api_cache_service,
         get_friends_service,
@@ -41,6 +41,7 @@ def live_server(tmp_path_factory):
         get_preferences_service,
         get_schedule_service,
     )
+    from wodplanner.app.main import app
 
     db_path = tmp_path_factory.mktemp("e2e") / "test.db"
     os.environ["DB_PATH"] = str(db_path)
@@ -62,7 +63,9 @@ def live_server(tmp_path_factory):
     )
 
     port = _free_port()
-    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
+    config = uvicorn.Config(
+        app, host="127.0.0.1", port=port, log_level="error", ws="wsproto"
+    )
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()

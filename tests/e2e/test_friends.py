@@ -105,8 +105,10 @@ def test_per_user_friend_scoping(
     page_b.goto("/friends")
     expect(page_b.locator(".empty-state")).to_be_visible()
 
-    page_a.close(); ctx_a.close()
-    page_b.close(); ctx_b.close()
+    page_a.close()
+    ctx_a.close()
+    page_b.close()
+    ctx_b.close()
 
     # Clean up
     for f in svc.get_all(auth_session.user_id):
