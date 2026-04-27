@@ -3,8 +3,6 @@
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from wodplanner.models.google import GoogleAccount, SyncedEvent
 from wodplanner.services import calendar_sync
 from wodplanner.services.calendar_sync import SyncResult
