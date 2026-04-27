@@ -81,3 +81,17 @@ def list_events_with_private_property(
     )
     resp.raise_for_status()
     return resp.json().get("items", [])
+
+
+def list_events_in_range(
+    access_token: str, calendar_id: str, time_min: str, time_max: str, max_results: int = 250
+) -> list[dict]:
+    """List all events in a calendar within a time range (RFC3339 strings)."""
+    resp = httpx.get(
+        f"{_BASE}/calendars/{calendar_id}/events",
+        headers=_auth_headers(access_token),
+        params={"timeMin": time_min, "timeMax": time_max, "maxResults": max_results},
+        timeout=_TIMEOUT,
+    )
+    resp.raise_for_status()
+    return resp.json().get("items", [])
