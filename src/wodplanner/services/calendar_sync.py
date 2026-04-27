@@ -267,4 +267,9 @@ def sync_user(
 
     status = "ok" if result.ok else f"partial errors: {'; '.join(result.errors[:3])}"
     db.update_sync_status(account.user_id, status)
+    logger.info(
+        "Sync user %d: +%d ~%d -%d errors=%s (desired=%d existing=%d)",
+        account.user_id, result.inserted, result.updated, result.deleted,
+        result.errors or "none", len(desired), len(existing),
+    )
     return result
