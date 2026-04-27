@@ -1,6 +1,6 @@
 [project]
 name = "wodplanner"
-version = "0.5.0"
+version = "0.6.0"
 description = "Custom frontend and auto-signup for WodApp"
 readme = "README.md"
 requires-python = ">=3.11"
