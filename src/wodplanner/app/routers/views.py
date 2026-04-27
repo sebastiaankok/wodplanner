@@ -47,6 +47,7 @@ def _enqueue_google_sync(
     session: AuthSession,
     client: WodAppClient,
     db: GoogleAccountsService,
+    schedule_service: ScheduleService,
 ) -> None:
     """Fire-and-forget Google Calendar sync after a signup or cancel."""
     account = db.get_account(session.user_id)
@@ -61,6 +62,8 @@ def _enqueue_google_sync(
         enc_key=enc_key,
         first_name=session.firstname,
         gym_name=session.gym_name,
+        schedule_service=schedule_service,
+        gym_id=session.gym_id,
     )
 
 
@@ -434,7 +437,7 @@ def subscribe_view(
     end = parse_api_datetime(date_end)
 
     client.subscribe(appointment_id, start, end)
-    _enqueue_google_sync(background_tasks, session, client, google_db)
+    _enqueue_google_sync(background_tasks, session, client, google_db, schedule_service)
 
     # Return updated calendar
     return calendar_day_partial(
@@ -467,7 +470,7 @@ def waitinglist_view(
     end = parse_api_datetime(date_end)
 
     client.subscribe_waitinglist(appointment_id, start, end)
-    _enqueue_google_sync(background_tasks, session, client, google_db)
+    _enqueue_google_sync(background_tasks, session, client, google_db, schedule_service)
 
     # Return updated calendar
     return calendar_day_partial(
@@ -505,7 +508,7 @@ def unsubscribe_view(
     else:
         client.unsubscribe(appointment_id, start, end)
 
-    _enqueue_google_sync(background_tasks, session, client, google_db)
+    _enqueue_google_sync(background_tasks, session, client, google_db, schedule_service)
 
     # Return updated calendar
     return calendar_day_partial(
