@@ -92,7 +92,13 @@ def run_all(conn: sqlite3.Connection) -> list[int]:
 def _import_services_for_registration() -> None:
     """Import service modules so their register() calls execute."""
     # Local imports avoid a circular import at module load time.
-    from wodplanner.services import friends, one_rep_max, preferences, schedule  # noqa: F401
+    from wodplanner.services import (  # noqa: F401
+        friends,
+        google_accounts,
+        one_rep_max,
+        preferences,
+        schedule,
+    )
 
 
 def ensure_migrations(db_path: str | Path) -> list[int]:

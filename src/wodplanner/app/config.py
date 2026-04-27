@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     # Set SECRET_KEY env var in production; random default invalidates sessions on restart
     secret_key: str = secrets.token_hex(32)
 
+    # Google Calendar sync (all optional — feature is disabled when client_id is unset)
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str = "http://localhost:8000/google/callback"
+    # Optional: base64url-encoded 32-byte Fernet key; derived from secret_key when absent
+    google_token_enc_key: str | None = None
+
     @model_validator(mode="after")
     def apply_environment_defaults(self) -> "Settings":
         if self.cookie_secure is None:

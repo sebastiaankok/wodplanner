@@ -13,6 +13,7 @@ from wodplanner.models.auth import AuthSession
 from wodplanner.services import session as cookie_session
 from wodplanner.services.api_cache import ApiCacheService
 from wodplanner.services.friends import FriendsService
+from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.one_rep_max import OneRepMaxService
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
@@ -44,6 +45,12 @@ def get_schedule_service() -> ScheduleService:
 def get_one_rep_max_service() -> OneRepMaxService:
     """Get the singleton one rep max service."""
     return OneRepMaxService(_get_db_path())
+
+
+@lru_cache
+def get_google_accounts_service() -> GoogleAccountsService:
+    """Get the singleton Google accounts service."""
+    return GoogleAccountsService(_get_db_path())
 
 
 @lru_cache

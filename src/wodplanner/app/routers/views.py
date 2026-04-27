@@ -2,18 +2,21 @@
 
 import hashlib
 import json
+import logging
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from wodplanner.api.client import WodAppClient
+from wodplanner.app.config import settings
 from wodplanner.app.dependencies import (
     get_client_from_session_for_view,
     get_friends_service,
+    get_google_accounts_service,
     get_one_rep_max_service,
     get_preferences_service,
     get_schedule_service,
@@ -21,8 +24,10 @@ from wodplanner.app.dependencies import (
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
+from wodplanner.services import calendar_sync, crypto
 from wodplanner.services.calendar_view import build_calendar_view
 from wodplanner.services.friends import FriendsService
+from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.one_rep_max import (
     OneRepMaxService,
     extract_1rm_exercises,
@@ -31,8 +36,32 @@ from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
 from wodplanner.utils.dates import parse_api_datetime, parse_iso_date
 
+logger = logging.getLogger(__name__)
+
 # Class types that can be filtered
 FILTERABLE_CLASS_TYPES = ["Open Gym", "CF101", "Teen Athlete", "HyCross", "CF Boxing", "Gymnastics", "Strength", "Small Group Strength Class"]
+
+
+def _enqueue_google_sync(
+    background_tasks: BackgroundTasks,
+    session: AuthSession,
+    client: WodAppClient,
+    db: GoogleAccountsService,
+) -> None:
+    """Fire-and-forget Google Calendar sync after a signup or cancel."""
+    account = db.get_account(session.user_id)
+    if not account or not account.sync_enabled or not account.calendar_id:
+        return
+    enc_key = crypto.get_enc_key(settings.google_token_enc_key, settings.secret_key)
+    background_tasks.add_task(
+        calendar_sync.sync_user,
+        account=account,
+        db=db,
+        client=client,
+        enc_key=enc_key,
+        first_name=session.firstname,
+        gym_name=session.gym_name,
+    )
 
 
 def _format_1rm_entries(entries):
@@ -389,6 +418,7 @@ def delete_friend_view(
 @router.post("/appointments/{appointment_id}/subscribe", response_class=HTMLResponse)
 def subscribe_view(
     request: Request,
+    background_tasks: BackgroundTasks,
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
@@ -397,12 +427,14 @@ def subscribe_view(
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
+    google_db: GoogleAccountsService = Depends(get_google_accounts_service),
 ):
     """Subscribe to appointment from calendar (htmx)."""
     start = parse_api_datetime(date_start)
     end = parse_api_datetime(date_end)
 
     client.subscribe(appointment_id, start, end)
+    _enqueue_google_sync(background_tasks, session, client, google_db)
 
     # Return updated calendar
     return calendar_day_partial(
@@ -419,6 +451,7 @@ def subscribe_view(
 @router.post("/appointments/{appointment_id}/waitinglist", response_class=HTMLResponse)
 def waitinglist_view(
     request: Request,
+    background_tasks: BackgroundTasks,
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
@@ -427,12 +460,14 @@ def waitinglist_view(
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
+    google_db: GoogleAccountsService = Depends(get_google_accounts_service),
 ):
     """Join waiting list from calendar (htmx)."""
     start = parse_api_datetime(date_start)
     end = parse_api_datetime(date_end)
 
     client.subscribe_waitinglist(appointment_id, start, end)
+    _enqueue_google_sync(background_tasks, session, client, google_db)
 
     # Return updated calendar
     return calendar_day_partial(
@@ -449,6 +484,7 @@ def waitinglist_view(
 @router.post("/appointments/{appointment_id}/unsubscribe", response_class=HTMLResponse)
 def unsubscribe_view(
     request: Request,
+    background_tasks: BackgroundTasks,
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
@@ -458,6 +494,7 @@ def unsubscribe_view(
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
+    google_db: GoogleAccountsService = Depends(get_google_accounts_service),
 ):
     """Unsubscribe from appointment (htmx)."""
     start = parse_api_datetime(date_start)
@@ -467,6 +504,8 @@ def unsubscribe_view(
         client.unsubscribe_waitinglist(appointment_id, start, end)
     else:
         client.unsubscribe(appointment_id, start, end)
+
+    _enqueue_google_sync(background_tasks, session, client, google_db)
 
     # Return updated calendar
     return calendar_day_partial(
