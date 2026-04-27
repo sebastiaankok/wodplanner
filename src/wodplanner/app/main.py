@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -69,16 +70,85 @@ class CloudflareIPMiddleware(BaseHTTPMiddleware):
         return cast(Response, await call_next(request))
 
 
+_PERIODIC_SYNC_INTERVAL_SECONDS = 30 * 60  # 30 minutes
+_user_sync_locks: dict[int, asyncio.Lock] = {}
+
+
+def _get_user_sync_lock(user_id: int) -> asyncio.Lock:
+    if user_id not in _user_sync_locks:
+        _user_sync_locks[user_id] = asyncio.Lock()
+    return _user_sync_locks[user_id]
+
+
+async def _periodic_sync_all(db_path: Path) -> None:
+    """Background task: sync all users with sync_enabled every 30 minutes."""
+    from wodplanner.api.client import WodAppClient
+    from wodplanner.models.auth import AuthSession
+    from wodplanner.services import calendar_sync, crypto
+    from wodplanner.services.google_accounts import GoogleAccountsService
+
+    db = GoogleAccountsService(db_path)
+    enc_key = crypto.get_enc_key(settings.google_token_enc_key, settings.secret_key)
+
+    user_ids = db.get_all_sync_enabled_user_ids()
+    logger.info("Periodic sync: %d user(s) with sync enabled", len(user_ids))
+
+    for user_id in user_ids:
+        lock = _get_user_sync_lock(user_id)
+        if lock.locked():
+            logger.debug("Periodic sync: user %d already syncing, skipping", user_id)
+            continue
+        async with lock:
+            account = db.get_account(user_id)
+            if not account:
+                continue
+            session_enc = db.get_wodapp_session_enc(user_id)
+            if not session_enc:
+                continue
+            try:
+                session_json = crypto.decrypt(session_enc, enc_key)
+                wodapp_session = AuthSession.model_validate_json(session_json)
+                client = WodAppClient.from_session(wodapp_session)
+                await asyncio.to_thread(
+                    calendar_sync.sync_user,
+                    account=account,
+                    db=db,
+                    client=client,
+                    enc_key=enc_key,
+                    first_name=wodapp_session.firstname,
+                    gym_name=wodapp_session.gym_name,
+                )
+            except Exception:
+                logger.exception("Periodic sync failed for user %d", user_id)
+
+
+async def _periodic_sync_task(db_path: Path) -> None:
+    """Runs _periodic_sync_all on a fixed interval for the process lifetime."""
+    while True:
+        await asyncio.sleep(_PERIODIC_SYNC_INTERVAL_SECONDS)
+        try:
+            await _periodic_sync_all(db_path)
+        except Exception:
+            logger.exception("Periodic sync task error")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Run pending schema migrations once at startup."""
+    """Run pending schema migrations and start background sync at startup."""
     db_path = _get_db_path()
     ran = ensure_migrations(db_path)
     if ran:
         logger.info("Applied %d migration(s) on %s: %s", len(ran), db_path, ran)
     else:
         logger.debug("No pending migrations on %s", db_path)
+
+    sync_task = asyncio.create_task(_periodic_sync_task(db_path))
     yield
+    sync_task.cancel()
+    try:
+        await sync_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(

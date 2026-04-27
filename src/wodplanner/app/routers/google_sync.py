@@ -167,6 +167,11 @@ def google_callback(
             token_expiry=_token_expiry_iso(token_data),
             scopes=token_data.get("scope", ""),
         )
+        # Store WodApp session for periodic background sync.
+        db.store_wodapp_session_enc(
+            session.user_id,
+            crypto.encrypt(session.model_dump_json(), key),
+        )
     except Exception:
         logger.exception("Google OAuth callback failed for user %d", session.user_id)
         return RedirectResponse(url="/settings?error=google_exchange_failed", status_code=303)

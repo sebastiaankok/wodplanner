@@ -54,8 +54,19 @@ def _migrate_v501(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_v502(conn: sqlite3.Connection) -> None:
+    """Add encrypted WodApp session for background periodic sync."""
+    try:
+        conn.execute(
+            "ALTER TABLE google_accounts ADD COLUMN wodapp_session_enc TEXT"
+        )
+    except Exception:
+        pass  # Column already exists on re-migration
+
+
 migrations.register(500, "create google_accounts table", _migrate_v500)
 migrations.register(501, "create synced_events table", _migrate_v501)
+migrations.register(502, "add wodapp_session_enc to google_accounts", _migrate_v502)
 
 
 class GoogleAccountsService(BaseService):
@@ -190,9 +201,28 @@ class GoogleAccountsService(BaseService):
                 """
                 SELECT user_id FROM google_accounts
                 WHERE sync_enabled = 1 AND calendar_id IS NOT NULL
+                  AND wodapp_session_enc IS NOT NULL
                 """
             ).fetchall()
             return [row["user_id"] for row in rows]
+
+    def store_wodapp_session_enc(self, user_id: int, session_enc: str) -> None:
+        """Store the encrypted WodApp AuthSession JSON for background sync."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE google_accounts SET wodapp_session_enc = ? WHERE user_id = ?",
+                (session_enc, user_id),
+            )
+            conn.commit()
+
+    def get_wodapp_session_enc(self, user_id: int) -> str | None:
+        """Retrieve the encrypted WodApp AuthSession JSON, or None if not stored."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT wodapp_session_enc FROM google_accounts WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            return row["wodapp_session_enc"] if row else None
 
     # ── synced_events ────────────────────────────────────────────────────────
 
