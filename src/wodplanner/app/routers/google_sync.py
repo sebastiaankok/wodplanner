@@ -18,7 +18,6 @@ from wodplanner.app.dependencies import (
     get_schedule_service,
     require_session_for_view,
 )
-from wodplanner.services.schedule import ScheduleService
 from wodplanner.models.auth import AuthSession
 from wodplanner.services import calendar_sync, crypto
 from wodplanner.services import google_calendar as gcal
@@ -29,6 +28,7 @@ from wodplanner.services.google_oauth import (
     get_user_email,
     revoke_token,
 )
+from wodplanner.services.schedule import ScheduleService
 
 logger = logging.getLogger(__name__)
 
