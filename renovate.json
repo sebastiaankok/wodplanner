@@ -36,11 +36,13 @@
       "matchManagers": ["dockerfile"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "Docker base image (non-major)",
+      "semanticCommitType": "fix",
       "automerge": false
     },
     {
       "matchManagers": ["dockerfile"],
       "matchUpdateTypes": ["major"],
+      "semanticCommitType": "feat",
       "automerge": false
     }
   ]
