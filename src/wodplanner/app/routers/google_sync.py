@@ -1,19 +1,25 @@
-"""Google Calendar OAuth and settings routes."""
+"""Google Calendar OAuth, settings, and sync routes."""
 
 import logging
 import secrets
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
+from fastapi import APIRouter, Cookie, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
+from wodplanner.api.client import WodAppClient
 from wodplanner.app.config import settings
-from wodplanner.app.dependencies import get_google_accounts_service, require_session_for_view
+from wodplanner.app.dependencies import (
+    get_client_from_session_for_view,
+    get_google_accounts_service,
+    require_session_for_view,
+)
 from wodplanner.models.auth import AuthSession
-from wodplanner.services import crypto
+from wodplanner.services import calendar_sync, crypto
+from wodplanner.services import google_calendar as gcal
 from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.google_oauth import (
     build_auth_url,
@@ -185,3 +191,161 @@ def google_disconnect(
         db.delete_account(session.user_id)
 
     return RedirectResponse(url="/settings?success=google_disconnected", status_code=303)
+
+
+@router.get("/google/calendars", response_class=HTMLResponse)
+def google_calendars(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    db: GoogleAccountsService = Depends(get_google_accounts_service),
+):
+    """HTMX partial: list user's Google Calendars for calendar picker."""
+    account = db.get_account(session.user_id)
+    if not account:
+        raise HTTPException(status_code=400, detail="Not connected to Google")
+
+    try:
+        access_token = calendar_sync.get_valid_token(account, db, _enc_key())
+        calendars = gcal.list_calendars(access_token)
+    except Exception:
+        logger.exception("Failed to list calendars for user %d", session.user_id)
+        calendars = []
+
+    return _render(
+        request,
+        "partials/google_calendars.html",
+        {"google_account": account, "calendars": calendars},
+    )
+
+
+@router.post("/google/calendar/select", response_class=HTMLResponse)
+def google_calendar_select(
+    request: Request,
+    calendar_choice: str = Form(...),
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    client: WodAppClient = Depends(get_client_from_session_for_view),
+    db: GoogleAccountsService = Depends(get_google_accounts_service),
+):
+    """Save the chosen Google Calendar, then run an initial insert-only sync."""
+    account = db.get_account(session.user_id)
+    if not account:
+        raise HTTPException(status_code=400, detail="Not connected to Google")
+
+    key = _enc_key()
+    try:
+        access_token = calendar_sync.get_valid_token(account, db, key)
+    except Exception:
+        logger.exception("Token refresh failed for user %d", session.user_id)
+        return _render(
+            request,
+            "partials/google_sync.html",
+            {
+                "google_configured": _google_configured(),
+                "google_account": account,
+                "sync_result": None,
+                "error": "Token refresh failed. Please reconnect.",
+            },
+        )
+
+    # Parse compound value: "calendar_id|Calendar Name"
+    if "|" in calendar_choice:
+        cal_id, cal_summary = calendar_choice.split("|", 1)
+    else:
+        cal_id = calendar_choice
+        cal_summary = calendar_choice
+
+    if cal_id == "__create__":
+        try:
+            new_cal = gcal.create_calendar(access_token, "WodPlanner")
+            cal_id = new_cal["id"]
+            cal_summary = new_cal.get("summary", "WodPlanner")
+        except Exception:
+            logger.exception("Failed to create calendar for user %d", session.user_id)
+            return _render(
+                request,
+                "partials/google_sync.html",
+                {
+                    "google_configured": _google_configured(),
+                    "google_account": account,
+                    "sync_result": None,
+                    "error": "Failed to create calendar. Please try again.",
+                },
+            )
+
+    db.update_calendar(session.user_id, cal_id, cal_summary)
+    account = db.get_account(session.user_id)
+
+    result = calendar_sync.sync_user(
+        account=account,  # type: ignore[arg-type]
+        db=db,
+        client=client,
+        enc_key=key,
+        first_name=session.firstname,
+        gym_name=session.gym_name,
+    )
+    account = db.get_account(session.user_id)
+
+    return _render(
+        request,
+        "partials/google_sync.html",
+        {
+            "google_configured": _google_configured(),
+            "google_account": account,
+            "sync_result": result,
+            "error": None,
+        },
+    )
+
+
+@router.post("/google/sync", response_class=HTMLResponse)
+def google_sync_now(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    client: WodAppClient = Depends(get_client_from_session_for_view),
+    db: GoogleAccountsService = Depends(get_google_accounts_service),
+):
+    """Trigger a manual sync for the authenticated user."""
+    account = db.get_account(session.user_id)
+    if not account or not account.calendar_id:
+        raise HTTPException(status_code=400, detail="Not connected or no calendar selected")
+
+    result = calendar_sync.sync_user(
+        account=account,
+        db=db,
+        client=client,
+        enc_key=_enc_key(),
+        first_name=session.firstname,
+        gym_name=session.gym_name,
+    )
+    account = db.get_account(session.user_id)
+
+    return _render(
+        request,
+        "partials/google_sync.html",
+        {
+            "google_configured": _google_configured(),
+            "google_account": account,
+            "sync_result": result,
+            "error": None,
+        },
+    )
+
+
+@router.get("/google/sync-section", response_class=HTMLResponse)
+def google_sync_section(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    db: GoogleAccountsService = Depends(get_google_accounts_service),
+):
+    """Return the sync section partial (used by HTMX cancel on calendar picker)."""
+    account = db.get_account(session.user_id)
+    return _render(
+        request,
+        "partials/google_sync.html",
+        {
+            "google_configured": _google_configured(),
+            "google_account": account,
+            "sync_result": None,
+            "error": None,
+        },
+    )

@@ -1,0 +1,23 @@
+<p style="margin:0 0 0.75rem;"><strong>Choose a calendar to sync to:</strong></p>
+
+<form hx-post="/google/calendar/select"
+      hx-target="#google-sync-section"
+      hx-swap="innerHTML">
+    <select name="calendar_choice" style="width:100%;padding:0.5rem;border:1px solid #cbd5e1;border-radius:0.375rem;font-size:0.875rem;margin-bottom:1rem;">
+        <option value="__create__|WodPlanner">+ Create new "WodPlanner" calendar</option>
+        {% for cal in calendars %}
+        <option value="{{ cal.id }}|{{ cal.summary }}">{{ cal.summary }}</option>
+        {% endfor %}
+    </select>
+
+    <div style="display:flex;gap:0.5rem;">
+        <button type="submit" class="btn btn-primary btn-sm">Save &amp; Sync</button>
+        <button type="button"
+                hx-get="/google/sync-section"
+                hx-target="#google-sync-section"
+                hx-swap="innerHTML"
+                class="btn btn-secondary btn-sm">
+            Cancel
+        </button>
+    </div>
+</form>

@@ -8,7 +8,7 @@
 </div>
 
 {% if error %}
-<div class="alert alert-danger" style="margin-bottom:1rem;padding:0.75rem 1rem;background:#fee2e2;color:#dc2626;border-radius:0.375rem;">
+<div style="margin-bottom:1rem;padding:0.75rem 1rem;background:#fee2e2;color:#dc2626;border-radius:0.375rem;">
     {% if error == 'google_denied' %}Google account access was denied.
     {% elif error == 'google_state_mismatch' %}Security check failed. Please try connecting again.
     {% elif error == 'google_exchange_failed' %}Failed to connect Google account. Please try again.
@@ -18,8 +18,8 @@
 {% endif %}
 
 {% if success %}
-<div class="alert alert-success" style="margin-bottom:1rem;padding:0.75rem 1rem;background:#dcfce7;color:#16a34a;border-radius:0.375rem;">
-    {% if success == 'google_connected' %}Google Calendar connected successfully.
+<div style="margin-bottom:1rem;padding:0.75rem 1rem;background:#dcfce7;color:#16a34a;border-radius:0.375rem;">
+    {% if success == 'google_connected' %}Google Calendar connected. Select a calendar below.
     {% elif success == 'google_disconnected' %}Google Calendar disconnected.
     {% else %}Done.
     {% endif %}
@@ -28,34 +28,8 @@
 
 <div class="card">
     <h2 style="margin-top:0;font-size:1.125rem;">Google Calendar Sync</h2>
-
-    {% if not google_configured %}
-    <p class="text-muted">Google Calendar sync is not configured on this server.</p>
-    {% elif google_account %}
-    <p>Connected as: <strong>{{ google_account.google_email }}</strong></p>
-
-    {% if google_account.calendar_id %}
-    <p>Target calendar: <strong>{{ google_account.calendar_summary or google_account.calendar_id }}</strong></p>
-    {% else %}
-    <p class="text-muted">No calendar selected yet — calendar picker coming soon.</p>
-    {% endif %}
-
-    {% if google_account.last_sync_at %}
-    <p class="text-muted" style="font-size:0.875rem;">
-        Last sync: {{ google_account.last_sync_at[:19] }}
-        {% if google_account.last_sync_status %} — {{ google_account.last_sync_status }}{% endif %}
-    </p>
-    {% endif %}
-
-    <form action="/google/disconnect" method="post" style="margin-top:1rem;">
-        <button type="submit" class="btn btn-danger btn-sm"
-                onclick="return confirm('Disconnect Google Calendar? Existing synced events will remain in your calendar.')">
-            Disconnect Google Calendar
-        </button>
-    </form>
-    {% else %}
-    <p>Connect your Google account to automatically sync your WodApp class signups to Google Calendar.</p>
-    <a href="/google/connect" class="btn btn-primary">Connect Google Calendar</a>
-    {% endif %}
+    <div id="google-sync-section">
+        {% include "partials/google_sync.html" %}
+    </div>
 </div>
 {% endblock %}
