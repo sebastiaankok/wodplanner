@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.1](https://github.com/sebastiaankok/wodplanner/compare/v0.2.0...v0.2.1) (2026-04-27)
+
+
+### Bug Fixes
+
+* add repositories field to renovate config ([38f5a34](https://github.com/sebastiaankok/wodplanner/commit/38f5a3436d1a546be88cc72874414f15f8f38aa3))
+* remove repositories field from renovate config ([3959637](https://github.com/sebastiaankok/wodplanner/commit/395963777d5f5ed4e8c3e79d6f94f0820a5def1f))
+* restore repositories field and set gitAuthor for renovate ([03499d0](https://github.com/sebastiaankok/wodplanner/commit/03499d05d08103dd4d3aff5a51e54f1d77c570ed))
+
+
+### Documentation
+
+* update ([2f0af59](https://github.com/sebastiaankok/wodplanner/commit/2f0af5916ccb7893c37df5e0e510a50b9f9d6836))
+
 ## [0.2.0](https://github.com/sebastiaankok/wodplanner/compare/v0.1.0...v0.2.0) (2026-04-27)
 
 
