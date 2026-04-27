@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-
 IMAGE="ghcr.io/sebastiaankok/wodplanner"
 TAG="${1:-main}"
 
