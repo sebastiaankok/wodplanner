@@ -39,10 +39,6 @@ playwright install chromium
 
 `.github/workflows/ci.yml` runs on every push: `ruff check .` then `pytest`. Uses Python 3.12 with pip caching. Docker build is a separate workflow (`docker.yml`, runs on `main` and version tags only).
 
-## CI
-
-`.github/workflows/ci.yml` runs on every push: `ruff check .` then `pytest`. Uses Python 3.12 with pip caching. Docker build is a separate workflow (`docker.yml`, runs on `main` and version tags only).
-
 To add E2E to CI:
 
 ```yaml

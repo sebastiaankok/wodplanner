@@ -82,6 +82,6 @@ Environment variables (all optional for web usage):
 
 ## Further Reading
 
-- [docs/api.md](docs/api.md) — external API, API client, auth dependencies, auto-signup flow
+- [docs/api.md](docs/api.md) — external API, API client, auth dependencies
 - [docs/frontend.md](docs/frontend.md) — HTMX patterns, OOB swap gotcha, schedule import
 - [docs/database.md](docs/database.md) — SQLite schema and tables

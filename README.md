@@ -4,12 +4,13 @@ Unofficial WodApp alternative for planning CrossFit classes. Uses the same crede
 
 > **Privacy:** Your password is never stored. Login sends it directly to WodApp, which returns an auth token — only that token is kept in your browser cookie.
 
+> **Disclaimer:** This is a personal experiment, not affiliated with or endorsed by WodApp or Paynplan. It uses a reverse-engineered, undocumented API (`ws.paynplan.nl`). The API may change or break at any time. **For personal use only — do not run as a public service.**
+
 ## Features
 
 - **Friend tracking** — see what classes your friends are joining
 - **Exercises overview** — browse all programmed movements across the schedule
 - **1RM tracker** — log and track your personal records per exercise
-- **Auto-signup queue** — automatically sign up when registration opens (7 days before)
 
 ## Using the app
 
@@ -70,4 +71,4 @@ backup-db --db-path /data/wodplanner.db --backup-dir /data/backups --keep 7
 
 ## Disclaimer
 
-This project is not affiliated with or endorsed by WodApp or Paynplan. It uses a reverse-engineered API (`ws.paynplan.nl`) for personal use only.
+This project is not affiliated with or endorsed by WodApp or Paynplan. It uses a reverse-engineered, undocumented API (`ws.paynplan.nl`) and is intended for personal use only. It is experimental — the upstream API may change without notice. Do not run this as a public service or share access with others.

@@ -1,3 +1,3 @@
-"""WodPlanner - Custom frontend and auto-signup for WodApp."""
+"""WodPlanner - Custom frontend for WodApp."""
 
 __version__ = "0.2.0"
