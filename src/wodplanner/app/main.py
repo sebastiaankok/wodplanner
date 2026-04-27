@@ -17,10 +17,19 @@ from uvicorn.logging import DefaultFormatter  # noqa: E402
 from wodplanner.api.client import AuthenticationError, WodAppError
 from wodplanner.app.config import settings
 from wodplanner.app.dependencies import _get_db_path
-from wodplanner.app.routers import appointments, auth, calendar, friends, schedules, views
+from wodplanner.app.routers import (
+    appointments,
+    auth,
+    calendar,
+    friends,
+    google_sync,
+    schedules,
+    views,
+)
 
 # Import services so their migrations register at import time
 from wodplanner.services import friends as _friends_svc  # noqa: F401
+from wodplanner.services import google_accounts as _google_accounts_svc  # noqa: F401
 from wodplanner.services import one_rep_max as _orm_svc  # noqa: F401
 from wodplanner.services import preferences as _prefs_svc  # noqa: F401
 from wodplanner.services import schedule as _schedule_svc  # noqa: F401
@@ -147,6 +156,9 @@ app.include_router(calendar.router, prefix="/api")
 app.include_router(appointments.router, prefix="/api")
 app.include_router(friends.router, prefix="/api")
 app.include_router(schedules.router, prefix="/api")
+
+# Include Google Calendar routes (no /api prefix — OAuth callbacks and view routes)
+app.include_router(google_sync.router)
 
 # Include views router (HTML pages)
 app.include_router(views.router)
