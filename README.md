@@ -11,6 +11,7 @@ Unofficial WodApp alternative for planning CrossFit classes. Uses the same crede
 - **Friend tracking** — see what classes your friends are joining
 - **Exercises overview** — browse all programmed movements across the schedule
 - **1RM tracker** — log and track your personal records per exercise
+- **Google Calendar sync** — automatically sync class signups to Google Calendar (requires a GCP OAuth client)
 
 ## Using the app
 
@@ -51,6 +52,10 @@ All settings are optional. Set via environment variables or a `.env` file:
 | `ENVIRONMENT` | `development` | Set to `production` to enable secure cookies |
 | `SESSION_EXPIRE_DAYS` | never | Session lifetime in days |
 | `API_CACHE_TTL_SECONDS` | `600` | Cache TTL for schedule data |
+| `GOOGLE_CLIENT_ID` | — | Google OAuth client ID (enables Calendar sync) |
+| `GOOGLE_CLIENT_SECRET` | — | Google OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | `http://localhost:8000/google/callback` | Must match the URI registered in GCP |
+| `GOOGLE_TOKEN_ENC_KEY` | derived | Fernet key for token encryption; set explicitly in production |
 
 ### Import workout schedule
 

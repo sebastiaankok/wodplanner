@@ -373,6 +373,66 @@ Cache key: `{agenda_id}:{appointment_id}:{date_start}:{date_end}` — deliberate
 
 ---
 
+## Google Calendar Sync
+
+One-way sync: WodApp reservations → Google Calendar. Implemented in `services/calendar_sync.py`.
+
+### Configuration
+
+| Env var | Required | Notes |
+|---------|----------|-------|
+| `GOOGLE_CLIENT_ID` | Yes | OAuth 2.0 Web Application client ID from GCP |
+| `GOOGLE_CLIENT_SECRET` | Yes | Corresponding client secret |
+| `GOOGLE_REDIRECT_URI` | No | Default: `http://localhost:8000/google/callback`; set to your public URL in production |
+| `GOOGLE_TOKEN_ENC_KEY` | No | Explicit Fernet key for token encryption; if unset, derived from `SECRET_KEY`. Set explicitly in production so key survives restarts. |
+
+### OAuth flow
+
+1. User visits `/google/connect` → redirect to Google OAuth consent screen
+2. Google redirects back to `/google/callback` with `code`
+3. App exchanges code for `access_token` + `refresh_token` (stored Fernet-encrypted in `google_accounts`)
+4. WodApp `AuthSession` also stored encrypted in `google_accounts.wodapp_session_enc` for background sync
+5. User selects a target calendar via `/google/calendars` → initial sync runs immediately
+
+CSRF protection: `state` token signed with `itsdangerous.URLSafeTimedSerializer` (max_age 600 s), stored in `g_state` HttpOnly cookie.
+
+### Sync engine (`calendar_sync.sync_user`)
+
+Full diff on each run:
+
+| Phase | Action |
+|-------|--------|
+| Insert | Reservations in WodApp not yet in `synced_events` → `gcal.insert_event` |
+| Update | Reservation date or name changed → `gcal.update_event` |
+| Delete | Future event in `synced_events` no longer in WodApp → `gcal.delete_event` + remove DB row |
+
+**Safety rules**:
+- Past events (already started) are never deleted — kept as calendar history.
+- If the WodApp `get_upcoming_reservations` call fails, sync aborts without touching Google Calendar (no phantom deletes).
+- Only events tracked in `synced_events` are ever modified — events the user created themselves are untouched, even on the primary calendar.
+
+**Recovery**: if `synced_events` is empty but WodApp shows reservations, `_rebuild_from_google` scans the calendar for events tagged with the `wodplanner_appointment_id` private extended property and repopulates `synced_events` before the diff. Prevents duplicate inserts after a DB wipe.
+
+Events are tagged with `extendedProperties.private.wodplanner_appointment_id = <id_appointment>` so recovery can identify WodPlanner-owned events.
+
+### Sync triggers
+
+| Trigger | Location |
+|---------|----------|
+| Manual "Sync Now" | `POST /google/sync` |
+| Subscribe to class | `views.subscribe_view` → `BackgroundTasks` |
+| Join waiting list | `views.waitinglist_view` → `BackgroundTasks` |
+| Unsubscribe | `views.unsubscribe_view` → `BackgroundTasks` |
+| Periodic | `main._periodic_sync_task` — every 30 min, all users with `sync_enabled=1` |
+
+Periodic sync uses the stored encrypted `AuthSession` to reconstruct a `WodAppClient` without an active browser session. Per-user `asyncio.Lock` prevents overlapping syncs for the same user.
+
+### Token management
+
+Access tokens are refreshed automatically when within 5 minutes of expiry (`get_valid_token`). If refresh fails, sync is disabled (`sync_enabled=0`) and the user must reconnect.
+
+---
+
 ## Your Account Info (from HAR)
 
 - **User ID**: 388211

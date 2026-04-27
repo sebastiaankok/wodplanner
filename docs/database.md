@@ -18,6 +18,7 @@ Version ranges per service (keep grouped, avoid collisions):
 | 200–299 | `friends` |
 | 300–399 | `preferences` |
 | 400–499 | `one_rep_max` |
+| 500–599 | `google_accounts` |
 
 ### Applying migrations
 
@@ -66,6 +67,8 @@ WAL mode is persistent (stored in DB file header) — set once on first connecti
 - `schedules` — scoped per `gym_id`; unique on `(date, class_type, gym_id)`; `gym_id` nullable for legacy rows imported before gym scoping was added
 - `exercises` — canonical list of 1RM exercise names; columns: `id`, `name` (UNIQUE), `created_at`; seeded with 28 predefined exercises on first run if table is empty; extended via `add-1rm` CLI
 - `one_rep_maxes` — scoped per `user_id`; columns: `id`, `user_id`, `exercise` (must match a name in `exercises`), `weight_kg`, `recorded_at` (ISO date), `notes`, `created_at`
+- `google_accounts` — one row per user; stores OAuth tokens (Fernet-encrypted), connected Google email, selected calendar ID/name, sync enabled flag, last sync timestamp/status, and encrypted WodApp `AuthSession` JSON for background sync (column `wodapp_session_enc`). Primary key: `user_id`.
+- `synced_events` — tracks every Google Calendar event created by WodPlanner; primary key `(user_id, id_appointment)`. Used to diff against current WodApp reservations so subsequent syncs can update/delete without duplicating. Each event stores `google_event_id`, `calendar_id`, `date_start`, `date_end`, `name`, `etag`.
 
 ## Auth
 
