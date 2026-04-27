@@ -12,10 +12,12 @@ from datetime import datetime, timedelta
 from wodplanner.api.client import WodAppClient
 from wodplanner.app.config import settings
 from wodplanner.models.google import GoogleAccount, SyncedEvent
+from wodplanner.models.schedule import Schedule
 from wodplanner.services import crypto
 from wodplanner.services import google_calendar as gcal
 from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.google_oauth import refresh_access_token
+from wodplanner.services.schedule import ScheduleService
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +66,42 @@ def get_valid_token(
     return raw_token
 
 
-def _build_event(reservation: dict, gym_name: str, first_name: str) -> dict:
+def _build_description(class_name: str, schedule: Schedule | None) -> str:
+    parts = [f"Class: {class_name}"]
+    if schedule:
+        if schedule.warmup_mobility:
+            parts.append(f"Warmup/Mobility:\n{schedule.warmup_mobility}")
+        if schedule.strength_specialty:
+            parts.append(f"Strength/Specialty:\n{schedule.strength_specialty}")
+        if schedule.metcon:
+            parts.append(f"Metcon:\n{schedule.metcon}")
+    return "\n\n".join(parts)
+
+
+def _lookup_schedule(
+    schedule_service: ScheduleService | None,
+    reservation: dict,
+    gym_id: int | None,
+) -> Schedule | None:
+    if not schedule_service or gym_id is None:
+        return None
+    try:
+        return schedule_service.find_for_appointment(
+            reservation["name"],
+            reservation["date_start"].date(),
+            gym_id=gym_id,
+        )
+    except Exception:
+        logger.debug("Schedule lookup failed for appt %d", reservation["id_appointment"])
+        return None
+
+
+def _build_event(
+    reservation: dict,
+    gym_name: str,
+    first_name: str,
+    schedule: Schedule | None = None,
+) -> dict:
     start: datetime = reservation["date_start"]
     end: datetime = reservation.get("date_end") or start + _DEFAULT_CLASS_DURATION
     appt_id: int = reservation["id_appointment"]
@@ -73,7 +110,7 @@ def _build_event(reservation: dict, gym_name: str, first_name: str) -> dict:
         "location": gym_name,
         "start": {"dateTime": start.isoformat(), "timeZone": _TIMEZONE},
         "end": {"dateTime": end.isoformat(), "timeZone": _TIMEZONE},
-        "description": f"Class: {reservation['name']}",
+        "description": _build_description(reservation["name"], schedule),
         "extendedProperties": {"private": {_PROP_KEY: str(appt_id)}},
     }
 
@@ -150,6 +187,8 @@ def sync_user(
     enc_key: bytes,
     first_name: str,
     gym_name: str,
+    schedule_service: ScheduleService | None = None,
+    gym_id: int | None = None,
 ) -> SyncResult:
     """Full diff sync: insert new signups, update changed events, delete cancellations."""
     result = SyncResult()
@@ -190,7 +229,8 @@ def sync_user(
         if appt_id in existing:
             continue
         try:
-            event_body = _build_event(reservation, gym_name, first_name)
+            schedule = _lookup_schedule(schedule_service, reservation, gym_id)
+            event_body = _build_event(reservation, gym_name, first_name, schedule)
             created = gcal.insert_event(access_token, account.calendar_id, event_body)
             db.upsert_synced_event(
                 user_id=account.user_id,
@@ -220,7 +260,8 @@ def sync_user(
         if ev.date_start == new_start and ev.name == reservation["name"]:
             continue
         try:
-            event_body = _build_event(reservation, gym_name, first_name)
+            schedule = _lookup_schedule(schedule_service, reservation, gym_id)
+            event_body = _build_event(reservation, gym_name, first_name, schedule)
             gcal.update_event(
                 access_token, account.calendar_id, ev.google_event_id, event_body
             )

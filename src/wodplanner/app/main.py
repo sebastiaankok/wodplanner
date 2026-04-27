@@ -86,8 +86,10 @@ async def _periodic_sync_all(db_path: Path) -> None:
     from wodplanner.models.auth import AuthSession
     from wodplanner.services import calendar_sync, crypto
     from wodplanner.services.google_accounts import GoogleAccountsService
+    from wodplanner.services.schedule import ScheduleService
 
     db = GoogleAccountsService(db_path)
+    schedule_service = ScheduleService(db_path)
     enc_key = crypto.get_enc_key(settings.google_token_enc_key, settings.secret_key)
 
     user_ids = db.get_all_sync_enabled_user_ids()
@@ -117,6 +119,8 @@ async def _periodic_sync_all(db_path: Path) -> None:
                     enc_key=enc_key,
                     first_name=wodapp_session.firstname,
                     gym_name=wodapp_session.gym_name,
+                    schedule_service=schedule_service,
+                    gym_id=wodapp_session.gym_id,
                 )
             except Exception:
                 logger.exception("Periodic sync failed for user %d", user_id)

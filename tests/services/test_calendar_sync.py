@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from wodplanner.models.google import GoogleAccount, SyncedEvent
+from wodplanner.models.schedule import Schedule
 from wodplanner.services import calendar_sync
 from wodplanner.services.calendar_sync import SyncResult
 
@@ -116,6 +117,47 @@ class TestGetValidToken:
         db.update_tokens.assert_not_called()
 
 
+def _make_schedule(warmup=None, strength=None, metcon=None):
+    from datetime import date
+    return Schedule(
+        date=date(2026, 5, 1),
+        class_type="CrossFit",
+        warmup_mobility=warmup,
+        strength_specialty=strength,
+        metcon=metcon,
+    )
+
+
+class TestBuildDescription:
+    def test_no_schedule_returns_class_name_only(self):
+        desc = calendar_sync._build_description("CrossFit", None)
+        assert desc == "Class: CrossFit"
+
+    def test_includes_all_schedule_sections(self):
+        schedule = _make_schedule(
+            warmup="A. Row 500m",
+            strength="A. Back Squat 5x3",
+            metcon="AMRAP 12: 5 pull-ups",
+        )
+        desc = calendar_sync._build_description("CrossFit", schedule)
+        assert "Class: CrossFit" in desc
+        assert "Warmup/Mobility:\nA. Row 500m" in desc
+        assert "Strength/Specialty:\nA. Back Squat 5x3" in desc
+        assert "Metcon:\nAMRAP 12: 5 pull-ups" in desc
+
+    def test_skips_none_sections(self):
+        schedule = _make_schedule(metcon="AMRAP 10: 10 burpees")
+        desc = calendar_sync._build_description("CrossFit", schedule)
+        assert "Warmup" not in desc
+        assert "Strength" not in desc
+        assert "Metcon:\nAMRAP 10: 10 burpees" in desc
+
+    def test_sections_separated_by_blank_line(self):
+        schedule = _make_schedule(warmup="Warmup stuff", metcon="Metcon stuff")
+        desc = calendar_sync._build_description("CrossFit", schedule)
+        assert "\n\n" in desc
+
+
 class TestBuildEvent:
     def test_builds_event_with_explicit_date_end(self):
         start = datetime(2026, 5, 1, 10, 0)
@@ -139,6 +181,18 @@ class TestBuildEvent:
         event = calendar_sync._build_event(reservation, "Gym", "Alice")
         assert event["start"]["timeZone"] == "Europe/Amsterdam"
         assert event["end"]["timeZone"] == "Europe/Amsterdam"
+
+    def test_description_without_schedule(self):
+        reservation = _make_reservation(name="CrossFit")
+        event = calendar_sync._build_event(reservation, "Gym", "Alice")
+        assert event["description"] == "Class: CrossFit"
+
+    def test_description_with_schedule_includes_exercises(self):
+        reservation = _make_reservation(name="CrossFit")
+        schedule = _make_schedule(metcon="AMRAP 10: 5 pull-ups, 10 push-ups")
+        event = calendar_sync._build_event(reservation, "Gym", "Alice", schedule)
+        assert "Class: CrossFit" in event["description"]
+        assert "AMRAP 10: 5 pull-ups, 10 push-ups" in event["description"]
 
 
 class TestRebuildFromGoogle:
@@ -385,6 +439,53 @@ class TestSyncUser:
         call_args = db.update_sync_status.call_args[0]
         assert call_args[0] == 1  # user_id
         assert call_args[1] == "ok"
+
+    def test_inserts_with_schedule_exercises_in_description(self):
+        account = _make_account()
+        db = _make_db()
+        reservation = _make_reservation(appt_id=1, name="CrossFit", date_start=datetime(2026, 5, 1, 10, 0))
+        client = _make_client([reservation])
+        schedule = _make_schedule(metcon="AMRAP 10: 5 pull-ups")
+        schedule_service = MagicMock()
+        schedule_service.find_for_appointment.return_value = schedule
+        inserted_events = []
+
+        def capture_insert(token, cal_id, event_body):
+            inserted_events.append(event_body)
+            return {"id": "gev1"}
+
+        with (
+            patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
+            patch("wodplanner.services.calendar_sync.gcal.insert_event", side_effect=capture_insert),
+        ):
+            result = calendar_sync.sync_user(
+                account, db, client, ENC_KEY, "Alice", "Box",
+                schedule_service=schedule_service, gym_id=42,
+            )
+
+        assert result.inserted == 1
+        assert "AMRAP 10: 5 pull-ups" in inserted_events[0]["description"]
+        schedule_service.find_for_appointment.assert_called_once_with("CrossFit", datetime(2026, 5, 1, 10, 0).date(), gym_id=42)
+
+    def test_inserts_without_schedule_when_none_provided(self):
+        account = _make_account()
+        db = _make_db()
+        reservation = _make_reservation(appt_id=1, name="CrossFit", date_start=datetime(2026, 5, 1, 10, 0))
+        client = _make_client([reservation])
+        inserted_events = []
+
+        def capture_insert(token, cal_id, event_body):
+            inserted_events.append(event_body)
+            return {"id": "gev1"}
+
+        with (
+            patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
+            patch("wodplanner.services.calendar_sync.gcal.insert_event", side_effect=capture_insert),
+        ):
+            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+
+        assert result.inserted == 1
+        assert inserted_events[0]["description"] == "Class: CrossFit"
 
     def test_delete_skips_event_with_invalid_date(self):
         account = _make_account()

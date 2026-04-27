@@ -15,8 +15,10 @@ from wodplanner.app.config import settings
 from wodplanner.app.dependencies import (
     get_client_from_session_for_view,
     get_google_accounts_service,
+    get_schedule_service,
     require_session_for_view,
 )
+from wodplanner.services.schedule import ScheduleService
 from wodplanner.models.auth import AuthSession
 from wodplanner.services import calendar_sync, crypto
 from wodplanner.services import google_calendar as gcal
@@ -230,6 +232,7 @@ def google_calendar_select(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     db: GoogleAccountsService = Depends(get_google_accounts_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Save the chosen Google Calendar, then run an initial insert-only sync."""
     account = db.get_account(session.user_id)
@@ -287,6 +290,8 @@ def google_calendar_select(
         enc_key=key,
         first_name=session.firstname,
         gym_name=session.gym_name,
+        schedule_service=schedule_service,
+        gym_id=session.gym_id,
     )
     account = db.get_account(session.user_id)
 
@@ -308,6 +313,7 @@ def google_sync_now(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     db: GoogleAccountsService = Depends(get_google_accounts_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
 ):
     """Trigger a manual sync for the authenticated user."""
     account = db.get_account(session.user_id)
@@ -321,6 +327,8 @@ def google_sync_now(
         enc_key=_enc_key(),
         first_name=session.firstname,
         gym_name=session.gym_name,
+        schedule_service=schedule_service,
+        gym_id=session.gym_id,
     )
     account = db.get_account(session.user_id)
 
