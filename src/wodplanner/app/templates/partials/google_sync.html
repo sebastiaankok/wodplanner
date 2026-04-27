@@ -75,12 +75,14 @@
     {% endif %}
 
     <div class="gsync-disconnect">
+        <p class="gsync-disconnect-label">Danger zone</p>
         <form action="/google/disconnect" method="post">
-            <button type="submit" class="btn-link-danger"
+            <button type="submit" class="btn btn-sm gsync-btn-disconnect"
                     onclick="return confirm('Disconnect Google Calendar? Existing synced events will remain in your calendar.')">
-                Disconnect account
+                Disconnect Google account
             </button>
         </form>
+        <p class="gsync-disconnect-hint">Removes OAuth connection. Synced calendar events are kept.</p>
     </div>
 </div>
 
