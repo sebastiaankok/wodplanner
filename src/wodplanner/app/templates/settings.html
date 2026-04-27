@@ -8,7 +8,7 @@
 </div>
 
 {% if error %}
-<div style="margin-bottom:1rem;padding:0.75rem 1rem;background:#fee2e2;color:#dc2626;border-radius:0.375rem;">
+<div class="alert alert-danger" style="margin-bottom:1rem;">
     {% if error == 'google_denied' %}Google account access was denied.
     {% elif error == 'google_state_mismatch' %}Security check failed. Please try connecting again.
     {% elif error == 'google_exchange_failed' %}Failed to connect Google account. Please try again.
@@ -18,8 +18,8 @@
 {% endif %}
 
 {% if success %}
-<div style="margin-bottom:1rem;padding:0.75rem 1rem;background:#dcfce7;color:#16a34a;border-radius:0.375rem;">
-    {% if success == 'google_connected' %}Google Calendar connected. Select a calendar below.
+<div class="alert alert-success" style="margin-bottom:1rem;">
+    {% if success == 'google_connected' %}Google Calendar connected successfully.
     {% elif success == 'google_disconnected' %}Google Calendar disconnected.
     {% else %}Done.
     {% endif %}
@@ -27,7 +27,23 @@
 {% endif %}
 
 <div class="card">
-    <h2 style="margin-top:0;font-size:1.125rem;">Google Calendar Sync</h2>
+    <div class="card-header">
+        <div style="display:flex;align-items:center;gap:0.625rem;">
+            <!-- Google Calendar icon -->
+            <svg width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="4" width="20" height="18" rx="2" fill="white" stroke="#e5e7eb" stroke-width="1.5"/>
+                <rect x="2" y="4" width="20" height="7" rx="2" fill="#4285F4"/>
+                <rect x="2" y="9" width="20" height="2" fill="#4285F4"/>
+                <line x1="7" y1="2" x2="7" y2="6" stroke="#4285F4" stroke-width="2" stroke-linecap="round"/>
+                <line x1="17" y1="2" x2="17" y2="6" stroke="#4285F4" stroke-width="2" stroke-linecap="round"/>
+                <text x="12" y="20" text-anchor="middle" font-size="7.5" font-weight="700" fill="#4285F4" font-family="system-ui,sans-serif">31</text>
+            </svg>
+            <div>
+                <div class="card-title" style="margin:0;line-height:1.2;">Google Calendar</div>
+                <div style="font-size:0.75rem;color:var(--gray-500,#6b7280);line-height:1.2;">Automatic class sync</div>
+            </div>
+        </div>
+    </div>
     <div id="google-sync-section">
         {% include "partials/google_sync.html" %}
     </div>
