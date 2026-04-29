@@ -4,8 +4,8 @@ from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
+from wodplanner.models.friends import Friend
 from wodplanner.services.calendar_view import (
-    _fetch_friends_in_appt,
     build_calendar_view,
     is_signup_open,
 )
@@ -48,62 +48,6 @@ class TestIsSignupOpen:
     def test_past_appointment_returns_true(self):
         appt_start = datetime(2020, 1, 1, 9, 0, tzinfo=TZ)
         assert is_signup_open("CrossFit", appt_start) is True
-
-
-class TestFetchFriendsInAppt:
-    def test_returns_friends_from_members(self):
-        client = MagicMock()
-        appt = MagicMock()
-        appt.id_appointment = 1
-        appt.date_start = datetime(2026, 1, 1, 9, 0)
-        appt.date_end = datetime(2026, 1, 1, 10, 0)
-        appt.total_subscriptions = 10
-
-        member = MagicMock()
-        member.id_appuser = 100
-        member.name = "John"
-
-        client.get_appointment_members.return_value = ([member], None)
-
-        friend = MagicMock()
-        friend.name = "John Friend"
-
-        appt_id, friends = _fetch_friends_in_appt(client, appt, {100}, {100: friend})
-        assert appt_id == 1
-        assert len(friends) == 1
-        assert friends[0]["name"] == "John Friend"
-
-    def test_non_friend_not_included(self):
-        client = MagicMock()
-        appt = MagicMock()
-        appt.id_appointment = 1
-        appt.date_start = datetime(2026, 1, 1, 9, 0)
-        appt.date_end = datetime(2026, 1, 1, 10, 0)
-        appt.total_subscriptions = 10
-
-        member = MagicMock()
-        member.id_appuser = 100
-        member.name = "John"
-
-        client.get_appointment_members.return_value = ([member], None)
-
-        appt_id, friends = _fetch_friends_in_appt(client, appt, {999}, {})
-        assert appt_id == 1
-        assert len(friends) == 0
-
-    def test_handles_exception(self):
-        client = MagicMock()
-        client.get_appointment_members.side_effect = Exception("API Error")
-
-        appt = MagicMock()
-        appt.id_appointment = 1
-        appt.date_start = datetime(2026, 1, 1, 9, 0)
-        appt.date_end = datetime(2026, 1, 1, 10, 0)
-        appt.total_subscriptions = 10
-
-        appt_id, friends = _fetch_friends_in_appt(client, appt, set(), {})
-        assert appt_id == 1
-        assert friends == []
 
 
 class TestBuildCalendarView:
@@ -181,9 +125,7 @@ class TestBuildCalendarView:
         appt.max_subscriptions = 20
         appt.status = "open"
 
-        friend = MagicMock()
-        friend.appuser_id = 100
-        friend.name = "John"
+        friend = Friend(appuser_id=100, name="John", owner_user_id=1)
 
         client.get_day_schedule.return_value = [appt]
         friends_service.get_all.return_value = [friend]
@@ -199,7 +141,7 @@ class TestBuildCalendarView:
         )
         assert len(result) == 1
         assert len(result[0]["friends"]) == 1
-        assert result[0]["friends"][0]["name"] == "John"
+        assert result[0]["friends"][0].name == "John"
 
     def test_adds_1rm_marker(self):
         session = MagicMock()
