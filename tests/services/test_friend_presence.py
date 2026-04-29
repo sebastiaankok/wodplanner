@@ -3,8 +3,6 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
-import pytest
-
 from wodplanner.models.calendar import Appointment, Member
 from wodplanner.models.friends import Friend
 from wodplanner.services.friend_presence import find_friends_in_appointments
