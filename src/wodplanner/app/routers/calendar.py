@@ -13,6 +13,7 @@ from wodplanner.app.dependencies import (
     require_session,
 )
 from wodplanner.models.auth import AuthSession
+from wodplanner.services.friend_presence import find_friends_in_appointments
 from wodplanner.services.friends import FriendsService
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
@@ -62,33 +63,12 @@ def get_day_schedule(
     appointments = client.get_day_schedule(target_date)
 
     friends = friends_service.get_all(session.user_id) if include_friends else []
-    friend_ids = {f.appuser_id for f in friends}
-    friends_map = {f.appuser_id: f for f in friends}
+    friends_by_appt = find_friends_in_appointments(appointments, friends, client) if include_friends else {}
 
     result_appointments = []
     for appt in appointments:
-        friends_in_class = []
-
-        # If include_friends is enabled, fetch member list (cached)
-        if include_friends and friend_ids:
-            try:
-                members, _ = client.get_appointment_members(
-                    appt.id_appointment,
-                    appt.date_start,
-                    appt.date_end,
-                    expected_total=appt.total_subscriptions,
-                )
-                for member in members:
-                    if member.id_appuser in friend_ids:
-                        friend = friends_map.get(member.id_appuser)
-                        friends_in_class.append(
-                            FriendInClass(
-                                id=member.id_appuser,
-                                name=friend.name if friend else member.name,
-                            )
-                        )
-            except Exception:
-                pass
+        friends_list = friends_by_appt.get(appt.id_appointment) or []
+        friends_in_class = [FriendInClass(id=f.appuser_id, name=f.name) for f in friends_list]
 
         result_appointments.append(
             AppointmentResponse(
@@ -129,8 +109,6 @@ def get_week_schedule(
     start = start_date or date.today()
 
     friends = friends_service.get_all(session.user_id) if include_friends else []
-    friend_ids = {f.appuser_id for f in friends}
-    friends_map = {f.appuser_id: f for f in friends}
 
     result = []
 
@@ -138,28 +116,12 @@ def get_week_schedule(
         target_date = start + timedelta(days=i)
         appointments = client.get_day_schedule(target_date)
 
+        friends_by_appt = find_friends_in_appointments(appointments, friends, client) if include_friends else {}
+
         result_appointments = []
         for appt in appointments:
-            friends_in_class = []
-
-            if include_friends and friend_ids:
-                try:
-                    members, _ = client.get_appointment_members(
-                        appt.id_appointment,
-                        appt.date_start,
-                        appt.date_end,
-                    )
-                    for member in members:
-                        if member.id_appuser in friend_ids:
-                            friend = friends_map.get(member.id_appuser)
-                            friends_in_class.append(
-                                FriendInClass(
-                                    id=member.id_appuser,
-                                    name=friend.name if friend else member.name,
-                                )
-                            )
-                except Exception:
-                    pass
+            friends_list = friends_by_appt.get(appt.id_appointment) or []
+            friends_in_class = [FriendInClass(id=f.appuser_id, name=f.name) for f in friends_list]
 
             result_appointments.append(
                 AppointmentResponse(
