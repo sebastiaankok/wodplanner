@@ -10,8 +10,10 @@ from fastapi import Cookie, Depends, HTTPException, Request, Response, status
 from wodplanner.api.client import WodAppClient
 from wodplanner.app.config import settings
 from wodplanner.models.auth import AuthSession
+from wodplanner.services import crypto
 from wodplanner.services import session as cookie_session
 from wodplanner.services.api_cache import ApiCacheService
+from wodplanner.services.calendar_sync import CalendarSyncService
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.one_rep_max import OneRepMaxService
@@ -51,6 +53,17 @@ def get_one_rep_max_service() -> OneRepMaxService:
 def get_google_accounts_service() -> GoogleAccountsService:
     """Get the singleton Google accounts service."""
     return GoogleAccountsService(_get_db_path())
+
+
+@lru_cache
+def get_calendar_sync_service() -> CalendarSyncService:
+    """Get the singleton calendar sync service."""
+    enc_key = crypto.get_enc_key(settings.google_token_enc_key, settings.secret_key)
+    return CalendarSyncService(
+        db=get_google_accounts_service(),
+        enc_key=enc_key,
+        schedule_service=get_schedule_service(),
+    )
 
 
 @lru_cache

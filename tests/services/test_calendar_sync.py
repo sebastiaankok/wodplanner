@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from wodplanner.models.google import GoogleAccount, SyncedEvent
 from wodplanner.models.schedule import Schedule
 from wodplanner.services import calendar_sync
-from wodplanner.services.calendar_sync import SyncResult
+from wodplanner.services.calendar_sync import CalendarSyncService, SyncResult
 
 
 def _make_account(
@@ -67,6 +67,10 @@ def _make_synced_event(appt_id=1, google_event_id="gev1", date_start=None, name=
 ENC_KEY = b"A" * 44  # Placeholder — crypto is mocked
 
 
+def _make_service(db=None, schedule_service=None):
+    return CalendarSyncService(db or _make_db(), ENC_KEY, schedule_service)
+
+
 class TestSyncResult:
     def test_ok_true_when_no_errors(self):
         assert SyncResult().ok is True
@@ -84,27 +88,30 @@ class TestSyncResult:
 class TestGetValidToken:
     def test_returns_decrypted_token_when_no_expiry(self):
         account = _make_account(token_expiry=None)
+        service = CalendarSyncService(_make_db(), ENC_KEY)
         with patch("wodplanner.services.calendar_sync.crypto.decrypt", return_value="raw_token"):
-            token = calendar_sync.get_valid_token(account, _make_db(), ENC_KEY)
+            token = service.get_valid_token(account)
         assert token == "raw_token"
 
     def test_returns_decrypted_token_when_expiry_is_far_future(self):
         far_future = (datetime.now() + timedelta(hours=2)).isoformat()
         account = _make_account(token_expiry=far_future)
+        service = CalendarSyncService(_make_db(), ENC_KEY)
         with patch("wodplanner.services.calendar_sync.crypto.decrypt", return_value="raw_token"):
-            token = calendar_sync.get_valid_token(account, _make_db(), ENC_KEY)
+            token = service.get_valid_token(account)
         assert token == "raw_token"
 
     def test_refreshes_when_token_near_expiry(self):
         near_expiry = (datetime.now() + timedelta(minutes=2)).isoformat()
         account = _make_account(token_expiry=near_expiry)
         db = _make_db()
+        service = CalendarSyncService(db, ENC_KEY)
         with (
             patch("wodplanner.services.calendar_sync.crypto.decrypt", side_effect=["enc_access", "enc_refresh"]),
             patch("wodplanner.services.calendar_sync.refresh_access_token", return_value=("new_tok", "new_expiry")),
             patch("wodplanner.services.calendar_sync.crypto.encrypt", return_value="enc_new_tok"),
         ):
-            token = calendar_sync.get_valid_token(account, db, ENC_KEY)
+            token = service.get_valid_token(account)
         assert token == "new_tok"
         db.update_tokens.assert_called_once()
 
@@ -112,8 +119,9 @@ class TestGetValidToken:
         far_future = (datetime.now() + timedelta(hours=2)).isoformat()
         account = _make_account(token_expiry=far_future)
         db = _make_db()
+        service = CalendarSyncService(db, ENC_KEY)
         with patch("wodplanner.services.calendar_sync.crypto.decrypt", return_value="raw_token"):
-            calendar_sync.get_valid_token(account, db, ENC_KEY)
+            service.get_valid_token(account)
         db.update_tokens.assert_not_called()
 
 
@@ -252,7 +260,7 @@ class TestRebuildFromGoogle:
 class TestSyncUser:
     def test_error_when_no_calendar_id(self):
         account = _make_account(calendar_id=None)
-        result = calendar_sync.sync_user(account, _make_db(), _make_client(), ENC_KEY, "Alice", "Box")
+        result = _make_service().sync(account, _make_client(), "Alice", "Box")
         assert not result.ok
         assert "no calendar selected" in result.errors[0]
 
@@ -260,7 +268,7 @@ class TestSyncUser:
         account = _make_account()
         db = _make_db()
         with patch("wodplanner.services.calendar_sync.get_valid_token", side_effect=Exception("token error")):
-            result = calendar_sync.sync_user(account, db, _make_client(), ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, _make_client(), "Alice", "Box")
         assert not result.ok
         assert "token refresh failed" in result.errors[0]
         db.disable_sync.assert_called_once_with(1, "token refresh failed: token error")
@@ -271,7 +279,7 @@ class TestSyncUser:
         client = MagicMock()
         client.get_upcoming_reservations.side_effect = Exception("API is down")
         with patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
         assert not result.ok
         assert "WodApp fetch failed" in result.errors[0]
 
@@ -285,7 +293,7 @@ class TestSyncUser:
             patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
             patch("wodplanner.services.calendar_sync.gcal.insert_event", return_value={"id": "gev1"}),
         ):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert result.inserted == 1
         assert result.updated == 0
@@ -304,7 +312,7 @@ class TestSyncUser:
             patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
             patch("wodplanner.services.calendar_sync.gcal.insert_event", return_value={"id": "gev1"}),
         ):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert result.inserted == 1
 
@@ -312,7 +320,6 @@ class TestSyncUser:
         account = _make_account()
         existing_ev = _make_synced_event(appt_id=1, name="CrossFit")
         db = _make_db(synced_events=[existing_ev])
-        # Same appt_id but different name
         reservation = _make_reservation(appt_id=1, name="Gymnastics", date_start=datetime(2026, 5, 1, 10, 0))
         client = _make_client([reservation])
 
@@ -320,7 +327,7 @@ class TestSyncUser:
             patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
             patch("wodplanner.services.calendar_sync.gcal.update_event", return_value={}),
         ):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert result.updated == 1
         assert result.inserted == 0
@@ -338,7 +345,7 @@ class TestSyncUser:
             patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
             patch("wodplanner.services.calendar_sync.gcal.update_event", return_value={}),
         ):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert result.updated == 1
 
@@ -351,7 +358,7 @@ class TestSyncUser:
         client = _make_client([reservation])
 
         with patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert result.updated == 0
         assert result.inserted == 0
@@ -361,14 +368,13 @@ class TestSyncUser:
         future_start = datetime.now() + timedelta(days=3)
         existing_ev = _make_synced_event(appt_id=99, date_start=future_start, name="CrossFit")
         db = _make_db(synced_events=[existing_ev])
-        # No matching reservation — appt 99 was cancelled
         client = _make_client([])
 
         with (
             patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
             patch("wodplanner.services.calendar_sync.gcal.delete_event"),
         ):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert result.deleted == 1
 
@@ -377,10 +383,10 @@ class TestSyncUser:
         past_start = datetime.now() - timedelta(days=1)
         existing_ev = _make_synced_event(appt_id=99, date_start=past_start, name="CrossFit")
         db = _make_db(synced_events=[existing_ev])
-        client = _make_client([])  # Empty — class already happened
+        client = _make_client([])
 
         with patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert result.deleted == 0
 
@@ -395,7 +401,7 @@ class TestSyncUser:
             patch("wodplanner.services.calendar_sync._rebuild_from_google", return_value={}) as mock_rebuild,
             patch("wodplanner.services.calendar_sync.gcal.insert_event", return_value={"id": "gev1"}),
         ):
-            calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            _make_service(db).sync(account, client, "Alice", "Box")
 
         mock_rebuild.assert_called_once()
 
@@ -408,7 +414,7 @@ class TestSyncUser:
             patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
             patch("wodplanner.services.calendar_sync._rebuild_from_google") as mock_rebuild,
         ):
-            calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            _make_service(db).sync(account, client, "Alice", "Box")
 
         mock_rebuild.assert_not_called()
 
@@ -422,7 +428,7 @@ class TestSyncUser:
             patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
             patch("wodplanner.services.calendar_sync.gcal.insert_event", side_effect=Exception("quota exceeded")),
         ):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert not result.ok
         assert "insert appt 1" in result.errors[0]
@@ -433,7 +439,7 @@ class TestSyncUser:
         client = _make_client([])
 
         with patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"):
-            calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            _make_service(db).sync(account, client, "Alice", "Box")
 
         db.update_sync_status.assert_called_once()
         call_args = db.update_sync_status.call_args[0]
@@ -458,10 +464,7 @@ class TestSyncUser:
             patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
             patch("wodplanner.services.calendar_sync.gcal.insert_event", side_effect=capture_insert),
         ):
-            result = calendar_sync.sync_user(
-                account, db, client, ENC_KEY, "Alice", "Box",
-                schedule_service=schedule_service, gym_id=42,
-            )
+            result = _make_service(db, schedule_service).sync(account, client, "Alice", "Box", gym_id=42)
 
         assert result.inserted == 1
         assert "AMRAP 10: 5 pull-ups" in inserted_events[0]["description"]
@@ -482,7 +485,7 @@ class TestSyncUser:
             patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"),
             patch("wodplanner.services.calendar_sync.gcal.insert_event", side_effect=capture_insert),
         ):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert result.inserted == 1
         assert inserted_events[0]["description"] == "Class: CrossFit"
@@ -504,6 +507,6 @@ class TestSyncUser:
         client = _make_client([])
 
         with patch("wodplanner.services.calendar_sync.get_valid_token", return_value="token"):
-            result = calendar_sync.sync_user(account, db, client, ENC_KEY, "Alice", "Box")
+            result = _make_service(db).sync(account, client, "Alice", "Box")
 
         assert result.deleted == 0
