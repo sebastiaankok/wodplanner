@@ -180,6 +180,40 @@ def _rebuild_from_google(
     return rebuilt
 
 
+class CalendarSyncService:
+    def __init__(
+        self,
+        db: GoogleAccountsService,
+        enc_key: bytes,
+        schedule_service: ScheduleService | None = None,
+    ) -> None:
+        self._db = db
+        self._enc_key = enc_key
+        self._schedule_service = schedule_service
+
+    def get_valid_token(self, account: GoogleAccount) -> str:
+        return get_valid_token(account, self._db, self._enc_key)
+
+    def sync(
+        self,
+        account: GoogleAccount,
+        client: WodAppClient,
+        first_name: str,
+        gym_name: str,
+        gym_id: int | None = None,
+    ) -> SyncResult:
+        return sync_user(
+            account=account,
+            db=self._db,
+            client=client,
+            enc_key=self._enc_key,
+            first_name=first_name,
+            gym_name=gym_name,
+            schedule_service=self._schedule_service,
+            gym_id=gym_id,
+        )
+
+
 def sync_user(
     account: GoogleAccount,
     db: GoogleAccountsService,
