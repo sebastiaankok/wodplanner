@@ -39,33 +39,6 @@ class SyncResult:
         return not self.errors
 
 
-def get_valid_token(
-    account: GoogleAccount,
-    db: GoogleAccountsService,
-    enc_key: bytes,
-) -> str:
-    """Return a valid access token, refreshing via refresh_token when near expiry."""
-    raw_token = crypto.decrypt(account.access_token, enc_key)
-
-    if account.token_expiry:
-        expiry = datetime.fromisoformat(account.token_expiry)
-        if datetime.now() + timedelta(minutes=5) >= expiry:
-            raw_refresh = crypto.decrypt(account.refresh_token, enc_key)
-            new_token, new_expiry = refresh_access_token(
-                raw_refresh,
-                settings.google_client_id,  # type: ignore[arg-type]
-                settings.google_client_secret,  # type: ignore[arg-type]
-            )
-            db.update_tokens(
-                account.user_id,
-                crypto.encrypt(new_token, enc_key),
-                new_expiry,
-            )
-            return new_token
-
-    return raw_token
-
-
 def _build_description(class_name: str, schedule: Schedule | None) -> str:
     parts = [f"Class: {class_name}"]
     if schedule:
@@ -192,7 +165,26 @@ class CalendarSyncService:
         self._schedule_service = schedule_service
 
     def get_valid_token(self, account: GoogleAccount) -> str:
-        return get_valid_token(account, self._db, self._enc_key)
+        """Return a valid access token, refreshing via refresh_token when near expiry."""
+        raw_token = crypto.decrypt(account.access_token, self._enc_key)
+
+        if account.token_expiry:
+            expiry = datetime.fromisoformat(account.token_expiry)
+            if datetime.now() + timedelta(minutes=5) >= expiry:
+                raw_refresh = crypto.decrypt(account.refresh_token, self._enc_key)
+                new_token, new_expiry = refresh_access_token(
+                    raw_refresh,
+                    settings.google_client_id,  # type: ignore[arg-type]
+                    settings.google_client_secret,  # type: ignore[arg-type]
+                )
+                self._db.update_tokens(
+                    account.user_id,
+                    crypto.encrypt(new_token, self._enc_key),
+                    new_expiry,
+                )
+                return new_token
+
+        return raw_token
 
     def sync(
         self,
@@ -202,149 +194,127 @@ class CalendarSyncService:
         gym_name: str,
         gym_id: int | None = None,
     ) -> SyncResult:
-        return sync_user(
-            account=account,
-            db=self._db,
-            client=client,
-            enc_key=self._enc_key,
-            first_name=first_name,
-            gym_name=gym_name,
-            schedule_service=self._schedule_service,
-            gym_id=gym_id,
+        """Full diff sync: insert new signups, update changed events, delete cancellations."""
+        result = SyncResult()
+
+        if not account.calendar_id:
+            result.errors.append("no calendar selected")
+            return result
+
+        try:
+            access_token = self.get_valid_token(account)
+        except Exception as exc:
+            logger.exception("Token refresh failed for user %d", account.user_id)
+            self._db.disable_sync(account.user_id, f"token refresh failed: {exc}")
+            result.errors.append(f"token refresh failed: {exc}")
+            return result
+
+        # Never delete events when WodApp call fails — abort and leave existing events.
+        try:
+            reservations, _ = client.get_upcoming_reservations()
+        except Exception as exc:
+            logger.exception("WodApp fetch failed for user %d", account.user_id)
+            status = f"error: WodApp fetch failed: {exc}"
+            self._db.update_sync_status(account.user_id, status)
+            result.errors.append(status)
+            return result
+
+        existing = {ev.id_appointment: ev for ev in self._db.get_synced_events(account.user_id)}
+        desired = {r["id_appointment"]: r for r in reservations}
+
+        # Recovery: rebuild mapping from Google Calendar if DB is empty but user has signups.
+        if not existing and desired:
+            existing = _rebuild_from_google(access_token, account, self._db)
+
+        now = datetime.now()
+
+        # ── Insert ────────────────────────────────────────────────────────────────
+        for appt_id, reservation in desired.items():
+            if appt_id in existing:
+                continue
+            try:
+                schedule = _lookup_schedule(self._schedule_service, reservation, gym_id)
+                event_body = _build_event(reservation, gym_name, first_name, schedule)
+                created = gcal.insert_event(access_token, account.calendar_id, event_body)
+                self._db.upsert_synced_event(
+                    user_id=account.user_id,
+                    id_appointment=appt_id,
+                    google_event_id=created["id"],
+                    calendar_id=account.calendar_id,
+                    date_start=reservation["date_start"].isoformat(),
+                    date_end=(
+                        reservation.get("date_end") or reservation["date_start"] + _DEFAULT_CLASS_DURATION
+                    ).isoformat(),
+                    name=reservation["name"],
+                    etag=created.get("etag"),
+                )
+                result.inserted += 1
+            except Exception as exc:
+                logger.warning(
+                    "Insert failed appt %d user %d: %s", appt_id, account.user_id, exc
+                )
+                result.errors.append(f"insert appt {appt_id}: {exc}")
+
+        # ── Update ────────────────────────────────────────────────────────────────
+        for appt_id, reservation in desired.items():
+            if appt_id not in existing:
+                continue
+            ev = existing[appt_id]
+            new_start = reservation["date_start"].isoformat()
+            if ev.date_start == new_start and ev.name == reservation["name"]:
+                continue
+            try:
+                schedule = _lookup_schedule(self._schedule_service, reservation, gym_id)
+                event_body = _build_event(reservation, gym_name, first_name, schedule)
+                gcal.update_event(
+                    access_token, account.calendar_id, ev.google_event_id, event_body
+                )
+                self._db.upsert_synced_event(
+                    user_id=account.user_id,
+                    id_appointment=appt_id,
+                    google_event_id=ev.google_event_id,
+                    calendar_id=account.calendar_id,
+                    date_start=new_start,
+                    date_end=(
+                        reservation.get("date_end") or reservation["date_start"] + _DEFAULT_CLASS_DURATION
+                    ).isoformat(),
+                    name=reservation["name"],
+                    etag=ev.etag,
+                )
+                result.updated += 1
+            except Exception as exc:
+                logger.warning(
+                    "Update failed appt %d user %d: %s", appt_id, account.user_id, exc
+                )
+                result.errors.append(f"update appt {appt_id}: {exc}")
+
+        # ── Delete ────────────────────────────────────────────────────────────────
+        # Only delete future events — leave past events as calendar history.
+        for appt_id, ev in existing.items():
+            if appt_id in desired:
+                continue
+            try:
+                event_start = datetime.fromisoformat(ev.date_start)
+            except ValueError:
+                continue
+            if event_start <= now:
+                # Class already started/finished — keep event for history.
+                continue
+            try:
+                gcal.delete_event(access_token, account.calendar_id, ev.google_event_id)
+                self._db.delete_synced_event(account.user_id, appt_id)
+                result.deleted += 1
+            except Exception as exc:
+                logger.warning(
+                    "Delete failed appt %d user %d: %s", appt_id, account.user_id, exc
+                )
+                result.errors.append(f"delete appt {appt_id}: {exc}")
+
+        status = "ok" if result.ok else f"partial errors: {'; '.join(result.errors[:3])}"
+        self._db.update_sync_status(account.user_id, status)
+        logger.info(
+            "Sync user %d: +%d ~%d -%d errors=%s (desired=%d existing=%d)",
+            account.user_id, result.inserted, result.updated, result.deleted,
+            result.errors or "none", len(desired), len(existing),
         )
-
-
-def sync_user(
-    account: GoogleAccount,
-    db: GoogleAccountsService,
-    client: WodAppClient,
-    enc_key: bytes,
-    first_name: str,
-    gym_name: str,
-    schedule_service: ScheduleService | None = None,
-    gym_id: int | None = None,
-) -> SyncResult:
-    """Full diff sync: insert new signups, update changed events, delete cancellations."""
-    result = SyncResult()
-
-    if not account.calendar_id:
-        result.errors.append("no calendar selected")
         return result
-
-    try:
-        access_token = get_valid_token(account, db, enc_key)
-    except Exception as exc:
-        logger.exception("Token refresh failed for user %d", account.user_id)
-        db.disable_sync(account.user_id, f"token refresh failed: {exc}")
-        result.errors.append(f"token refresh failed: {exc}")
-        return result
-
-    # Never delete events when WodApp call fails — abort and leave existing events.
-    try:
-        reservations, _ = client.get_upcoming_reservations()
-    except Exception as exc:
-        logger.exception("WodApp fetch failed for user %d", account.user_id)
-        status = f"error: WodApp fetch failed: {exc}"
-        db.update_sync_status(account.user_id, status)
-        result.errors.append(status)
-        return result
-
-    existing = {ev.id_appointment: ev for ev in db.get_synced_events(account.user_id)}
-    desired = {r["id_appointment"]: r for r in reservations}
-
-    # Recovery: rebuild mapping from Google Calendar if DB is empty but user has signups.
-    if not existing and desired:
-        existing = _rebuild_from_google(access_token, account, db)
-
-    now = datetime.now()
-
-    # ── Insert ────────────────────────────────────────────────────────────────
-    for appt_id, reservation in desired.items():
-        if appt_id in existing:
-            continue
-        try:
-            schedule = _lookup_schedule(schedule_service, reservation, gym_id)
-            event_body = _build_event(reservation, gym_name, first_name, schedule)
-            created = gcal.insert_event(access_token, account.calendar_id, event_body)
-            db.upsert_synced_event(
-                user_id=account.user_id,
-                id_appointment=appt_id,
-                google_event_id=created["id"],
-                calendar_id=account.calendar_id,
-                date_start=reservation["date_start"].isoformat(),
-                date_end=(
-                    reservation.get("date_end") or reservation["date_start"] + _DEFAULT_CLASS_DURATION
-                ).isoformat(),
-                name=reservation["name"],
-                etag=created.get("etag"),
-            )
-            result.inserted += 1
-        except Exception as exc:
-            logger.warning(
-                "Insert failed appt %d user %d: %s", appt_id, account.user_id, exc
-            )
-            result.errors.append(f"insert appt {appt_id}: {exc}")
-
-    # ── Update ────────────────────────────────────────────────────────────────
-    for appt_id, reservation in desired.items():
-        if appt_id not in existing:
-            continue
-        ev = existing[appt_id]
-        new_start = reservation["date_start"].isoformat()
-        if ev.date_start == new_start and ev.name == reservation["name"]:
-            continue
-        try:
-            schedule = _lookup_schedule(schedule_service, reservation, gym_id)
-            event_body = _build_event(reservation, gym_name, first_name, schedule)
-            gcal.update_event(
-                access_token, account.calendar_id, ev.google_event_id, event_body
-            )
-            db.upsert_synced_event(
-                user_id=account.user_id,
-                id_appointment=appt_id,
-                google_event_id=ev.google_event_id,
-                calendar_id=account.calendar_id,
-                date_start=new_start,
-                date_end=(
-                    reservation.get("date_end") or reservation["date_start"] + _DEFAULT_CLASS_DURATION
-                ).isoformat(),
-                name=reservation["name"],
-                etag=ev.etag,
-            )
-            result.updated += 1
-        except Exception as exc:
-            logger.warning(
-                "Update failed appt %d user %d: %s", appt_id, account.user_id, exc
-            )
-            result.errors.append(f"update appt {appt_id}: {exc}")
-
-    # ── Delete ────────────────────────────────────────────────────────────────
-    # Only delete future events — leave past events as calendar history.
-    for appt_id, ev in existing.items():
-        if appt_id in desired:
-            continue
-        try:
-            event_start = datetime.fromisoformat(ev.date_start)
-        except ValueError:
-            continue
-        if event_start <= now:
-            # Class already started/finished — keep event for history.
-            continue
-        try:
-            gcal.delete_event(access_token, account.calendar_id, ev.google_event_id)
-            db.delete_synced_event(account.user_id, appt_id)
-            result.deleted += 1
-        except Exception as exc:
-            logger.warning(
-                "Delete failed appt %d user %d: %s", appt_id, account.user_id, exc
-            )
-            result.errors.append(f"delete appt {appt_id}: {exc}")
-
-    status = "ok" if result.ok else f"partial errors: {'; '.join(result.errors[:3])}"
-    db.update_sync_status(account.user_id, status)
-    logger.info(
-        "Sync user %d: +%d ~%d -%d errors=%s (desired=%d existing=%d)",
-        account.user_id, result.inserted, result.updated, result.deleted,
-        result.errors or "none", len(desired), len(existing),
-    )
-    return result
