@@ -12,8 +12,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from wodplanner.api.client import WodAppClient
-from wodplanner.app.config import settings
 from wodplanner.app.dependencies import (
+    get_calendar_sync_service,
     get_client_from_session_for_view,
     get_friends_service,
     get_google_accounts_service,
@@ -24,7 +24,7 @@ from wodplanner.app.dependencies import (
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
-from wodplanner.services import calendar_sync, crypto
+from wodplanner.services.calendar_sync import CalendarSyncService
 from wodplanner.services.calendar_view import build_calendar_view
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.google_accounts import GoogleAccountsService
@@ -47,22 +47,18 @@ def _enqueue_google_sync(
     session: AuthSession,
     client: WodAppClient,
     db: GoogleAccountsService,
-    schedule_service: ScheduleService,
+    sync_service: CalendarSyncService,
 ) -> None:
     """Fire-and-forget Google Calendar sync after a signup or cancel."""
     account = db.get_account(session.user_id)
     if not account or not account.sync_enabled or not account.calendar_id:
         return
-    enc_key = crypto.get_enc_key(settings.google_token_enc_key, settings.secret_key)
     background_tasks.add_task(
-        calendar_sync.sync_user,
+        sync_service.sync,
         account=account,
-        db=db,
         client=client,
-        enc_key=enc_key,
         first_name=session.firstname,
         gym_name=session.gym_name,
-        schedule_service=schedule_service,
         gym_id=session.gym_id,
     )
 
@@ -431,13 +427,14 @@ def subscribe_view(
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     google_db: GoogleAccountsService = Depends(get_google_accounts_service),
+    sync_service: CalendarSyncService = Depends(get_calendar_sync_service),
 ):
     """Subscribe to appointment from calendar (htmx)."""
     start = parse_api_datetime(date_start)
     end = parse_api_datetime(date_end)
 
     client.subscribe(appointment_id, start, end)
-    _enqueue_google_sync(background_tasks, session, client, google_db, schedule_service)
+    _enqueue_google_sync(background_tasks, session, client, google_db, sync_service)
 
     # Return updated calendar
     return calendar_day_partial(
@@ -464,13 +461,14 @@ def waitinglist_view(
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     google_db: GoogleAccountsService = Depends(get_google_accounts_service),
+    sync_service: CalendarSyncService = Depends(get_calendar_sync_service),
 ):
     """Join waiting list from calendar (htmx)."""
     start = parse_api_datetime(date_start)
     end = parse_api_datetime(date_end)
 
     client.subscribe_waitinglist(appointment_id, start, end)
-    _enqueue_google_sync(background_tasks, session, client, google_db, schedule_service)
+    _enqueue_google_sync(background_tasks, session, client, google_db, sync_service)
 
     # Return updated calendar
     return calendar_day_partial(
@@ -498,6 +496,7 @@ def unsubscribe_view(
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     google_db: GoogleAccountsService = Depends(get_google_accounts_service),
+    sync_service: CalendarSyncService = Depends(get_calendar_sync_service),
 ):
     """Unsubscribe from appointment (htmx)."""
     start = parse_api_datetime(date_start)
@@ -508,7 +507,7 @@ def unsubscribe_view(
     else:
         client.unsubscribe(appointment_id, start, end)
 
-    _enqueue_google_sync(background_tasks, session, client, google_db, schedule_service)
+    _enqueue_google_sync(background_tasks, session, client, google_db, sync_service)
 
     # Return updated calendar
     return calendar_day_partial(

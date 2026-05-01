@@ -58,12 +58,21 @@ def mock_google_db():
 
 
 @pytest.fixture
-def google_app_client(monkeypatch, db_path, mock_google_db):
-    from wodplanner.app.dependencies import get_google_accounts_service
+def mock_sync_service():
+    svc = MagicMock()
+    svc.get_valid_token.return_value = "token"
+    svc.sync.return_value = MagicMock(ok=True, inserted=0, updated=0, deleted=0, errors=[])
+    return svc
+
+
+@pytest.fixture
+def google_app_client(monkeypatch, db_path, mock_google_db, mock_sync_service):
+    from wodplanner.app.dependencies import get_calendar_sync_service, get_google_accounts_service
 
     monkeypatch.setenv("DB_PATH", str(db_path))
     limiter._state.clear()
     app.dependency_overrides[get_google_accounts_service] = lambda: mock_google_db
+    app.dependency_overrides[get_calendar_sync_service] = lambda: mock_sync_service
 
     with TestClient(app) as client:
         yield client
@@ -265,19 +274,13 @@ class TestGoogleCalendars:
     def test_returns_calendar_list_html(self, google_app_client, session_cookie, mock_google_db):
         mock_google_db.get_account.return_value = _make_google_account()
         calendars = [{"id": "cal1", "summary": "My Calendar"}]
-        with (
-            patch("wodplanner.app.routers.google_sync.calendar_sync.get_valid_token", return_value="token"),
-            patch("wodplanner.app.routers.google_sync.gcal.list_calendars", return_value=calendars),
-        ):
+        with patch("wodplanner.app.routers.google_sync.gcal.list_calendars", return_value=calendars):
             r = google_app_client.get("/google/calendars", cookies={"session": session_cookie})
         assert r.status_code == 200
 
     def test_returns_empty_calendars_on_error(self, google_app_client, session_cookie, mock_google_db):
         mock_google_db.get_account.return_value = _make_google_account()
-        with (
-            patch("wodplanner.app.routers.google_sync.calendar_sync.get_valid_token", return_value="token"),
-            patch("wodplanner.app.routers.google_sync.gcal.list_calendars", side_effect=Exception("network")),
-        ):
+        with patch("wodplanner.app.routers.google_sync.gcal.list_calendars", side_effect=Exception("network")):
             r = google_app_client.get("/google/calendars", cookies={"session": session_cookie})
         assert r.status_code == 200
 
@@ -292,9 +295,10 @@ class TestGoogleCalendarSelect:
         r.errors = []
         return r
 
-    def test_select_existing_calendar(self, google_app_client, session_cookie, mock_google_db, monkeypatch):
+    def test_select_existing_calendar(self, google_app_client, session_cookie, mock_google_db, mock_sync_service, monkeypatch):
         account = _make_google_account()
         mock_google_db.get_account.return_value = account
+        mock_sync_service.sync.return_value = self._sync_result()
         mock_wodapp_client = MagicMock()
         mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         monkeypatch.setattr(
@@ -302,23 +306,20 @@ class TestGoogleCalendarSelect:
             classmethod(lambda cls, s, cache=None: mock_wodapp_client),
         )
 
-        with (
-            patch("wodplanner.app.routers.google_sync.calendar_sync.get_valid_token", return_value="token"),
-            patch("wodplanner.app.routers.google_sync.calendar_sync.sync_user", return_value=self._sync_result()),
-        ):
-            r = google_app_client.post(
-                "/google/calendar/select",
-                data={"calendar_choice": "cal_id|My Calendar"},
-                cookies={"session": session_cookie},
-            )
+        r = google_app_client.post(
+            "/google/calendar/select",
+            data={"calendar_choice": "cal_id|My Calendar"},
+            cookies={"session": session_cookie},
+        )
         assert r.status_code == 200
         mock_google_db.update_calendar.assert_called_once_with(42, "cal_id", "My Calendar")
 
     def test_select_calendar_without_pipe_uses_id_as_summary(
-        self, google_app_client, session_cookie, mock_google_db, monkeypatch
+        self, google_app_client, session_cookie, mock_google_db, mock_sync_service, monkeypatch
     ):
         account = _make_google_account()
         mock_google_db.get_account.return_value = account
+        mock_sync_service.sync.return_value = self._sync_result()
         mock_wodapp_client = MagicMock()
         mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         monkeypatch.setattr(
@@ -326,23 +327,20 @@ class TestGoogleCalendarSelect:
             classmethod(lambda cls, s, cache=None: mock_wodapp_client),
         )
 
-        with (
-            patch("wodplanner.app.routers.google_sync.calendar_sync.get_valid_token", return_value="token"),
-            patch("wodplanner.app.routers.google_sync.calendar_sync.sync_user", return_value=self._sync_result()),
-        ):
-            r = google_app_client.post(
-                "/google/calendar/select",
-                data={"calendar_choice": "only_id"},
-                cookies={"session": session_cookie},
-            )
+        r = google_app_client.post(
+            "/google/calendar/select",
+            data={"calendar_choice": "only_id"},
+            cookies={"session": session_cookie},
+        )
         assert r.status_code == 200
         mock_google_db.update_calendar.assert_called_once_with(42, "only_id", "only_id")
 
     def test_create_new_calendar(
-        self, google_app_client, session_cookie, mock_google_db, monkeypatch
+        self, google_app_client, session_cookie, mock_google_db, mock_sync_service, monkeypatch
     ):
         account = _make_google_account()
         mock_google_db.get_account.return_value = account
+        mock_sync_service.sync.return_value = self._sync_result()
         mock_wodapp_client = MagicMock()
         mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         monkeypatch.setattr(
@@ -351,11 +349,7 @@ class TestGoogleCalendarSelect:
         )
 
         new_cal = {"id": "new_cal_id", "summary": "WodPlanner"}
-        with (
-            patch("wodplanner.app.routers.google_sync.calendar_sync.get_valid_token", return_value="token"),
-            patch("wodplanner.app.routers.google_sync.gcal.create_calendar", return_value=new_cal),
-            patch("wodplanner.app.routers.google_sync.calendar_sync.sync_user", return_value=self._sync_result()),
-        ):
+        with patch("wodplanner.app.routers.google_sync.gcal.create_calendar", return_value=new_cal):
             r = google_app_client.post(
                 "/google/calendar/select",
                 data={"calendar_choice": "__create__"},
@@ -375,10 +369,7 @@ class TestGoogleCalendarSelect:
             classmethod(lambda cls, s, cache=None: mock_wodapp_client),
         )
 
-        with (
-            patch("wodplanner.app.routers.google_sync.calendar_sync.get_valid_token", return_value="token"),
-            patch("wodplanner.app.routers.google_sync.gcal.create_calendar", side_effect=Exception("API error")),
-        ):
+        with patch("wodplanner.app.routers.google_sync.gcal.create_calendar", side_effect=Exception("API error")):
             r = google_app_client.post(
                 "/google/calendar/select",
                 data={"calendar_choice": "__create__"},
@@ -401,25 +392,22 @@ class TestGoogleCalendarSelect:
         assert r.status_code == 400
 
     def test_token_refresh_failure_returns_error_partial(
-        self, google_app_client, session_cookie, mock_google_db, monkeypatch
+        self, google_app_client, session_cookie, mock_google_db, mock_sync_service, monkeypatch
     ):
         account = _make_google_account()
         mock_google_db.get_account.return_value = account
+        mock_sync_service.get_valid_token.side_effect = Exception("refresh failed")
         mock_wodapp_client = MagicMock()
         monkeypatch.setattr(
             "wodplanner.app.dependencies.WodAppClient.from_session",
             classmethod(lambda cls, s, cache=None: mock_wodapp_client),
         )
 
-        with patch(
-            "wodplanner.app.routers.google_sync.calendar_sync.get_valid_token",
-            side_effect=Exception("refresh failed"),
-        ):
-            r = google_app_client.post(
-                "/google/calendar/select",
-                data={"calendar_choice": "cal_id"},
-                cookies={"session": session_cookie},
-            )
+        r = google_app_client.post(
+            "/google/calendar/select",
+            data={"calendar_choice": "cal_id"},
+            cookies={"session": session_cookie},
+        )
         assert r.status_code == 200
 
 
@@ -447,7 +435,7 @@ class TestGoogleSyncNow:
         assert r.status_code == 400
 
     def test_triggers_sync_and_returns_html(
-        self, google_app_client, session_cookie, mock_google_db, monkeypatch
+        self, google_app_client, session_cookie, mock_google_db, mock_sync_service, monkeypatch
     ):
         account = _make_google_account()
         mock_google_db.get_account.return_value = account
@@ -457,6 +445,7 @@ class TestGoogleSyncNow:
         sync_result.updated = 0
         sync_result.deleted = 0
         sync_result.errors = []
+        mock_sync_service.sync.return_value = sync_result
         mock_wodapp_client = MagicMock()
         mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         monkeypatch.setattr(
@@ -464,8 +453,7 @@ class TestGoogleSyncNow:
             classmethod(lambda cls, s, cache=None: mock_wodapp_client),
         )
 
-        with patch("wodplanner.app.routers.google_sync.calendar_sync.sync_user", return_value=sync_result):
-            r = google_app_client.post("/google/sync", cookies={"session": session_cookie})
+        r = google_app_client.post("/google/sync", cookies={"session": session_cookie})
         assert r.status_code == 200
 
 
