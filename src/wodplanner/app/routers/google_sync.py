@@ -13,14 +13,15 @@ from itsdangerous import BadSignature, URLSafeTimedSerializer
 from wodplanner.api.client import WodAppClient
 from wodplanner.app.config import settings
 from wodplanner.app.dependencies import (
+    get_calendar_sync_service,
     get_client_from_session_for_view,
     get_google_accounts_service,
-    get_schedule_service,
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
-from wodplanner.services import calendar_sync, crypto
+from wodplanner.services import crypto
 from wodplanner.services import google_calendar as gcal
+from wodplanner.services.calendar_sync import CalendarSyncService
 from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.google_oauth import (
     build_auth_url,
@@ -28,7 +29,6 @@ from wodplanner.services.google_oauth import (
     get_user_email,
     revoke_token,
 )
-from wodplanner.services.schedule import ScheduleService
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +205,7 @@ def google_calendars(
     request: Request,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     db: GoogleAccountsService = Depends(get_google_accounts_service),
+    sync_service: CalendarSyncService = Depends(get_calendar_sync_service),
 ):
     """HTMX partial: list user's Google Calendars for calendar picker."""
     account = db.get_account(session.user_id)
@@ -212,7 +213,7 @@ def google_calendars(
         raise HTTPException(status_code=400, detail="Not connected to Google")
 
     try:
-        access_token = calendar_sync.get_valid_token(account, db, _enc_key())
+        access_token = sync_service.get_valid_token(account)
         calendars = gcal.list_calendars(access_token)
     except Exception:
         logger.exception("Failed to list calendars for user %d", session.user_id)
@@ -232,16 +233,15 @@ def google_calendar_select(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     db: GoogleAccountsService = Depends(get_google_accounts_service),
-    schedule_service: ScheduleService = Depends(get_schedule_service),
+    sync_service: CalendarSyncService = Depends(get_calendar_sync_service),
 ):
     """Save the chosen Google Calendar, then run an initial insert-only sync."""
     account = db.get_account(session.user_id)
     if not account:
         raise HTTPException(status_code=400, detail="Not connected to Google")
 
-    key = _enc_key()
     try:
-        access_token = calendar_sync.get_valid_token(account, db, key)
+        access_token = sync_service.get_valid_token(account)
     except Exception:
         logger.exception("Token refresh failed for user %d", session.user_id)
         return _render(
@@ -283,14 +283,11 @@ def google_calendar_select(
     db.update_calendar(session.user_id, cal_id, cal_summary)
     account = db.get_account(session.user_id)
 
-    result = calendar_sync.sync_user(
+    result = sync_service.sync(
         account=account,  # type: ignore[arg-type]
-        db=db,
         client=client,
-        enc_key=key,
         first_name=session.firstname,
         gym_name=session.gym_name,
-        schedule_service=schedule_service,
         gym_id=session.gym_id,
     )
     account = db.get_account(session.user_id)
@@ -313,21 +310,18 @@ def google_sync_now(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     db: GoogleAccountsService = Depends(get_google_accounts_service),
-    schedule_service: ScheduleService = Depends(get_schedule_service),
+    sync_service: CalendarSyncService = Depends(get_calendar_sync_service),
 ):
     """Trigger a manual sync for the authenticated user."""
     account = db.get_account(session.user_id)
     if not account or not account.calendar_id:
         raise HTTPException(status_code=400, detail="Not connected or no calendar selected")
 
-    result = calendar_sync.sync_user(
+    result = sync_service.sync(
         account=account,
-        db=db,
         client=client,
-        enc_key=_enc_key(),
         first_name=session.firstname,
         gym_name=session.gym_name,
-        schedule_service=schedule_service,
         gym_id=session.gym_id,
     )
     account = db.get_account(session.user_id)
