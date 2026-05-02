@@ -59,10 +59,8 @@ def get_google_accounts_service() -> GoogleAccountsService:
 @lru_cache
 def get_calendar_sync_service() -> CalendarSyncService:
     """Get the singleton calendar sync service."""
-    enc_key = crypto.get_enc_key(settings.google_token_enc_key, settings.secret_key)
     return CalendarSyncService(
         db=get_google_accounts_service(),
-        enc_key=enc_key,
         schedule_service=get_schedule_service(),
     )
 
