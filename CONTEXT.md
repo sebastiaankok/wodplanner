@@ -32,6 +32,10 @@ _Avoid_: workout, wod, programme
 The act of enrolling in an Appointment when spots are available.
 _Avoid_: subscribe, register, reserve, book
 
+**Reservation**:
+The current user's signed-up future Appointments. Returned by `WodAppClient.get_upcoming_reservations()` as a list of typed `Reservation` models (not raw dicts). Used for homepage display and Google Calendar sync. Sub-case of Sign Up — only the current user's own sign-ups, not all participants.
+_Avoid_: booking, upcoming classes
+
 **Waiting List**:
 A queue joined when an Appointment is full. WodApp automatically promotes waiting members when a spot opens.
 _Avoid_: waitlist, queue

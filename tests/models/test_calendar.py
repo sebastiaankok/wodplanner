@@ -7,6 +7,7 @@ from wodplanner.models.calendar import (
     AppointmentDetails,
     DaySchedule,
     Member,
+    Reservation,
     SubscribeResponse,
     Subscriptions,
     WaitingList,
@@ -254,3 +255,32 @@ class TestSubscribeResponse:
     def test_optional_subscribed_default(self):
         resp = SubscribeResponse(status="ok")
         assert resp.subscribedWithSuccess == 0
+
+
+class TestReservation:
+    def test_required_fields(self):
+        res = Reservation(
+            id_appointment=1,
+            name="CrossFit",
+            date_start=datetime(2026, 5, 1, 10, 0),
+        )
+        assert res.id_appointment == 1
+        assert res.name == "CrossFit"
+        assert res.date_start == datetime(2026, 5, 1, 10, 0)
+
+    def test_optional_date_end_default(self):
+        res = Reservation(
+            id_appointment=1,
+            name="CrossFit",
+            date_start=datetime(2026, 5, 1, 10, 0),
+        )
+        assert res.date_end is None
+
+    def test_with_date_end(self):
+        res = Reservation(
+            id_appointment=1,
+            name="CrossFit",
+            date_start=datetime(2026, 5, 1, 10, 0),
+            date_end=datetime(2026, 5, 1, 11, 0),
+        )
+        assert res.date_end == datetime(2026, 5, 1, 11, 0)

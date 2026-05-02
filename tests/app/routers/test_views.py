@@ -6,6 +6,7 @@ from wodplanner.models.calendar import (
     Appointment,
     AppointmentDetails,
     Member,
+    Reservation,
     SubscribeResponse,
     Subscriptions,
     WaitingList,
@@ -77,11 +78,11 @@ class TestHomePage:
     def test_authenticated_renders(self, app_client, session_cookie, mock_wodapp_client):
         mock_wodapp_client.get_upcoming_reservations.return_value = (
             [
-                {
-                    "id_appointment": 1,
-                    "name": "CrossFit",
-                    "date_start": datetime(2026, 4, 25, 10, 0),
-                }
+                Reservation(
+                    id_appointment=1,
+                    name="CrossFit",
+                    date_start=datetime(2026, 4, 25, 10, 0),
+                )
             ],
             {"logo": "logo.png"},
         )

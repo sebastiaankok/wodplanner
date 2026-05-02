@@ -13,6 +13,7 @@ from wodplanner.models.calendar import (
     Appointment,
     AppointmentDetails,
     Member,
+    Reservation,
     SubscribeResponse,
     Subscriptions,
     WaitingList,
@@ -372,12 +373,12 @@ class WodAppClient:
         """Unsubscribe from an appointment's waiting list."""
         return self._subscription_request("subscribeWaitingList", "unsubscribe", appointment_id, date_start, date_end)
 
-    def get_upcoming_reservations(self) -> tuple[list[dict], dict]:
+    def get_upcoming_reservations(self) -> tuple[list[Reservation], dict]:
         """
         Get upcoming reservations for the current user.
 
         Returns:
-            Tuple of (list of dicts with id_appointment, name, date_start (datetime), sorted by date, company_images)
+            Tuple of (list of Reservation sorted by date_start, company_images)
         """
         params = {
             **self._base_params(),
@@ -397,13 +398,16 @@ class WodAppClient:
         result = []
         for r in reservations.get("data", []):
             dt = datetime.strptime(r["date_start"], "%d-%m-%Y %H:%M")
-            result.append({
-                "id_appointment": r["id_appointment"],
-                "name": r["name"],
-                "date_start": dt,
-            })
+            date_end_str = r.get("date_end")
+            date_end = datetime.strptime(date_end_str, "%d-%m-%Y %H:%M") if date_end_str else None
+            result.append(Reservation(
+                id_appointment=r["id_appointment"],
+                name=r["name"],
+                date_start=dt,
+                date_end=date_end,
+            ))
 
-        result.sort(key=lambda x: x["date_start"])
+        result.sort(key=lambda x: x.date_start)
         return result, company_images
 
     def get_appointment_members(

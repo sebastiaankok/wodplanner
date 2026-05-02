@@ -157,15 +157,15 @@ def home_page(
     # Group by date for display
     days: dict[str, list[dict]] = {}
     for r in reservations:
-        day_key = r["date_start"].strftime("%Y-%m-%d")
+        day_key = r.date_start.strftime("%Y-%m-%d")
         if day_key not in days:
             days[day_key] = []
         days[day_key].append({
-            "id": r["id_appointment"],
-            "name": r["name"],
-            "time": r["date_start"].strftime("%H:%M"),
-            "weekday": r["date_start"].strftime("%A"),
-            "display_date": r["date_start"].strftime("%B %d"),
+            "id": r.id_appointment,
+            "name": r.name,
+            "time": r.date_start.strftime("%H:%M"),
+            "weekday": r.date_start.strftime("%A"),
+            "display_date": r.date_start.strftime("%B %d"),
         })
 
     return render(
