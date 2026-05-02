@@ -9,7 +9,7 @@ from wodplanner.models.auth import AuthSession
 from wodplanner.services.friend_presence import find_friends_in_appointments
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.one_rep_max import has_1rm_exercise
-from wodplanner.services.schedule import ScheduleService
+from wodplanner.services.schedule import ScheduleService, normalize_class_name
 from wodplanner.services.schedule_lookup import match_schedules_for_date
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ def build_calendar_view(
     now = datetime.now()
     appt_data = []
     for appt in visible:
-        sched = schedule_map.get(appt.name)
+        sched = schedule_map.get(appt.name) or schedule_map.get(normalize_class_name(appt.name))
         appt_has_1rm = sched is not None and (
             has_1rm_exercise(sched.strength_specialty)
             or has_1rm_exercise(sched.warmup_mobility)

@@ -61,6 +61,7 @@ def _lookup_schedule(
         reservation["name"],
         reservation["date_start"].date(),
         gym_id=gym_id,
+        extra_log=f"appt {reservation['id_appointment']}",
     )
 
 

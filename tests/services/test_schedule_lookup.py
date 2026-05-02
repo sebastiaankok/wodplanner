@@ -9,8 +9,8 @@ from wodplanner.services.schedule_lookup import match_schedule, match_schedules_
 class TestMatchSchedule:
     """Tests for the schedule_lookup.match_schedule function."""
 
-    def test_service_exception_returns_none_with_debug_log(self, db_path):
-        """Schedule service exception is swallowed, returns None, logs debug message."""
+    def test_service_exception_returns_none_with_warning_log(self, db_path):
+        """Schedule service exception is swallowed, returns None, logs warning message."""
         svc = ScheduleService(db_path)
 
         with patch.object(svc, 'get_by_date_and_class', side_effect=RuntimeError("DB crash")):
@@ -18,8 +18,8 @@ class TestMatchSchedule:
                 result = match_schedule(svc, "CrossFit", date(2026, 1, 5), gym_id=1)
 
         assert result is None
-        mock_logger.debug.assert_called_once()
-        assert "CrossFit" in mock_logger.debug.call_args[0][1]
+        mock_logger.warning.assert_called_once()
+        assert "CrossFit" in mock_logger.warning.call_args[0][1]
 
     def test_direct_alias_hit(self, db_path):
         """When service finds a schedule, return it."""
@@ -84,12 +84,13 @@ class TestMatchSchedulesForDate:
         assert result == {}
 
     def test_service_exception_returns_empty_dict(self, db_path):
-        """Schedule service exception is swallowed, returns empty dict."""
+        """Schedule service exception is swallowed, returns empty dict, logs warning."""
         svc = ScheduleService(db_path)
 
-        with patch.object(svc, 'get_by_date', side_effect=RuntimeError("DB crash")):
+        with patch.object(svc, 'get_all_for_date', side_effect=RuntimeError("DB crash")):
             with patch("wodplanner.services.schedule_lookup.logger") as mock_logger:
                 result = match_schedules_for_date(svc, date(2026, 1, 5), gym_id=1)
 
         assert result == {}
-        mock_logger.debug.assert_called_once()
+        mock_logger.warning.assert_called_once()
+        assert "Batch schedule lookup failed" in mock_logger.warning.call_args[0][0]

@@ -212,10 +212,6 @@ class ScheduleService(BaseService):
                 ).fetchall()
             return [self._row_to_model(row) for row in rows]
 
-    def find_for_appointment(self, appointment_name: str, appointment_date: date, gym_id: int | None = None) -> Schedule | None:
-        """Find a schedule that matches an appointment name and date."""
-        return self.get_by_date_and_class(appointment_date, appointment_name, gym_id=gym_id)
-
     def get_all_for_date(self, schedule_date: date, gym_id: int | None = None) -> dict[str, Schedule]:
         """All schedules for a date, keyed by every known alias — O(1) lookup by API class name."""
         schedules = self.get_by_date(schedule_date, gym_id)
