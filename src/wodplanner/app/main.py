@@ -89,9 +89,9 @@ async def _periodic_sync_all(db_path: Path) -> None:
     from wodplanner.services.google_accounts import GoogleAccountsService
     from wodplanner.services.schedule import ScheduleService
 
-    db = GoogleAccountsService(db_path)
-    schedule_service = ScheduleService(db_path)
     enc_key = crypto.get_enc_key(settings.google_token_enc_key, settings.secret_key)
+    db = GoogleAccountsService(db_path, enc_key)
+    schedule_service = ScheduleService(db_path)
     sync_service = CalendarSyncService(db, enc_key, schedule_service)
 
     user_ids = db.get_all_sync_enabled_user_ids()

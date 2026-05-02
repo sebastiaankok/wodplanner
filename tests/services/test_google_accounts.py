@@ -1,13 +1,39 @@
 """Tests for services/google_accounts.py — DB service for Google Calendar sync state."""
 
+from datetime import datetime, timedelta
+from unittest.mock import patch
+
 import pytest
 
+from wodplanner.models.google import GoogleAccount
 from wodplanner.services.google_accounts import GoogleAccountsService
+
+ENC_KEY = b"A" * 44  # Placeholder — crypto is mocked
+
+
+def _make_account(
+    user_id=1,
+    calendar_id="cal_id",
+    token_expiry=None,
+    access_token="enc_access",
+    refresh_token="enc_refresh",
+):
+    return GoogleAccount(
+        user_id=user_id,
+        google_email="user@gmail.com",
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_expiry=token_expiry,
+        scopes="calendar",
+        calendar_id=calendar_id,
+        sync_enabled=True,
+        created_at=datetime.now().isoformat(),
+    )
 
 
 @pytest.fixture
 def svc(db_path):
-    return GoogleAccountsService(db_path)
+    return GoogleAccountsService(db_path, ENC_KEY)
 
 
 def _insert_account(svc, user_id=1):
@@ -227,3 +253,46 @@ class TestSyncedEvents:
         )
         events = svc.get_synced_events(1)
         assert len(events) == 2
+
+
+class TestGetValidToken:
+    def test_returns_decrypted_token_when_no_expiry(self, svc):
+        _insert_account(svc)
+        account = svc.get_account(1)
+        with patch("wodplanner.services.google_accounts.crypto.decrypt", return_value="raw_token"):
+            token = svc.get_valid_token(account)
+        assert token == "raw_token"
+
+    def test_returns_decrypted_token_when_expiry_is_far_future(self, svc):
+        _insert_account(svc)
+        far_future = (datetime.now() + timedelta(hours=2)).isoformat()
+        svc.update_tokens(1, "enc_access", far_future)
+        account = svc.get_account(1)
+        with patch("wodplanner.services.google_accounts.crypto.decrypt", return_value="raw_token"):
+            token = svc.get_valid_token(account)
+        assert token == "raw_token"
+
+    def test_refreshes_when_token_near_expiry(self, svc):
+        _insert_account(svc)
+        near_expiry = (datetime.now() + timedelta(minutes=2)).isoformat()
+        svc.update_tokens(1, "enc_access", near_expiry)
+        account = svc.get_account(1)
+        with (
+            patch("wodplanner.services.google_accounts.crypto.decrypt", side_effect=["enc_access", "enc_refresh"]),
+            patch("wodplanner.services.google_accounts.refresh_access_token", return_value=("new_tok", "new_expiry")),
+            patch("wodplanner.services.google_accounts.crypto.encrypt", return_value="enc_new_tok"),
+        ):
+            token = svc.get_valid_token(account)
+        assert token == "new_tok"
+
+    def test_no_refresh_when_not_near_expiry(self, svc):
+        _insert_account(svc)
+        far_future = (datetime.now() + timedelta(hours=2)).isoformat()
+        svc.update_tokens(1, "enc_access", far_future)
+        account = svc.get_account(1)
+        call_count = [0]
+        original = svc.update_tokens
+        svc.update_tokens = lambda *a, **kw: (call_count.__setitem__(0, call_count[0] + 1), original(*a, **kw))
+        with patch("wodplanner.services.google_accounts.crypto.decrypt", return_value="raw_token"):
+            svc.get_valid_token(account)
+        assert call_count[0] == 0

@@ -4,11 +4,13 @@ Version range 500-599.
 """
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
+from pathlib import Path
 
 from wodplanner.models.google import GoogleAccount, SyncedEvent
-from wodplanner.services import migrations
+from wodplanner.services import crypto, migrations
 from wodplanner.services.base import BaseService
+from wodplanner.services.google_oauth import refresh_access_token
 
 
 def _migrate_v500(conn: sqlite3.Connection) -> None:
@@ -71,6 +73,34 @@ migrations.register(502, "add wodapp_session_enc to google_accounts", _migrate_v
 
 class GoogleAccountsService(BaseService):
     """DB service for google_accounts and synced_events tables."""
+
+    def __init__(self, db_path: str | Path = "wodplanner.db", enc_key: bytes | None = None) -> None:
+        super().__init__(db_path)
+        self._enc_key = enc_key
+
+    def get_valid_token(self, account: GoogleAccount) -> str:
+        """Return a valid access token, refreshing via refresh_token when near expiry."""
+        raw_token = crypto.decrypt(account.access_token, self._enc_key)  # type: ignore[arg-type]
+
+        if account.token_expiry:
+            expiry = datetime.fromisoformat(account.token_expiry)
+            if datetime.now() + timedelta(minutes=5) >= expiry:
+                raw_refresh = crypto.decrypt(account.refresh_token, self._enc_key)  # type: ignore[arg-type]
+                from wodplanner.app.config import settings
+
+                new_token, new_expiry = refresh_access_token(
+                    raw_refresh,
+                    settings.google_client_id,  # type: ignore[arg-type]
+                    settings.google_client_secret,  # type: ignore[arg-type]
+                )
+                self.update_tokens(
+                    account.user_id,
+                    crypto.encrypt(new_token, self._enc_key),  # type: ignore[arg-type]
+                    new_expiry,
+                )
+                return new_token
+
+        return raw_token
 
     def _row_to_account(self, row: sqlite3.Row) -> GoogleAccount:
         return GoogleAccount(
