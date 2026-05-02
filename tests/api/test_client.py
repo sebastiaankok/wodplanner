@@ -453,9 +453,9 @@ class TestWodAppClientGetUpcomingReservations:
         result, images = client.get_upcoming_reservations()
 
         assert len(result) == 2
-        assert result[0]["id_appointment"] == 1
-        assert result[0]["name"] == "CrossFit"
-        assert result[1]["id_appointment"] == 2
+        assert result[0].id_appointment == 1
+        assert result[0].name == "CrossFit"
+        assert result[1].id_appointment == 2
         assert images == {"logo": "https://example.com/logo.png"}
 
     @patch("wodplanner.api.client.httpx.Client")

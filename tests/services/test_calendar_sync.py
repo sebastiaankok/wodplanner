@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+from wodplanner.models.calendar import Reservation
 from wodplanner.models.google import GoogleAccount, SyncedEvent
 from wodplanner.models.schedule import Schedule
 from wodplanner.services import calendar_sync
@@ -42,12 +43,12 @@ def _make_client(reservations=None):
 
 
 def _make_reservation(appt_id=1, name="CrossFit", date_start=None, date_end=None):
-    return {
-        "id_appointment": appt_id,
-        "name": name,
-        "date_start": date_start or datetime(2026, 5, 1, 10, 0),
-        "date_end": date_end,
-    }
+    return Reservation(
+        id_appointment=appt_id,
+        name=name,
+        date_start=date_start or datetime(2026, 5, 1, 10, 0),
+        date_end=date_end,
+    )
 
 
 def _make_synced_event(appt_id=1, google_event_id="gev1", date_start=None, name="CrossFit"):
