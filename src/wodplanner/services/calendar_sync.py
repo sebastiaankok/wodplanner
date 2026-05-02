@@ -15,6 +15,7 @@ from wodplanner.models.schedule import Schedule
 from wodplanner.services import google_calendar as gcal
 from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.schedule import ScheduleService
+from wodplanner.services.schedule_lookup import match_schedule
 
 logger = logging.getLogger(__name__)
 
@@ -47,23 +48,6 @@ def _build_description(class_name: str, schedule: Schedule | None) -> str:
             parts.append(f"Metcon:\n{schedule.metcon}")
     return "\n\n".join(parts)
 
-
-def _lookup_schedule(
-    schedule_service: ScheduleService | None,
-    reservation: dict,
-    gym_id: int | None,
-) -> Schedule | None:
-    if not schedule_service or gym_id is None:
-        return None
-    try:
-        return schedule_service.find_for_appointment(
-            reservation["name"],
-            reservation["date_start"].date(),
-            gym_id=gym_id,
-        )
-    except Exception:
-        logger.debug("Schedule lookup failed for appt %d", reservation["id_appointment"])
-        return None
 
 
 def _build_event(
@@ -206,7 +190,12 @@ class CalendarSyncService:
             if appt_id in existing:
                 continue
             try:
-                schedule = _lookup_schedule(self._schedule_service, reservation, gym_id)
+                schedule = match_schedule(
+                    reservation["name"],
+                    reservation["date_start"].date(),
+                    gym_id=gym_id,
+                    schedule_service=self._schedule_service,
+                )
                 event_body = _build_event(reservation, gym_name, first_name, schedule)
                 created = gcal.insert_event(access_token, account.calendar_id, event_body)
                 self._db.upsert_synced_event(
@@ -237,7 +226,12 @@ class CalendarSyncService:
             if ev.date_start == new_start and ev.name == reservation["name"]:
                 continue
             try:
-                schedule = _lookup_schedule(self._schedule_service, reservation, gym_id)
+                schedule = match_schedule(
+                    reservation["name"],
+                    reservation["date_start"].date(),
+                    gym_id=gym_id,
+                    schedule_service=self._schedule_service,
+                )
                 event_body = _build_event(reservation, gym_name, first_name, schedule)
                 gcal.update_event(
                     access_token, account.calendar_id, ev.google_event_id, event_body
