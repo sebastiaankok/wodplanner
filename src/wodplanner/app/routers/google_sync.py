@@ -205,7 +205,6 @@ def google_calendars(
     request: Request,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     db: GoogleAccountsService = Depends(get_google_accounts_service),
-    sync_service: CalendarSyncService = Depends(get_calendar_sync_service),
 ):
     """HTMX partial: list user's Google Calendars for calendar picker."""
     account = db.get_account(session.user_id)
@@ -213,7 +212,7 @@ def google_calendars(
         raise HTTPException(status_code=400, detail="Not connected to Google")
 
     try:
-        access_token = sync_service.get_valid_token(account)
+        access_token = db.get_valid_token(account)
         calendars = gcal.list_calendars(access_token)
     except Exception:
         logger.exception("Failed to list calendars for user %d", session.user_id)
@@ -241,7 +240,7 @@ def google_calendar_select(
         raise HTTPException(status_code=400, detail="Not connected to Google")
 
     try:
-        access_token = sync_service.get_valid_token(account)
+        access_token = db.get_valid_token(account)
     except Exception:
         logger.exception("Token refresh failed for user %d", session.user_id)
         return _render(
