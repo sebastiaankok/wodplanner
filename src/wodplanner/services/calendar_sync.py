@@ -10,13 +10,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from wodplanner.api.client import WodAppClient
-from wodplanner.app.config import settings
 from wodplanner.models.google import GoogleAccount, SyncedEvent
 from wodplanner.models.schedule import Schedule
-from wodplanner.services import crypto
 from wodplanner.services import google_calendar as gcal
 from wodplanner.services.google_accounts import GoogleAccountsService
-from wodplanner.services.google_oauth import refresh_access_token
 from wodplanner.services.schedule import ScheduleService
 
 logger = logging.getLogger(__name__)
@@ -157,34 +154,10 @@ class CalendarSyncService:
     def __init__(
         self,
         db: GoogleAccountsService,
-        enc_key: bytes,
         schedule_service: ScheduleService | None = None,
     ) -> None:
         self._db = db
-        self._enc_key = enc_key
         self._schedule_service = schedule_service
-
-    def get_valid_token(self, account: GoogleAccount) -> str:
-        """Return a valid access token, refreshing via refresh_token when near expiry."""
-        raw_token = crypto.decrypt(account.access_token, self._enc_key)
-
-        if account.token_expiry:
-            expiry = datetime.fromisoformat(account.token_expiry)
-            if datetime.now() + timedelta(minutes=5) >= expiry:
-                raw_refresh = crypto.decrypt(account.refresh_token, self._enc_key)
-                new_token, new_expiry = refresh_access_token(
-                    raw_refresh,
-                    settings.google_client_id,  # type: ignore[arg-type]
-                    settings.google_client_secret,  # type: ignore[arg-type]
-                )
-                self._db.update_tokens(
-                    account.user_id,
-                    crypto.encrypt(new_token, self._enc_key),
-                    new_expiry,
-                )
-                return new_token
-
-        return raw_token
 
     def sync(
         self,
@@ -202,7 +175,7 @@ class CalendarSyncService:
             return result
 
         try:
-            access_token = self.get_valid_token(account)
+            access_token = self._db.get_valid_token(account)
         except Exception as exc:
             logger.exception("Token refresh failed for user %d", account.user_id)
             self._db.disable_sync(account.user_id, f"token refresh failed: {exc}")
