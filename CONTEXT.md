@@ -32,6 +32,14 @@ _Avoid_: workout, wod, programme
 The act of enrolling in an Appointment when spots are available.
 _Avoid_: subscribe, register, reserve, book
 
+**Day Card**:
+An enriched Appointment shape for calendar rendering. Wraps live Appointment data with computed fields: friends present, 1RM flag (from matched Schedule), sign-up window status, and past/future boundary. Pure builder (`build_day_cards`) takes pre-fetched inputs; caller handles upstream fetching.
+_Avoid_: calendar item, class card, appointment card
+
+**Sign-Up Window**:
+The time period when an Appointment becomes bookable. Regular classes open 7 days before start; CF101/101 classes open 14 weeks before. The `signup_open` flag on a Day Card indicates whether the window has opened.
+_Avoid_: booking window, registration period
+
 **Waiting List**:
 A queue joined when an Appointment is full. WodApp automatically promotes waiting members when a spot opens.
 _Avoid_: waitlist, queue
