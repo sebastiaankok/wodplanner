@@ -70,7 +70,7 @@ class TestBuildCalendarView:
 
         client.get_day_schedule.return_value = [appt]
         friends_service.get_all.return_value = []
-        schedule_service.get_all_for_date.return_value = {}
+        schedule_service.get_by_date.return_value = []
 
         result = build_calendar_view(
             session, date(2026, 1, 1), client, friends_service, schedule_service, {"Hidden Class"}
@@ -96,7 +96,7 @@ class TestBuildCalendarView:
 
         client.get_day_schedule.return_value = [appt]
         friends_service.get_all.return_value = []
-        schedule_service.get_all_for_date.return_value = {}
+        schedule_service.get_by_date.return_value = []
 
         result = build_calendar_view(
             session, date(2026, 1, 1), client, friends_service, schedule_service, set()
@@ -129,7 +129,7 @@ class TestBuildCalendarView:
 
         client.get_day_schedule.return_value = [appt]
         friends_service.get_all.return_value = [friend]
-        schedule_service.get_all_for_date.return_value = {}
+        schedule_service.get_by_date.return_value = []
 
         member = MagicMock()
         member.id_appuser = 100
@@ -164,10 +164,11 @@ class TestBuildCalendarView:
         sched.strength_specialty = "1RM Back Squat"
         sched.warmup_mobility = None
         sched.metcon = None
+        sched.class_type = "CrossFit"
 
         client.get_day_schedule.return_value = [appt]
         friends_service.get_all.return_value = []
-        schedule_service.get_all_for_date.return_value = {"CrossFit": sched}
+        schedule_service.get_by_date.return_value = [sched]
 
         result = build_calendar_view(
             session, date(2026, 1, 1), client, friends_service, schedule_service, set()

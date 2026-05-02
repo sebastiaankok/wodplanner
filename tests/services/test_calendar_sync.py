@@ -397,7 +397,7 @@ class TestSyncUser:
         client = _make_client([reservation])
         schedule = _make_schedule(metcon="AMRAP 10: 5 pull-ups")
         schedule_service = MagicMock()
-        schedule_service.find_for_appointment.return_value = schedule
+        schedule_service.get_by_date_and_class.return_value = schedule
         inserted_events = []
 
         def capture_insert(token, cal_id, event_body):
@@ -409,7 +409,7 @@ class TestSyncUser:
 
         assert result.inserted == 1
         assert "AMRAP 10: 5 pull-ups" in inserted_events[0]["description"]
-        schedule_service.find_for_appointment.assert_called_once_with("CrossFit", datetime(2026, 5, 1, 10, 0).date(), gym_id=42)
+        schedule_service.get_by_date_and_class.assert_called_once_with(datetime(2026, 5, 1, 10, 0).date(), "CrossFit", gym_id=42)
 
     def test_inserts_without_schedule_when_none_provided(self):
         account = _make_account()

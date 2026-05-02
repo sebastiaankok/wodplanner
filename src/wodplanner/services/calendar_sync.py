@@ -15,6 +15,7 @@ from wodplanner.models.schedule import Schedule
 from wodplanner.services import google_calendar as gcal
 from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.schedule import ScheduleService
+from wodplanner.services.schedule_lookup import match_schedule
 
 logger = logging.getLogger(__name__)
 
@@ -55,15 +56,12 @@ def _lookup_schedule(
 ) -> Schedule | None:
     if not schedule_service or gym_id is None:
         return None
-    try:
-        return schedule_service.find_for_appointment(
-            reservation["name"],
-            reservation["date_start"].date(),
-            gym_id=gym_id,
-        )
-    except Exception:
-        logger.debug("Schedule lookup failed for appt %d", reservation["id_appointment"])
-        return None
+    return match_schedule(
+        schedule_service,
+        reservation["name"],
+        reservation["date_start"].date(),
+        gym_id=gym_id,
+    )
 
 
 def _build_event(
