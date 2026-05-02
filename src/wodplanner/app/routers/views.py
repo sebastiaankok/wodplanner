@@ -34,6 +34,7 @@ from wodplanner.services.one_rep_max import (
 )
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
+from wodplanner.services.schedule_lookup import match_schedule
 from wodplanner.utils.dates import parse_api_datetime, parse_iso_date
 
 logger = logging.getLogger(__name__)
@@ -618,7 +619,7 @@ def schedule_modal_view(
     schedule_date = parse_iso_date(date_start.split(" ")[0])
 
     # Look up schedule by date and class name
-    schedule = schedule_service.get_by_date_and_class(schedule_date, class_name, gym_id=session.gym_id)
+    schedule = match_schedule(class_name, schedule_date, gym_id=session.gym_id, schedule_service=schedule_service)
 
     return render(
         request,
@@ -643,7 +644,7 @@ def one_rep_max_modal_view(
 ):
     """Get 1rm tracker modal for an appointment (htmx modal)."""
     schedule_date = parse_iso_date(date_start.split(" ")[0])
-    schedule = schedule_service.find_for_appointment(class_name, schedule_date, gym_id=session.gym_id)
+    schedule = match_schedule(class_name, schedule_date, gym_id=session.gym_id, schedule_service=schedule_service)
 
     raw_suggested: list[str] = []
     if schedule:
