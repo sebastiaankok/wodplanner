@@ -52,7 +52,8 @@ def get_one_rep_max_service() -> OneRepMaxService:
 @lru_cache
 def get_google_accounts_service() -> GoogleAccountsService:
     """Get the singleton Google accounts service."""
-    return GoogleAccountsService(_get_db_path())
+    enc_key = crypto.get_enc_key(settings.google_token_enc_key, settings.secret_key)
+    return GoogleAccountsService(_get_db_path(), enc_key)
 
 
 @lru_cache
