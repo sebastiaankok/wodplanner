@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 from fastapi import BackgroundTasks
 
 from wodplanner.api.client import WodAppClient
+from wodplanner.models.auth import AuthSession
 
 if TYPE_CHECKING:
-    from wodplanner.models.auth import AuthSession
     from wodplanner.services.calendar_sync import CalendarSyncService
     from wodplanner.services.google_accounts import GoogleAccountsService
 
@@ -47,12 +47,11 @@ class SubscriptionService:
         end: datetime,
         action: SubscribeAction,
         background_tasks: BackgroundTasks,
-        session: AuthSession | None = None,
+        session: AuthSession,
     ) -> None:
         """Execute subscription action and enqueue calendar sync if applicable."""
         self._dispatch(appointment_id, start, end, action)
-        if session:
-            self._enqueue_sync(background_tasks, session)
+        self._enqueue_sync(background_tasks, session)
 
     def _dispatch(
         self,

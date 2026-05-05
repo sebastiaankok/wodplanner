@@ -3,7 +3,7 @@
 import hashlib
 import json
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, cast
 
@@ -23,7 +23,8 @@ from wodplanner.app.dependencies import (
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
-from wodplanner.services.calendar_view import build_calendar_view
+from wodplanner.services.day_card import build_day_cards
+from wodplanner.services.friend_presence import find_friends_in_appointments
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.one_rep_max import (
     OneRepMaxService,
@@ -31,6 +32,7 @@ from wodplanner.services.one_rep_max import (
 )
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
+from wodplanner.services.schedule_lookup import match_schedule, match_schedules_for_date
 from wodplanner.services.subscription import SubscribeAction, SubscriptionService
 from wodplanner.utils.dates import parse_api_datetime, parse_iso_date
 
@@ -162,13 +164,41 @@ _HEADER_TOOLTIPS = {"filter", "today", "date_picker"}
 
 def _get_tooltip_context(dismissed: set, appt_data: list) -> dict:
     active = next((t for t in _TOOLTIP_SEQUENCE if t not in dismissed), None)
-    any_has_1rm = any(a["has_1rm"] for a in appt_data)
+    any_has_1rm = any(a.has_1rm for a in appt_data)
     show_1rm = "1rm" not in dismissed and any_has_1rm
     return {
         "active_tooltip": active,
         "show_1rm_tooltip": show_1rm,
         "show_backdrop": active in _HEADER_TOOLTIPS,
     }
+
+
+def _fetch_calendar_data(
+    session: AuthSession,
+    target_date: date,
+    client: WodAppClient,
+    friends_service: FriendsService,
+    schedule_service: ScheduleService,
+    hidden_types: set[str],
+) -> list:
+    """Fetch appointment data and build DayCard objects for calendar rendering."""
+    appointments = client.get_day_schedule(target_date)
+    visible = [a for a in appointments if a.name not in hidden_types]
+
+    friends = friends_service.get_all(session.user_id)
+
+    schedule_map = match_schedules_for_date(
+        target_date, gym_id=session.gym_id, schedule_service=schedule_service
+    )
+
+    friends_by_appt = find_friends_in_appointments(visible, friends, client) or {}
+
+    return build_day_cards(
+        appointments=visible,
+        friends_by_appt_id=friends_by_appt,
+        schedule_by_class_type=schedule_map,
+        now=datetime.now(),
+    )
 
 
 @router.get("/calendar", response_class=HTMLResponse)
@@ -188,7 +218,7 @@ def calendar_page(
 
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
-    appt_data = build_calendar_view(session, target_date, client, friends_service, schedule_service, set(hidden_types))
+    appt_data = _fetch_calendar_data(session, target_date, client, friends_service, schedule_service, set(hidden_types))
 
     weekday = target_date.strftime("%A")
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
@@ -229,7 +259,7 @@ def calendar_day_partial(
 
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
-    appt_data = build_calendar_view(session, target_date, client, friends_service, schedule_service, set(hidden_types))
+    appt_data = _fetch_calendar_data(session, target_date, client, friends_service, schedule_service, set(hidden_types))
 
     weekday = target_date.strftime("%A")
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
@@ -388,7 +418,6 @@ def delete_friend_view(
     ]
 
     return render(request, "partials/friends_list.html", {"friends": friends_data})
-
 
 
 @router.post("/appointments/{appointment_id}/subscribe", response_class=HTMLResponse)
@@ -612,7 +641,7 @@ def schedule_modal_view(
     schedule_date = parse_iso_date(date_start.split(" ")[0])
 
     # Look up schedule by date and class name
-    schedule = schedule_service.get_by_date_and_class(schedule_date, class_name, gym_id=session.gym_id)
+    schedule = match_schedule(class_name, schedule_date, gym_id=session.gym_id, schedule_service=schedule_service)
 
     return render(
         request,
@@ -637,7 +666,7 @@ def one_rep_max_modal_view(
 ):
     """Get 1rm tracker modal for an appointment (htmx modal)."""
     schedule_date = parse_iso_date(date_start.split(" ")[0])
-    schedule = schedule_service.find_for_appointment(class_name, schedule_date, gym_id=session.gym_id)
+    schedule = match_schedule(class_name, schedule_date, gym_id=session.gym_id, schedule_service=schedule_service)
 
     raw_suggested: list[str] = []
     if schedule:
