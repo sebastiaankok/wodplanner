@@ -26,7 +26,7 @@ class TestSubscribeActionDispatch:
     @pytest.fixture
     def google_db(self):
         db = MagicMock()
-        db.get_account.return_value = None  # no sync account
+        db.get_account.return_value = None  # no Google account -> sync skipped
         return db
 
     @pytest.fixture
@@ -193,6 +193,25 @@ class TestSyncEnqueue:
         from wodplanner.services.subscription import SubscribeAction, SubscriptionService
 
         google_db.get_account.return_value = None
+
+        service = SubscriptionService(
+            client=client,
+            google_db=google_db,
+            sync_service=MagicMock(),
+        )
+        start = datetime(2026, 4, 25, 10, 0)
+        end = datetime(2026, 4, 25, 11, 0)
+
+        service.act(appointment_id=1, start=start, end=end, action=SubscribeAction.SUBSCRIBE, background_tasks=background_tasks, session=auth_session)
+
+        client.subscribe.assert_called_once()
+        background_tasks.add_task.assert_not_called()
+
+    def test_sync_not_enqueued_when_no_calendar_id(self, client, background_tasks, google_db, auth_session):
+        from wodplanner.services.subscription import SubscribeAction, SubscriptionService
+
+        google_db.get_account.return_value.sync_enabled = True
+        google_db.get_account.return_value.calendar_id = None
 
         service = SubscriptionService(
             client=client,

@@ -19,6 +19,7 @@ from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.one_rep_max import OneRepMaxService
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
+from wodplanner.services.subscription import SubscriptionService
 
 
 def _get_db_path() -> Path:
@@ -149,3 +150,14 @@ def get_client_from_session_for_view(
     Redirects to login if no valid session.
     """
     return WodAppClient.from_session(session, cache=get_api_cache_service())
+
+
+def get_subscription_service(
+    client: Annotated[WodAppClient, Depends(get_client_from_session_for_view)],
+) -> SubscriptionService:
+    """Create a per-request SubscriptionService."""
+    return SubscriptionService(
+        client=client,
+        google_db=get_google_accounts_service(),
+        sync_service=get_calendar_sync_service(),
+    )
