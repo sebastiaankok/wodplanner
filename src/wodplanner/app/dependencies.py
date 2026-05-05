@@ -13,6 +13,7 @@ from wodplanner.models.auth import AuthSession
 from wodplanner.services import crypto
 from wodplanner.services import session as cookie_session
 from wodplanner.services.api_cache import ApiCacheService
+from wodplanner.services.benchmark import BenchmarkService
 from wodplanner.services.calendar_sync import CalendarSyncService
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.google_accounts import GoogleAccountsService
@@ -64,6 +65,12 @@ def get_calendar_sync_service() -> CalendarSyncService:
         db=get_google_accounts_service(),
         schedule_service=get_schedule_service(),
     )
+
+
+@lru_cache
+def get_benchmark_service() -> BenchmarkService:
+    """Get the singleton benchmark service."""
+    return BenchmarkService(_get_db_path())
 
 
 @lru_cache

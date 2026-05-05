@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from wodplanner.models.calendar import Appointment
 from wodplanner.models.friends import Friend
+from wodplanner.services.benchmark import find_benchmark_in_schedule
 from wodplanner.services.one_rep_max import has_1rm_exercise as _check_1rm
 
 _TZ = ZoneInfo("Europe/Amsterdam")
@@ -39,6 +40,24 @@ def _has_1rm(appt_name: str, schedule_by_class_type: Mapping[str, object]) -> bo
     )
 
 
+def _find_benchmark(
+    appt_name: str,
+    schedule_by_class_type: Mapping[str, object],
+    benchmark_names: list[str],
+) -> str | None:
+    """Check if appointment's matched Schedule contains a benchmark WOD."""
+    sched = schedule_by_class_type.get(appt_name)
+    if sched is None or not benchmark_names:
+        return None
+    texts = [
+        getattr(sched, "warmup_mobility", None),
+        getattr(sched, "strength_specialty", None),
+        getattr(sched, "metcon", None),
+        getattr(sched, "raw_content", None),
+    ]
+    return find_benchmark_in_schedule(texts, benchmark_names)
+
+
 class DayCard(BaseModel):
     """Enriched Appointment for calendar rendering."""
 
@@ -53,6 +72,8 @@ class DayCard(BaseModel):
     date_end: str
     friends: list[Friend] = []
     has_1rm: bool = False
+    has_benchmark: bool = False
+    benchmark_name: str | None = None
     signup_open: bool = False
     is_past: bool = False
 
@@ -62,6 +83,7 @@ def build_day_cards(
     friends_by_appt_id: Mapping[int, list[Friend] | None],
     schedule_by_class_type: Mapping[str, object],
     now: datetime,
+    benchmark_names: list[str] | None = None,
 ) -> list[DayCard]:
     """Build DayCard objects from raw appointment data."""
     cards: list[DayCard] = []
@@ -70,6 +92,7 @@ def build_day_cards(
         target_date = appt.date_start.date()
         actual_start = datetime.combine(target_date, appt.date_start.time(), tzinfo=appt.date_start.tzinfo)
         actual_start_tz = actual_start.replace(tzinfo=_TZ) if actual_start.tzinfo is None else actual_start
+        benchmark_name = _find_benchmark(appt.name, schedule_by_class_type, benchmark_names or [])
 
         cards.append(
             DayCard(
@@ -84,6 +107,8 @@ def build_day_cards(
                 date_end=target_date.isoformat(),
                 friends=friends_by_appt_id.get(appt.id_appointment) or [],
                 has_1rm=_has_1rm(appt.name, schedule_by_class_type),
+                has_benchmark=benchmark_name is not None,
+                benchmark_name=benchmark_name,
                 signup_open=_is_signup_open(appt.name, actual_start, now),
                 is_past=actual_start_tz < now_tz,
             )

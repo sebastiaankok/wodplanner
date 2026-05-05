@@ -634,6 +634,23 @@ body {
     background: #ede9fe;
 }
 
+.btn-icon.btn-benchmark {
+    color: #d97706;
+    border-color: #d97706;
+}
+
+.btn-icon.btn-benchmark:hover {
+    background: #fef3c7;
+}
+
+.benchmark-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    margin-left: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
 .one-rm-chart-container {
     padding: 1rem;
     height: 260px;
