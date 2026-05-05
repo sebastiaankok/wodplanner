@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from wodplanner.api.client import WodAppClient
+from wodplanner.models.calendar import Reservation
 from wodplanner.models.google import GoogleAccount, SyncedEvent
 from wodplanner.models.schedule import Schedule
 from wodplanner.services import google_calendar as gcal
@@ -51,20 +52,20 @@ def _build_description(class_name: str, schedule: Schedule | None) -> str:
 
 
 def _build_event(
-    reservation: dict,
+    reservation: Reservation,
     gym_name: str,
     first_name: str,
     schedule: Schedule | None = None,
 ) -> dict:
-    start: datetime = reservation["date_start"]
-    end: datetime = reservation.get("date_end") or start + _DEFAULT_CLASS_DURATION
-    appt_id: int = reservation["id_appointment"]
+    start: datetime = reservation.date_start
+    end: datetime = reservation.date_end or start + _DEFAULT_CLASS_DURATION
+    appt_id: int = reservation.id_appointment
     return {
-        "summary": f"{first_name} - {reservation['name']}",
+        "summary": f"{first_name} - {reservation.name}",
         "location": gym_name,
         "start": {"dateTime": start.isoformat(), "timeZone": _TIMEZONE},
         "end": {"dateTime": end.isoformat(), "timeZone": _TIMEZONE},
-        "description": _build_description(reservation["name"], schedule),
+        "description": _build_description(reservation.name, schedule),
         "extendedProperties": {"private": {_PROP_KEY: str(appt_id)}},
     }
 
@@ -177,7 +178,7 @@ class CalendarSyncService:
             return result
 
         existing = {ev.id_appointment: ev for ev in self._db.get_synced_events(account.user_id)}
-        desired = {r["id_appointment"]: r for r in reservations}
+        desired = {r.id_appointment: r for r in reservations}
 
         # Recovery: rebuild mapping from Google Calendar if DB is empty but user has signups.
         if not existing and desired:
@@ -191,8 +192,8 @@ class CalendarSyncService:
                 continue
             try:
                 schedule = match_schedule(
-                    reservation["name"],
-                    reservation["date_start"].date(),
+                    reservation.name,
+                    reservation.date_start.date(),
                     gym_id=gym_id,
                     schedule_service=self._schedule_service,
                 )
@@ -203,11 +204,11 @@ class CalendarSyncService:
                     id_appointment=appt_id,
                     google_event_id=created["id"],
                     calendar_id=account.calendar_id,
-                    date_start=reservation["date_start"].isoformat(),
+                    date_start=reservation.date_start.isoformat(),
                     date_end=(
-                        reservation.get("date_end") or reservation["date_start"] + _DEFAULT_CLASS_DURATION
+                        reservation.date_end or reservation.date_start + _DEFAULT_CLASS_DURATION
                     ).isoformat(),
-                    name=reservation["name"],
+                    name=reservation.name,
                     etag=created.get("etag"),
                 )
                 result.inserted += 1
@@ -222,13 +223,13 @@ class CalendarSyncService:
             if appt_id not in existing:
                 continue
             ev = existing[appt_id]
-            new_start = reservation["date_start"].isoformat()
-            if ev.date_start == new_start and ev.name == reservation["name"]:
+            new_start = reservation.date_start.isoformat()
+            if ev.date_start == new_start and ev.name == reservation.name:
                 continue
             try:
                 schedule = match_schedule(
-                    reservation["name"],
-                    reservation["date_start"].date(),
+                    reservation.name,
+                    reservation.date_start.date(),
                     gym_id=gym_id,
                     schedule_service=self._schedule_service,
                 )
@@ -243,9 +244,9 @@ class CalendarSyncService:
                     calendar_id=account.calendar_id,
                     date_start=new_start,
                     date_end=(
-                        reservation.get("date_end") or reservation["date_start"] + _DEFAULT_CLASS_DURATION
+                        reservation.date_end or reservation.date_start + _DEFAULT_CLASS_DURATION
                     ).isoformat(),
-                    name=reservation["name"],
+                    name=reservation.name,
                     etag=ev.etag,
                 )
                 result.updated += 1
