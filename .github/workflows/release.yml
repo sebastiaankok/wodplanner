@@ -6,7 +6,7 @@ on:
 
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: gha-runner-scale-set-wodplanner
     permissions:
       contents: write
       pull-requests: write
@@ -24,7 +24,7 @@ jobs:
   build-and-push:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    runs-on: ubuntu-latest
+    runs-on: gha-runner-scale-set-wodplanner
     permissions:
       contents: read
       packages: write

@@ -5,7 +5,7 @@ on:
 
 jobs:
   commitlint:
-    runs-on: ubuntu-latest
+    runs-on: gha-runner-scale-set-wodplanner
     steps:
       - uses: actions/checkout@v6
         with:
@@ -19,7 +19,7 @@ jobs:
           npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: gha-runner-scale-set-wodplanner
 
     steps:
       - uses: actions/checkout@v6

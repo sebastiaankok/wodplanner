@@ -7,7 +7,7 @@ on:
 
 jobs:
   renovate:
-    runs-on: ubuntu-latest
+    runs-on: gha-runner-scale-set-wodplanner
     steps:
       - uses: actions/checkout@v6
 
