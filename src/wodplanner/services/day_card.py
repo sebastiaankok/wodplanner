@@ -46,8 +46,14 @@ def _find_benchmark(
     benchmark_names: list[str],
 ) -> str | None:
     """Check if appointment's matched Schedule contains a benchmark WOD."""
+    if not benchmark_names:
+        return None
+    lower_name = appt_name.lower()
+    for name in benchmark_names:
+        if name.lower() == lower_name:
+            return name
     sched = schedule_by_class_type.get(appt_name)
-    if sched is None or not benchmark_names:
+    if sched is None:
         return None
     texts = [
         getattr(sched, "warmup_mobility", None),
