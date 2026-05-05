@@ -5,15 +5,17 @@
     </div>
 
     {% if appointments %}
-    {% set ns = namespace(schedule_done=False, friends_done=False, one_rm_done=False) %}
+    {% set ns = namespace(schedule_done=False, friends_done=False, one_rm_done=False, benchmark_done=False) %}
     <div class="appointments">
         {% for appt in appointments %}
         {% set is_first_schedule = not ns.schedule_done %}
         {% set is_first_friends = not ns.friends_done %}
         {% set is_first_1rm = not ns.one_rm_done and appt.has_1rm %}
+        {% set is_first_benchmark = not ns.benchmark_done and appt.has_benchmark %}
         {% set ns.schedule_done = True %}
         {% set ns.friends_done = True %}
         {% if appt.has_1rm %}{% set ns.one_rm_done = True %}{% endif %}
+        {% if appt.has_benchmark %}{% set ns.benchmark_done = True %}{% endif %}
         <div class="appointment status-{{ appt.status }}{% if appt.is_past %} is-past{% endif %}">
             <div class="appointment-time">
                 {{ appt.time_start }} - {{ appt.time_end }}
@@ -70,6 +72,24 @@
                     <div id="tooltip-1rm" class="filter-tooltip">
                         <p>This class has a 1RM exercise. Tap to log your score.</p>
                         <button class="btn btn-sm" onclick="dismissTooltip('1rm', this.closest('.tooltip-btn-wrapper'))">Got it</button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if appt.has_benchmark %}
+                <div class="tooltip-btn-wrapper{% if is_first_benchmark and show_benchmark_tooltip %} has-tooltip{% endif %}">
+                    <button class="btn btn-icon btn-sm btn-benchmark"
+                            title="{{ appt.benchmark_name }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        <span class="benchmark-label">{{ appt.benchmark_name }}</span>
+                    </button>
+                    {% if is_first_benchmark and show_benchmark_tooltip %}
+                    <div id="tooltip-benchmark" class="filter-tooltip">
+                        <p>This class has a benchmark WOD ({{ appt.benchmark_name }}). Tap to log your time.</p>
+                        <button class="btn btn-sm" onclick="dismissTooltip('benchmark', this.closest('.tooltip-btn-wrapper'))">Got it</button>
                     </div>
                     {% endif %}
                 </div>

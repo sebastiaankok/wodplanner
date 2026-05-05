@@ -93,6 +93,7 @@ def _import_services_for_registration() -> None:
     """Import service modules so their register() calls execute."""
     # Local imports avoid a circular import at module load time.
     from wodplanner.services import (  # noqa: F401
+        benchmark,
         friends,
         google_accounts,
         one_rep_max,

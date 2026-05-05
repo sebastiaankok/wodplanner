@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 
 from wodplanner.api.client import WodAppClient
 from wodplanner.app.dependencies import (
+    get_benchmark_service,
     get_client_from_session_for_view,
     get_friends_service,
     get_one_rep_max_service,
@@ -23,6 +24,7 @@ from wodplanner.app.dependencies import (
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
+from wodplanner.services.benchmark import BenchmarkService
 from wodplanner.services.day_card import build_day_cards
 from wodplanner.services.friend_presence import find_friends_in_appointments
 from wodplanner.services.friends import FriendsService
@@ -165,10 +167,13 @@ _HEADER_TOOLTIPS = {"filter", "today", "date_picker"}
 def _get_tooltip_context(dismissed: set, appt_data: list) -> dict:
     active = next((t for t in _TOOLTIP_SEQUENCE if t not in dismissed), None)
     any_has_1rm = any(a.has_1rm for a in appt_data)
+    any_has_benchmark = any(a.has_benchmark for a in appt_data)
     show_1rm = "1rm" not in dismissed and any_has_1rm
+    show_benchmark = "benchmark" not in dismissed and any_has_benchmark
     return {
         "active_tooltip": active,
         "show_1rm_tooltip": show_1rm,
+        "show_benchmark_tooltip": show_benchmark,
         "show_backdrop": active in _HEADER_TOOLTIPS,
     }
 
@@ -179,6 +184,7 @@ def _fetch_calendar_data(
     client: WodAppClient,
     friends_service: FriendsService,
     schedule_service: ScheduleService,
+    benchmark_service: BenchmarkService,
     hidden_types: set[str],
 ) -> list:
     """Fetch appointment data and build DayCard objects for calendar rendering."""
@@ -192,12 +198,14 @@ def _fetch_calendar_data(
     )
 
     friends_by_appt = find_friends_in_appointments(visible, friends, client) or {}
+    benchmark_names = benchmark_service.get_benchmark_list()
 
     return build_day_cards(
         appointments=visible,
         friends_by_appt_id=friends_by_appt,
         schedule_by_class_type=schedule_map,
         now=datetime.now(),
+        benchmark_names=benchmark_names,
     )
 
 
@@ -210,6 +218,7 @@ def calendar_page(
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Main calendar page."""
     target_date = parse_iso_date(day) if day else date.today()
@@ -218,7 +227,7 @@ def calendar_page(
 
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
-    appt_data = _fetch_calendar_data(session, target_date, client, friends_service, schedule_service, set(hidden_types))
+    appt_data = _fetch_calendar_data(session, target_date, client, friends_service, schedule_service, benchmark_service, set(hidden_types))
 
     weekday = target_date.strftime("%A")
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
@@ -251,6 +260,7 @@ def calendar_day_partial(
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Calendar day partial for htmx updates."""
     target_date = parse_iso_date(day)
@@ -259,7 +269,7 @@ def calendar_day_partial(
 
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
-    appt_data = _fetch_calendar_data(session, target_date, client, friends_service, schedule_service, set(hidden_types))
+    appt_data = _fetch_calendar_data(session, target_date, client, friends_service, schedule_service, benchmark_service, set(hidden_types))
 
     weekday = target_date.strftime("%A")
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
@@ -291,6 +301,7 @@ def toggle_filter(
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Toggle a class type filter."""
     prefs_service.toggle_hidden_class_type(session.user_id, class_type)
@@ -302,6 +313,7 @@ def toggle_filter(
         friends_service=friends_service,
         prefs_service=prefs_service,
         schedule_service=schedule_service,
+        benchmark_service=benchmark_service,
     )
 
 
@@ -433,6 +445,7 @@ def subscribe_view(
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     subscription_service: SubscriptionService = Depends(get_subscription_service),
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Subscribe to appointment from calendar (htmx)."""
     start = parse_api_datetime(date_start)
@@ -456,6 +469,7 @@ def subscribe_view(
         friends_service=friends_service,
         prefs_service=prefs_service,
         schedule_service=schedule_service,
+        benchmark_service=benchmark_service,
     )
 
 
@@ -472,6 +486,7 @@ def waitinglist_view(
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     subscription_service: SubscriptionService = Depends(get_subscription_service),
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Join waiting list from calendar (htmx)."""
     start = parse_api_datetime(date_start)
@@ -495,6 +510,7 @@ def waitinglist_view(
         friends_service=friends_service,
         prefs_service=prefs_service,
         schedule_service=schedule_service,
+        benchmark_service=benchmark_service,
     )
 
 
@@ -512,6 +528,7 @@ def unsubscribe_view(
     prefs_service: PreferencesService = Depends(get_preferences_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     subscription_service: SubscriptionService = Depends(get_subscription_service),
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Unsubscribe from appointment (htmx)."""
     start = parse_api_datetime(date_start)
@@ -541,6 +558,7 @@ def unsubscribe_view(
         friends_service=friends_service,
         prefs_service=prefs_service,
         schedule_service=schedule_service,
+        benchmark_service=benchmark_service,
     )
 
 
