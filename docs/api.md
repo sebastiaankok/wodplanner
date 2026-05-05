@@ -346,7 +346,7 @@ The `appointment` endpoint returns `subscriptions.members[]` with:
 **Strategy**:
 1. Store a list of friend `id_appuser` values
 2. For each day, fetch appointments using `day` method
-3. Fetch all member lists in parallel via `ThreadPoolExecutor(max_workers=5)` in `services/calendar_view.py` — avoids N sequential round-trips; bounded concurrency to avoid rate-limiting upstream
+3. Fetch all member lists in parallel via `ThreadPoolExecutor(max_workers=5)` in `services/friend_presence.py` — avoids N sequential round-trips; bounded concurrency to avoid rate-limiting upstream
 4. Check if any friend's `id_appuser` is in `subscriptions.members[]`
 
 **Self-detection**: the WodApp login response does **not** return the user's `id_appuser`; `id_user` and `id_appuser` are different values. Resolution strategy:
