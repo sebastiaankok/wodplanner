@@ -24,7 +24,7 @@ jobs:
   build-and-push:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
-    runs-on: gha-runner-scale-set-wodplanner
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
