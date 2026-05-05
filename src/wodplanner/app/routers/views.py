@@ -817,15 +817,17 @@ def benchmark_modal_view(
     schedule_date = parse_iso_date(date_start.split(" ")[0])
     schedule = match_schedule(class_name, schedule_date, gym_id=session.gym_id, schedule_service=schedule_service)
 
-    benchmark_name = None
-    if schedule:
+    benchmark_names = benchmark_service.get_benchmark_list()
+    lower_class = class_name.lower()
+    benchmark_name = next((n for n in benchmark_names if n.lower() == lower_class), None)
+
+    if not benchmark_name and schedule:
         texts = [
             getattr(schedule, "warmup_mobility", None),
             getattr(schedule, "strength_specialty", None),
             getattr(schedule, "metcon", None),
             getattr(schedule, "raw_content", None),
         ]
-        benchmark_names = benchmark_service.get_benchmark_list()
         benchmark_name = find_benchmark_in_schedule(texts, benchmark_names)
 
     if not benchmark_name:
