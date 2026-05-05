@@ -10,11 +10,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from wodplanner.api.client import WodAppClient
+from wodplanner.models.calendar import Reservation
 from wodplanner.models.google import GoogleAccount, SyncedEvent
 from wodplanner.models.schedule import Schedule
 from wodplanner.services import google_calendar as gcal
 from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.schedule import ScheduleService
+from wodplanner.services.schedule_lookup import match_schedule
 
 logger = logging.getLogger(__name__)
 
@@ -48,39 +50,22 @@ def _build_description(class_name: str, schedule: Schedule | None) -> str:
     return "\n\n".join(parts)
 
 
-def _lookup_schedule(
-    schedule_service: ScheduleService | None,
-    reservation: dict,
-    gym_id: int | None,
-) -> Schedule | None:
-    if not schedule_service or gym_id is None:
-        return None
-    try:
-        return schedule_service.find_for_appointment(
-            reservation["name"],
-            reservation["date_start"].date(),
-            gym_id=gym_id,
-        )
-    except Exception:
-        logger.debug("Schedule lookup failed for appt %d", reservation["id_appointment"])
-        return None
-
 
 def _build_event(
-    reservation: dict,
+    reservation: Reservation,
     gym_name: str,
     first_name: str,
     schedule: Schedule | None = None,
 ) -> dict:
-    start: datetime = reservation["date_start"]
-    end: datetime = reservation.get("date_end") or start + _DEFAULT_CLASS_DURATION
-    appt_id: int = reservation["id_appointment"]
+    start: datetime = reservation.date_start
+    end: datetime = reservation.date_end or start + _DEFAULT_CLASS_DURATION
+    appt_id: int = reservation.id_appointment
     return {
-        "summary": f"{first_name} - {reservation['name']}",
+        "summary": f"{first_name} - {reservation.name}",
         "location": gym_name,
         "start": {"dateTime": start.isoformat(), "timeZone": _TIMEZONE},
         "end": {"dateTime": end.isoformat(), "timeZone": _TIMEZONE},
-        "description": _build_description(reservation["name"], schedule),
+        "description": _build_description(reservation.name, schedule),
         "extendedProperties": {"private": {_PROP_KEY: str(appt_id)}},
     }
 
@@ -193,7 +178,7 @@ class CalendarSyncService:
             return result
 
         existing = {ev.id_appointment: ev for ev in self._db.get_synced_events(account.user_id)}
-        desired = {r["id_appointment"]: r for r in reservations}
+        desired = {r.id_appointment: r for r in reservations}
 
         # Recovery: rebuild mapping from Google Calendar if DB is empty but user has signups.
         if not existing and desired:
@@ -206,7 +191,12 @@ class CalendarSyncService:
             if appt_id in existing:
                 continue
             try:
-                schedule = _lookup_schedule(self._schedule_service, reservation, gym_id)
+                schedule = match_schedule(
+                    reservation.name,
+                    reservation.date_start.date(),
+                    gym_id=gym_id,
+                    schedule_service=self._schedule_service,
+                )
                 event_body = _build_event(reservation, gym_name, first_name, schedule)
                 created = gcal.insert_event(access_token, account.calendar_id, event_body)
                 self._db.upsert_synced_event(
@@ -214,11 +204,11 @@ class CalendarSyncService:
                     id_appointment=appt_id,
                     google_event_id=created["id"],
                     calendar_id=account.calendar_id,
-                    date_start=reservation["date_start"].isoformat(),
+                    date_start=reservation.date_start.isoformat(),
                     date_end=(
-                        reservation.get("date_end") or reservation["date_start"] + _DEFAULT_CLASS_DURATION
+                        reservation.date_end or reservation.date_start + _DEFAULT_CLASS_DURATION
                     ).isoformat(),
-                    name=reservation["name"],
+                    name=reservation.name,
                     etag=created.get("etag"),
                 )
                 result.inserted += 1
@@ -233,11 +223,16 @@ class CalendarSyncService:
             if appt_id not in existing:
                 continue
             ev = existing[appt_id]
-            new_start = reservation["date_start"].isoformat()
-            if ev.date_start == new_start and ev.name == reservation["name"]:
+            new_start = reservation.date_start.isoformat()
+            if ev.date_start == new_start and ev.name == reservation.name:
                 continue
             try:
-                schedule = _lookup_schedule(self._schedule_service, reservation, gym_id)
+                schedule = match_schedule(
+                    reservation.name,
+                    reservation.date_start.date(),
+                    gym_id=gym_id,
+                    schedule_service=self._schedule_service,
+                )
                 event_body = _build_event(reservation, gym_name, first_name, schedule)
                 gcal.update_event(
                     access_token, account.calendar_id, ev.google_event_id, event_body
@@ -249,9 +244,9 @@ class CalendarSyncService:
                     calendar_id=account.calendar_id,
                     date_start=new_start,
                     date_end=(
-                        reservation.get("date_end") or reservation["date_start"] + _DEFAULT_CLASS_DURATION
+                        reservation.date_end or reservation.date_start + _DEFAULT_CLASS_DURATION
                     ).isoformat(),
-                    name=reservation["name"],
+                    name=reservation.name,
                     etag=ev.etag,
                 )
                 result.updated += 1

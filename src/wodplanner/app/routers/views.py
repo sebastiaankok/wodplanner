@@ -23,6 +23,7 @@ from wodplanner.app.dependencies import (
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
+from wodplanner.services.calendar_sync import CalendarSyncService
 from wodplanner.services.day_card import build_day_cards
 from wodplanner.services.friend_presence import find_friends_in_appointments
 from wodplanner.services.friends import FriendsService
@@ -33,7 +34,6 @@ from wodplanner.services.one_rep_max import (
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
 from wodplanner.services.schedule_lookup import match_schedule, match_schedules_for_date
-from wodplanner.services.subscription import SubscribeAction, SubscriptionService
 from wodplanner.utils.dates import parse_api_datetime, parse_iso_date
 
 logger = logging.getLogger(__name__)
@@ -135,15 +135,15 @@ def home_page(
     # Group by date for display
     days: dict[str, list[dict]] = {}
     for r in reservations:
-        day_key = r["date_start"].strftime("%Y-%m-%d")
+        day_key = r.date_start.strftime("%Y-%m-%d")
         if day_key not in days:
             days[day_key] = []
         days[day_key].append({
-            "id": r["id_appointment"],
-            "name": r["name"],
-            "time": r["date_start"].strftime("%H:%M"),
-            "weekday": r["date_start"].strftime("%A"),
-            "display_date": r["date_start"].strftime("%B %d"),
+            "id": r.id_appointment,
+            "name": r.name,
+            "time": r.date_start.strftime("%H:%M"),
+            "weekday": r.date_start.strftime("%A"),
+            "display_date": r.date_start.strftime("%B %d"),
         })
 
     return render(

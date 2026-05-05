@@ -22,16 +22,14 @@ Calendar views pass `session.gym_id` to all schedule queries. Query filter is `g
 
 ## Calendar View Builder
 
-`services/calendar_view.py` — shared logic for both `calendar_page` and `calendar_day_partial`.
+`services/day_card.py` — pure builder for calendar rendering, used by `calendar_page` and `calendar_day_partial`.
 
-**`build_calendar_view(session, target_date, client, friends_service, schedule_service, hidden_types) -> list[dict]`**:
-1. Fetches appointments via `client.get_day_schedule()`
-2. Filters hidden class types
-3. Pre-loads all schedules for the date via `schedule_service.get_all_for_date()` — one DB query, O(1) per-appointment lookup
-4. If user has friends: parallelizes `get_appointment_members()` calls across a `ThreadPoolExecutor(max_workers=5)` — bounded to avoid overloading upstream API
-5. Failures in member fetch are caught and logged as warnings; affected appointments render with empty friends list
+**`build_day_cards(appointments, friends_by_appt_id, schedule_by_class_type, now) -> list[DayCard]`**:
+1. Takes pre-fetched appointments, friends map, schedule map, and current time
+2. Returns typed `DayCard` Pydantic models with all enrichment fields
+3. Private helpers: `_is_signup_open()` (7d/14w rule), `_has_1rm()` (schedule section check)
 
-`is_signup_open(appt_name, appt_start)` also lives here (not in `views.py`). Regular classes open 7 days before start; CF101/101 classes open 14 weeks before.
+Upstream fetching (`views.py:_fetch_calendar_data`) handles API calls, friend cross-referencing via `friend_presence.find_friends_in_appointments()`, and schedule matching via `schedule_lookup.match_schedules_for_date()`.
 
 After PDF parsing, `import-schedule` collects all unique raw 1RM exercise names across all schedules and runs `resolve_exercise_interactive()` for each. Exact matches are silent. Fuzzy matches prompt: `[1] Accept match [2] Add as new [3] Rename [4] Skip`. No match prompts: `[1] Add as new [2] Rename [3] Skip`. Choosing rename recurses with the new name. New exercise names are persisted to the `exercises` table before DB save.
 

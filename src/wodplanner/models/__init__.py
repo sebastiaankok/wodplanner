@@ -1,7 +1,13 @@
 """Pydantic models for WodApp API responses."""
 
 from wodplanner.models.auth import Gym, LoginResponse
-from wodplanner.models.calendar import Appointment, AppointmentDetails, DaySchedule, Member
+from wodplanner.models.calendar import (
+    Appointment,
+    AppointmentDetails,
+    DaySchedule,
+    Member,
+    Reservation,
+)
 
 __all__ = [
     "LoginResponse",
@@ -10,4 +16,5 @@ __all__ = [
     "DaySchedule",
     "AppointmentDetails",
     "Member",
+    "Reservation",
 ]

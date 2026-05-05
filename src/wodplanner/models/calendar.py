@@ -93,6 +93,15 @@ class AppointmentDetails(BaseModel):
         return {m.id_appuser for m in self.subscriptions.members}
 
 
+class Reservation(BaseModel):
+    """User's upcoming reservation (signed-up future appointment)."""
+
+    id_appointment: int
+    name: str
+    date_start: datetime
+    date_end: datetime | None = None
+
+
 class SubscribeResponse(BaseModel):
     """Response from subscribe API calls."""
 

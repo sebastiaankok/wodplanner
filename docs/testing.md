@@ -93,7 +93,7 @@ tests/
     ├── test_one_rep_max.py
     ├── test_login_limiter.py
     ├── test_session.py
-    ├── test_calendar_view.py
+    ├── test_day_card.py
     ├── test_api_cache.py
     ├── test_base.py
     └── test_db.py
