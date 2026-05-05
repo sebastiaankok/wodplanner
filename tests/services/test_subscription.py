@@ -19,6 +19,7 @@ class TestSubscribeActionDispatch:
     @pytest.fixture
     def background_tasks(self):
         bt = MagicMock()
+        # Prevent real task scheduling side effects
         bt.add_task = MagicMock()
         return bt
 
@@ -48,50 +49,69 @@ class TestSubscribeActionDispatch:
     def test_subscribe_action(self, client, background_tasks, google_db, sync_service, auth_session):
         from wodplanner.services.subscription import SubscribeAction, SubscriptionService
 
-        service = SubscriptionService(client=client, google_db=google_db, sync_service=sync_service)
+        service = SubscriptionService(
+            client=client,
+            google_db=google_db,
+            sync_service=sync_service,
+        )
         start = datetime(2026, 4, 25, 10, 0)
         end = datetime(2026, 4, 25, 11, 0)
 
         service.act(appointment_id=1, start=start, end=end, action=SubscribeAction.SUBSCRIBE, background_tasks=background_tasks, session=auth_session)
 
         client.subscribe.assert_called_once_with(1, start, end)
-        # google_db.get_account returns None -> no enqueue
+        # sync skipped: google_db.get_account returns None
         background_tasks.add_task.assert_not_called()
 
     def test_waitinglist_action(self, client, background_tasks, google_db, sync_service, auth_session):
         from wodplanner.services.subscription import SubscribeAction, SubscriptionService
 
-        service = SubscriptionService(client=client, google_db=google_db, sync_service=sync_service)
+        service = SubscriptionService(
+            client=client,
+            google_db=google_db,
+            sync_service=sync_service,
+        )
         start = datetime(2026, 4, 25, 10, 0)
         end = datetime(2026, 4, 25, 11, 0)
 
         service.act(appointment_id=1, start=start, end=end, action=SubscribeAction.WAITLIST, background_tasks=background_tasks, session=auth_session)
 
         client.subscribe_waitinglist.assert_called_once_with(1, start, end)
+        # sync skipped: google_db.get_account returns None
         background_tasks.add_task.assert_not_called()
 
     def test_unsubscribe_action(self, client, background_tasks, google_db, sync_service, auth_session):
         from wodplanner.services.subscription import SubscribeAction, SubscriptionService
 
-        service = SubscriptionService(client=client, google_db=google_db, sync_service=sync_service)
+        service = SubscriptionService(
+            client=client,
+            google_db=google_db,
+            sync_service=sync_service,
+        )
         start = datetime(2026, 4, 25, 10, 0)
         end = datetime(2026, 4, 25, 11, 0)
 
         service.act(appointment_id=1, start=start, end=end, action=SubscribeAction.UNSUBSCRIBE, background_tasks=background_tasks, session=auth_session)
 
         client.unsubscribe.assert_called_once_with(1, start, end)
+        # sync skipped: google_db.get_account returns None
         background_tasks.add_task.assert_not_called()
 
     def test_unsubscribe_waitinglist_action(self, client, background_tasks, google_db, sync_service, auth_session):
         from wodplanner.services.subscription import SubscribeAction, SubscriptionService
 
-        service = SubscriptionService(client=client, google_db=google_db, sync_service=sync_service)
+        service = SubscriptionService(
+            client=client,
+            google_db=google_db,
+            sync_service=sync_service,
+        )
         start = datetime(2026, 4, 25, 10, 0)
         end = datetime(2026, 4, 25, 11, 0)
 
         service.act(appointment_id=1, start=start, end=end, action=SubscribeAction.UNSUBSCRIBE_WAITLIST, background_tasks=background_tasks, session=auth_session)
 
         client.unsubscribe_waitinglist.assert_called_once_with(1, start, end)
+        # sync skipped: google_db.get_account returns None
         background_tasks.add_task.assert_not_called()
 
 

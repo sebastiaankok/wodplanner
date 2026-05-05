@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 from fastapi import BackgroundTasks
 
 from wodplanner.api.client import WodAppClient
-from wodplanner.models.auth import AuthSession
 
 if TYPE_CHECKING:
+    from wodplanner.models.auth import AuthSession
     from wodplanner.services.calendar_sync import CalendarSyncService
     from wodplanner.services.google_accounts import GoogleAccountsService
 
