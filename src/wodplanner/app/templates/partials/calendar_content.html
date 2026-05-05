@@ -79,7 +79,11 @@
                 {% if appt.has_benchmark %}
                 <div class="tooltip-btn-wrapper{% if is_first_benchmark and show_benchmark_tooltip %} has-tooltip{% endif %}">
                     <button class="btn btn-icon btn-sm btn-benchmark"
-                            title="{{ appt.benchmark_name }}">
+                            hx-get="/appointments/{{ appt.id }}/benchmark?date_start={{ appt.date_start }}%20{{ appt.time_start }}&class_name={{ appt.name | urlencode }}"
+                            hx-target="#benchmark-modal-container"
+                            hx-swap="innerHTML"
+                            onclick="openBenchmarkModal(); dismissTooltip('benchmark', this.closest('.tooltip-btn-wrapper'));"
+                            title="Log benchmark result for {{ appt.benchmark_name }}">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/>
                             <polyline points="12 6 12 12 16 14"/>

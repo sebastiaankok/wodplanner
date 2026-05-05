@@ -1,0 +1,41 @@
+<div id="benchmark-history" class="benchmark-history">
+    {% if entries %}
+    <table class="benchmark-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>RX / Scaled</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td class="benchmark-date text-muted">{{ entry.recorded_at }}</td>
+                <td class="benchmark-time">{{ entry.formatted_time }}</td>
+                <td>
+                    {% if entry.is_rx %}
+                    <span class="badge badge-rx">RX</span>
+                    {% else %}
+                    <span class="badge badge-scaled">Scaled</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button class="btn-delete"
+                            hx-delete="/benchmark-results/{{ entry.id }}/delete"
+                            hx-target="#benchmark-history"
+                            hx-swap="outerHTML"
+                            hx-confirm="Delete this benchmark result?"
+                            title="Delete">
+                        &times;
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted benchmark-empty">No entries yet.</p>
+    {% endif %}
+</div>
