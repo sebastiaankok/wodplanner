@@ -68,6 +68,10 @@ _Avoid_: user ID (ambiguous)
 A CrossFit athlete's personal best weight for a single repetition of a lift (e.g. Back Squat 100 kg). When a Schedule contains a 1RM exercise, the calendar flags the Appointment so the user knows to bring their numbers.
 _Avoid_: personal best, max lift
 
+**Benchmark WOD**:
+A named CrossFit workout with a prescribed format (e.g. "Murph", "Fran", "Helen"). Unlike a regular Schedule, a Benchmark WOD is timed — the result is a completion time (or rounds/reps for For-Time workouts), plus whether it was performed as prescribed (RX) or scaled.
+_Avoid_: benchmark workout, named workout, hero wod
+
 **Exercise**:
 A named barbell or gymnastics movement with a canonical name (e.g. "Back Squat"). Stored in the `exercises` table; seeded with 28 defaults. Users log 1RMs against canonical Exercise names.
 _Avoid_: movement, lift
