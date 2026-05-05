@@ -242,6 +242,44 @@ class TestOneRMFlag:
         assert result[0].has_1rm is False
 
 
+class TestBenchmarkFlag:
+    def test_detected_from_appointment_name_no_schedule(self):
+        appt = _make_appointment(name="Murph")
+        result = build_day_cards(
+            appointments=[appt],
+            friends_by_appt_id={},
+            schedule_by_class_type={},
+            now=datetime(2026, 6, 10, tzinfo=TZ),
+            benchmark_names=["Murph", "Fran", "Helen"],
+        )
+        assert result[0].has_benchmark is True
+        assert result[0].benchmark_name == "Murph"
+
+    def test_appointment_name_match_case_insensitive(self):
+        appt = _make_appointment(name="murph")
+        result = build_day_cards(
+            appointments=[appt],
+            friends_by_appt_id={},
+            schedule_by_class_type={},
+            now=datetime(2026, 6, 10, tzinfo=TZ),
+            benchmark_names=["Murph", "Fran"],
+        )
+        assert result[0].has_benchmark is True
+        assert result[0].benchmark_name == "Murph"
+
+    def test_no_benchmark_for_non_benchmark_name_without_schedule(self):
+        appt = _make_appointment(name="CrossFit")
+        result = build_day_cards(
+            appointments=[appt],
+            friends_by_appt_id={},
+            schedule_by_class_type={},
+            now=datetime(2026, 6, 10, tzinfo=TZ),
+            benchmark_names=["Murph", "Fran"],
+        )
+        assert result[0].has_benchmark is False
+        assert result[0].benchmark_name is None
+
+
 class TestIsPast:
     def test_future_appointment_not_past(self):
         appt = _make_appointment()

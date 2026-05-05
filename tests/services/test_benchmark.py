@@ -55,6 +55,22 @@ class TestFindBenchmarkInSchedule:
         )
         assert result == "Cindy"
 
+    def test_no_match_for_partial_word(self):
+        names = ["Eva", "Grace", "Nancy"]
+        result = find_benchmark_in_schedule(
+            schedule_texts=["Coach: Evangelina | Warm-up: 400m run"],
+            benchmark_names=names,
+        )
+        assert result is None
+
+    def test_partial_word_does_not_shadow_real_match(self):
+        names = ["Eva", "Fran"]
+        result = find_benchmark_in_schedule(
+            schedule_texts=["Coach: Evangelina | Metcon: Fran"],
+            benchmark_names=names,
+        )
+        assert result == "Fran"
+
 
 class TestDayCardEnrichment:
     def test_benchmark_enrichment_adds_fields(self):

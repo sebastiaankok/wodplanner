@@ -1,5 +1,6 @@
 """Benchmark WOD detection and service."""
 
+import re
 import sqlite3
 from datetime import datetime
 
@@ -31,7 +32,7 @@ def find_benchmark_in_schedule(
         return None
     lower_combined = combined.lower()
     for name in benchmark_names:
-        if name.lower() in lower_combined:
+        if re.search(r'\b' + re.escape(name.lower()) + r'\b', lower_combined):
             return name
     return None
 
