@@ -24,7 +24,7 @@ from wodplanner.app.dependencies import (
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
-from wodplanner.services.benchmark import BenchmarkService
+from wodplanner.services.benchmark import BenchmarkService, find_benchmark_in_schedule
 from wodplanner.services.day_card import build_day_cards
 from wodplanner.services.friend_presence import find_friends_in_appointments
 from wodplanner.services.friends import FriendsService
@@ -52,6 +52,20 @@ def _format_1rm_entries(entries):
             "weight_kg": e.weight_kg,
             "recorded_at": e.recorded_at.strftime("%b %d, %Y"),
             "recorded_at_iso": e.recorded_at.isoformat(),
+        }
+        for e in entries
+    ]
+
+
+def _format_benchmark_entries(entries):
+    return [
+        {
+            "id": e.id,
+            "benchmark_name": e.benchmark_name,
+            "time_seconds": e.time_seconds,
+            "formatted_time": f"{e.time_seconds // 60}:{e.time_seconds % 60:02d}",
+            "is_rx": e.is_rx,
+            "recorded_at": e.recorded_at,
         }
         for e in entries
     ]
@@ -786,4 +800,101 @@ def delete_one_rep_max_view(
             "entries": entries,
             "exercises_data_json": _build_exercises_chart_data(entries),
         },
+    )
+
+
+@router.get("/appointments/{appointment_id}/benchmark", response_class=HTMLResponse)
+def benchmark_modal_view(
+    request: Request,
+    appointment_id: int,
+    date_start: str,
+    class_name: str,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    schedule_service: ScheduleService = Depends(get_schedule_service),
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+):
+    """Get benchmark result modal for an appointment (htmx modal)."""
+    schedule_date = parse_iso_date(date_start.split(" ")[0])
+    schedule = match_schedule(class_name, schedule_date, gym_id=session.gym_id, schedule_service=schedule_service)
+
+    benchmark_name = None
+    if schedule:
+        texts = [
+            getattr(schedule, "warmup_mobility", None),
+            getattr(schedule, "strength_specialty", None),
+            getattr(schedule, "metcon", None),
+            getattr(schedule, "raw_content", None),
+        ]
+        benchmark_names = benchmark_service.get_benchmark_list()
+        benchmark_name = find_benchmark_in_schedule(texts, benchmark_names)
+
+    if not benchmark_name:
+        raise HTTPException(status_code=404, detail="No benchmark WOD detected for this appointment")
+
+    raw = benchmark_service.get_results_for_benchmark(session.user_id, benchmark_name)
+    entries = _format_benchmark_entries(raw)
+
+    return render(
+        request,
+        "partials/benchmark_modal.html",
+        {
+            "benchmark_name": benchmark_name,
+            "entries": entries,
+            "preset_date": schedule_date.isoformat(),
+        },
+    )
+
+
+@router.post("/benchmark-results/add", response_class=HTMLResponse)
+def add_benchmark_result_view(
+    request: Request,
+    benchmark_name: str = Form(...),
+    minutes: int = Form(...),
+    seconds: int = Form(...),
+    is_rx: str = Form("true"),
+    recorded_at: str = Form(...),
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+):
+    """Add a benchmark result (htmx)."""
+    total_seconds = minutes * 60 + seconds
+    if total_seconds <= 0:
+        raise HTTPException(status_code=400, detail="Time must be greater than 0.")
+
+    benchmark_service.add_result(
+        user_id=session.user_id,
+        benchmark_name=benchmark_name.strip(),
+        time_seconds=total_seconds,
+        is_rx=is_rx == "true",
+        recorded_at=recorded_at,
+    )
+
+    raw = benchmark_service.get_results_for_benchmark(session.user_id, benchmark_name)
+    entries = _format_benchmark_entries(raw)
+    return render(
+        request,
+        "partials/benchmark_history.html",
+        {"entries": entries},
+    )
+
+
+@router.delete("/benchmark-results/{result_id}/delete", response_class=HTMLResponse)
+def delete_benchmark_result_view(
+    request: Request,
+    result_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+):
+    """Delete a benchmark result (htmx)."""
+    result = benchmark_service.get_result(session.user_id, result_id)
+    benchmark_name = result.benchmark_name if result else None
+
+    benchmark_service.delete_result(session.user_id, result_id)
+
+    raw = benchmark_service.get_results_for_benchmark(session.user_id, benchmark_name) if benchmark_name else []
+    entries = _format_benchmark_entries(raw)
+    return render(
+        request,
+        "partials/benchmark_history.html",
+        {"entries": entries},
     )

@@ -9,6 +9,7 @@ from wodplanner.api.client import WodAppClient
 from wodplanner.app.config import settings
 from wodplanner.app.dependencies import (
     get_api_cache_service,
+    get_benchmark_service,
     get_friends_service,
     get_one_rep_max_service,
     get_preferences_service,
@@ -16,6 +17,7 @@ from wodplanner.app.dependencies import (
 )
 from wodplanner.models.auth import AuthSession
 from wodplanner.services import session as cookie_session
+from wodplanner.services.benchmark import BenchmarkService
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.login_limiter import limiter
 from wodplanner.services.one_rep_max import OneRepMaxService
@@ -29,6 +31,7 @@ def _clear_dep_caches() -> None:
         get_preferences_service,
         get_schedule_service,
         get_one_rep_max_service,
+        get_benchmark_service,
         get_api_cache_service,
     ):
         fn.cache_clear()
@@ -115,3 +118,8 @@ def preferences_service(db_path) -> PreferencesService:
 @pytest.fixture
 def one_rep_max_service(db_path) -> OneRepMaxService:
     return OneRepMaxService(db_path)
+
+
+@pytest.fixture
+def benchmark_service(db_path) -> BenchmarkService:
+    return BenchmarkService(db_path)

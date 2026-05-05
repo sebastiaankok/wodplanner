@@ -651,6 +651,135 @@ body {
     letter-spacing: 0.02em;
 }
 
+.benchmark-form {
+    margin-bottom: 1rem;
+}
+
+.benchmark-form .form-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.benchmark-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 140px;
+}
+
+.benchmark-form .form-group-narrow {
+    flex: 0 0 110px;
+    min-width: 90px;
+}
+
+.benchmark-form .form-group-submit {
+    flex: 0 0 auto;
+}
+
+.benchmark-form--modal .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
+    gap: 0.5rem;
+}
+
+.benchmark-form--modal .form-row > :nth-child(1) {
+    grid-column: 1 / -1;
+}
+
+.benchmark-form--modal .form-group-submit .btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.benchmark-form label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--gray-600);
+}
+
+.benchmark-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.benchmark-table th {
+    text-align: left;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.benchmark-table td {
+    padding: 0.375rem 0.5rem;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.benchmark-time {
+    font-weight: 600;
+}
+
+.benchmark-date {
+    font-size: 0.75rem;
+}
+
+.benchmark-empty {
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.radio-group {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding-top: 0.25rem;
+}
+
+.radio-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-rx {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.badge-scaled {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+@media (max-width: 640px) {
+    .benchmark-form .form-row {
+        flex-direction: column;
+    }
+    .benchmark-form .form-group,
+    .benchmark-form .form-group-narrow {
+        flex: 1;
+        min-width: 0;
+        width: 100%;
+    }
+}
+
 .one-rm-chart-container {
     padding: 1rem;
     height: 260px;

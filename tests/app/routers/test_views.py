@@ -387,3 +387,79 @@ class TestAddDeleteOneRepMax:
         app_client.cookies.set("session", session_cookie)
         response = app_client.delete(f"/one-rep-maxes/{entry.id}/delete")
         assert response.status_code == 200
+
+
+class TestBenchmarkModal:
+    def test_renders(self, app_client, session_cookie, schedule_service):
+        from datetime import date
+
+        schedule_service.add(
+            Schedule(date=date(2026, 4, 25), class_type="CrossFit", metcon="Fran for time", gym_id=100)
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.get(
+            "/appointments/1/benchmark",
+            params={"date_start": "2026-04-25 10:00", "class_name": "CrossFit"},
+        )
+        assert response.status_code == 200
+        assert "Fran" in response.text
+
+    def test_shows_history(self, app_client, session_cookie, schedule_service, benchmark_service):
+        from datetime import date
+
+        schedule_service.add(
+            Schedule(date=date(2026, 4, 25), class_type="CrossFit", metcon="Fran", gym_id=100)
+        )
+        benchmark_service.add_result(
+            user_id=42, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05"
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.get(
+            "/appointments/1/benchmark",
+            params={"date_start": "2026-04-25 10:00", "class_name": "CrossFit"},
+        )
+        assert response.status_code == 200
+        assert "3:00" in response.text
+
+
+class TestAddDeleteBenchmarkResult:
+    def test_add(self, app_client, session_cookie, benchmark_service):
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.post(
+            "/benchmark-results/add",
+            data={
+                "benchmark_name": "Fran",
+                "minutes": "3",
+                "seconds": "0",
+                "is_rx": "true",
+                "recorded_at": "2026-05-05",
+            },
+        )
+        assert response.status_code == 200
+        results = benchmark_service.get_results_for_benchmark(42, "Fran")
+        assert len(results) == 1
+        assert results[0].time_seconds == 180
+
+    def test_add_invalid_time(self, app_client, session_cookie):
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.post(
+            "/benchmark-results/add",
+            data={
+                "benchmark_name": "Fran",
+                "minutes": "0",
+                "seconds": "0",
+                "is_rx": "true",
+                "recorded_at": "2026-05-05",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_delete(self, app_client, session_cookie, benchmark_service):
+        r = benchmark_service.add_result(
+            user_id=42, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05"
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.delete(f"/benchmark-results/{r.id}/delete")
+        assert response.status_code == 200
+        results = benchmark_service.get_results_for_benchmark(42, "Fran")
+        assert len(results) == 0

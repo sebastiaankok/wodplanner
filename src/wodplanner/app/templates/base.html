@@ -58,6 +58,11 @@
         <div id="one-rep-max-modal-container"></div>
     </div>
 
+    <!-- Benchmark Modal -->
+    <div id="benchmark-modal" class="modal">
+        <div id="benchmark-modal-container"></div>
+    </div>
+
     <script>
         function openPeopleModal() {
             document.getElementById('people-modal').classList.add('active');
@@ -100,12 +105,26 @@
             }
         });
 
+        function openBenchmarkModal() {
+            document.getElementById('benchmark-modal').classList.add('active');
+        }
+        function closeBenchmarkModal() {
+            document.getElementById('benchmark-modal').classList.remove('active');
+            document.getElementById('benchmark-modal-container').innerHTML = '';
+        }
+        document.getElementById('benchmark-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeBenchmarkModal();
+            }
+        });
+
         // Close modals on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closePeopleModal();
                 closeScheduleModal();
                 close1rmModal();
+                closeBenchmarkModal();
             }
         });
 
