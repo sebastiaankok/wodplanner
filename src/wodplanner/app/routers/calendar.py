@@ -1,6 +1,6 @@
 """Calendar and schedule endpoints."""
 
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -13,6 +13,7 @@ from wodplanner.app.dependencies import (
     require_session,
 )
 from wodplanner.models.auth import AuthSession
+from wodplanner.services.day_card import DayCard, build_day_cards
 from wodplanner.services.friend_presence import find_friends_in_appointments
 from wodplanner.services.friends import FriendsService
 
@@ -48,6 +49,22 @@ class DayScheduleResponse(BaseModel):
     appointments: list[AppointmentResponse]
 
 
+def _project_card(card: DayCard) -> AppointmentResponse:
+    """Project a DayCard to the JSON wire shape, converting Friend → FriendInClass."""
+    return AppointmentResponse(
+        id=card.id,
+        name=card.name,
+        date_start=card.date_start,
+        date_end=card.date_end,
+        time_start=card.time_start,
+        time_end=card.time_end,
+        spots_taken=card.spots_taken,
+        spots_total=card.spots_total,
+        status=card.status,
+        friends=[FriendInClass(id=f.appuser_id, name=f.name) for f in card.friends],
+    )
+
+
 @router.get("/day", response_model=DayScheduleResponse)
 def get_day_schedule(
     day: date | None = Query(default=None, description="Date in YYYY-MM-DD format"),
@@ -65,29 +82,10 @@ def get_day_schedule(
     friends = friends_service.get_all(session.user_id) if include_friends else []
     friends_by_appt = find_friends_in_appointments(appointments, friends, client) if include_friends else {}
 
-    result_appointments = []
-    for appt in appointments:
-        friends_list = friends_by_appt.get(appt.id_appointment) or []
-        friends_in_class = [FriendInClass(id=f.appuser_id, name=f.name) for f in friends_list]
-
-        result_appointments.append(
-            AppointmentResponse(
-                id=appt.id_appointment,
-                name=appt.name,
-                date_start=appt.date_start.date().isoformat(),
-                date_end=appt.date_end.date().isoformat(),
-                time_start=appt.date_start.strftime("%H:%M"),
-                time_end=appt.date_end.strftime("%H:%M"),
-                spots_taken=appt.total_subscriptions,
-                spots_total=appt.max_subscriptions,
-                status=appt.status,
-                friends=friends_in_class,
-            )
-        )
-
+    cards = build_day_cards(appointments, friends_by_appt, {}, datetime.now())
     return DayScheduleResponse(
         date=target_date.isoformat(),
-        appointments=result_appointments,
+        appointments=[_project_card(c) for c in cards],
     )
 
 
@@ -104,44 +102,20 @@ def get_week_schedule(
     friends_service: FriendsService = Depends(get_friends_service),
 ) -> list[DayScheduleResponse]:
     """Get the schedule for a week starting from the given date."""
-    from datetime import timedelta
-
     start = start_date or date.today()
-
     friends = friends_service.get_all(session.user_id) if include_friends else []
+    now = datetime.now()
 
     result = []
-
     for i in range(7):
         target_date = start + timedelta(days=i)
         appointments = client.get_day_schedule(target_date)
-
         friends_by_appt = find_friends_in_appointments(appointments, friends, client) if include_friends else {}
-
-        result_appointments = []
-        for appt in appointments:
-            friends_list = friends_by_appt.get(appt.id_appointment) or []
-            friends_in_class = [FriendInClass(id=f.appuser_id, name=f.name) for f in friends_list]
-
-            result_appointments.append(
-                AppointmentResponse(
-                    id=appt.id_appointment,
-                    name=appt.name,
-                    date_start=appt.date_start.date().isoformat(),
-                    date_end=appt.date_end.date().isoformat(),
-                    time_start=appt.date_start.strftime("%H:%M"),
-                    time_end=appt.date_end.strftime("%H:%M"),
-                    spots_taken=appt.total_subscriptions,
-                    spots_total=appt.max_subscriptions,
-                    status=appt.status,
-                    friends=friends_in_class,
-                )
-            )
-
+        cards = build_day_cards(appointments, friends_by_appt, {}, now)
         result.append(
             DayScheduleResponse(
                 date=target_date.isoformat(),
-                appointments=result_appointments,
+                appointments=[_project_card(c) for c in cards],
             )
         )
 
