@@ -82,7 +82,7 @@ def get_day_schedule(
     friends = friends_service.get_all(session.user_id) if include_friends else []
     friends_by_appt = find_friends_in_appointments(appointments, friends, client) if include_friends else {}
 
-    cards = build_day_cards(appointments, friends_by_appt, {}, datetime.now())
+    cards = build_day_cards(appointments, friends_by_appt, {}, datetime.now(), calendar_date=target_date)
     return DayScheduleResponse(
         date=target_date.isoformat(),
         appointments=[_project_card(c) for c in cards],
@@ -111,7 +111,7 @@ def get_week_schedule(
         target_date = start + timedelta(days=i)
         appointments = client.get_day_schedule(target_date)
         friends_by_appt = find_friends_in_appointments(appointments, friends, client) if include_friends else {}
-        cards = build_day_cards(appointments, friends_by_appt, {}, now)
+        cards = build_day_cards(appointments, friends_by_appt, {}, now, calendar_date=target_date)
         result.append(
             DayScheduleResponse(
                 date=target_date.isoformat(),

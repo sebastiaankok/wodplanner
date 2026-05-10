@@ -1,6 +1,6 @@
 """DayCard model and builder — enriched Appointment shape for calendar rendering."""
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Mapping
 from zoneinfo import ZoneInfo
 
@@ -90,12 +90,16 @@ def build_day_cards(
     schedule_by_class_type: Mapping[str, object],
     now: datetime,
     benchmark_names: list[str] | None = None,
+    calendar_date: date | None = None,
 ) -> list[DayCard]:
     """Build DayCard objects from raw appointment data."""
     cards: list[DayCard] = []
     now_tz = now.replace(tzinfo=_TZ) if now.tzinfo is None else now
     for appt in appointments:
-        target_date = appt.date_start.date()
+        # WodApp recurring appointments carry the original template date_start
+        # (e.g. 2023-07-31) rather than the actual occurrence date. Use the
+        # calendar date the caller queried when available.
+        target_date = calendar_date if calendar_date is not None else appt.date_start.date()
         actual_start = datetime.combine(target_date, appt.date_start.time(), tzinfo=appt.date_start.tzinfo)
         actual_start_tz = actual_start.replace(tzinfo=_TZ) if actual_start.tzinfo is None else actual_start
         benchmark_name = _find_benchmark(appt.name, schedule_by_class_type, benchmark_names or [])

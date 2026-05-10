@@ -220,6 +220,7 @@ def _fetch_calendar_data(
         schedule_by_class_type=schedule_map,
         now=datetime.now(),
         benchmark_names=benchmark_names,
+        calendar_date=target_date,
     )
 
 
