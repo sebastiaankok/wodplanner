@@ -9,7 +9,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
     <div class="date-picker-wrapper{% if active_tooltip == 'date_picker' %} tooltip-btn-wrapper has-tooltip{% endif %}">
-        <span class="current-date" onclick="toggleCalendar(); dismissTooltip('date_picker', this.closest('.tooltip-btn-wrapper'));" data-date="{{ current_date }}">{{ display_date }}</span>
+        <span class="current-date" onclick="toggleCalendar(); dismissTooltip('date_picker', this.closest('.tooltip-btn-wrapper'));" data-date="{{ current_date }}" data-reservation-dates='{{ reservation_dates | tojson }}'>{{ display_date }}</span>
         <div id="calendar-dropdown" class="calendar-dropdown"></div>
         <div id="tooltip-date_picker" class="filter-tooltip date-picker" {% if active_tooltip != 'date_picker' %}hidden{% endif %}>
             <p>Tap the date to jump to any day.</p>

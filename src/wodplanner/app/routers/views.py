@@ -244,6 +244,9 @@ def calendar_page(
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
     appt_data = _fetch_calendar_data(session, target_date, client, friends_service, schedule_service, benchmark_service, set(hidden_types))
 
+    reservations, _ = client.get_upcoming_reservations()
+    reservation_dates = sorted({r.date_start.strftime("%Y-%m-%d") for r in reservations})
+
     weekday = target_date.strftime("%A")
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
 
@@ -260,6 +263,7 @@ def calendar_page(
             "today": date.today().isoformat(),
             "current_date": target_date.isoformat(),
             "filters": filters,
+            "reservation_dates": reservation_dates,
             **_get_tooltip_context(dismissed, appt_data),
             **get_user_context(session),
         },
@@ -286,6 +290,9 @@ def calendar_day_partial(
     dismissed = set(prefs_service.get_dismissed_tooltips(session.user_id))
     appt_data = _fetch_calendar_data(session, target_date, client, friends_service, schedule_service, benchmark_service, set(hidden_types))
 
+    reservations, _ = client.get_upcoming_reservations()
+    reservation_dates = sorted({r.date_start.strftime("%Y-%m-%d") for r in reservations})
+
     weekday = target_date.strftime("%A")
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
 
@@ -301,6 +308,7 @@ def calendar_day_partial(
             "today": date.today().isoformat(),
             "current_date": target_date.isoformat(),
             "filters": filters,
+            "reservation_dates": reservation_dates,
             **_get_tooltip_context(dismissed, appt_data),
         },
     )

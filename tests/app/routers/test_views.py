@@ -94,28 +94,64 @@ class TestHomePage:
 class TestCalendarPage:
     def test_renders(self, app_client, session_cookie, mock_wodapp_client):
         mock_wodapp_client.get_day_schedule.return_value = []
+        mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         app_client.cookies.set("session", session_cookie)
         response = app_client.get("/calendar")
         assert response.status_code == 200
 
     def test_with_day_param(self, app_client, session_cookie, mock_wodapp_client):
         mock_wodapp_client.get_day_schedule.return_value = [_appt()]
+        mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         app_client.cookies.set("session", session_cookie)
         response = app_client.get("/calendar?day=2026-04-25")
         assert response.status_code == 200
+
+    def test_reservation_dates_in_template(self, app_client, session_cookie, mock_wodapp_client):
+        mock_wodapp_client.get_day_schedule.return_value = []
+        mock_wodapp_client.get_upcoming_reservations.return_value = (
+            [
+                Reservation(id_appointment=1, name="CrossFit", date_start=datetime(2026, 4, 25, 10, 0)),
+                Reservation(id_appointment=2, name="Yoga", date_start=datetime(2026, 4, 27, 9, 0)),
+            ],
+            {},
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.get("/calendar")
+        assert response.status_code == 200
+        assert 'data-reservation-dates=' in response.text
+        assert '"2026-04-25"' in response.text
+        assert '"2026-04-27"' in response.text
 
 
 class TestCalendarDayPartial:
     def test_partial(self, app_client, session_cookie, mock_wodapp_client):
         mock_wodapp_client.get_day_schedule.return_value = [_appt()]
+        mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         app_client.cookies.set("session", session_cookie)
         response = app_client.get("/calendar/2026-04-25")
         assert response.status_code == 200
+
+    def test_reservation_dates_in_partial(self, app_client, session_cookie, mock_wodapp_client):
+        mock_wodapp_client.get_day_schedule.return_value = [_appt()]
+        mock_wodapp_client.get_upcoming_reservations.return_value = (
+            [
+                Reservation(id_appointment=1, name="CrossFit", date_start=datetime(2026, 4, 25, 10, 0)),
+                Reservation(id_appointment=2, name="Yoga", date_start=datetime(2026, 4, 27, 9, 0)),
+            ],
+            {},
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.get("/calendar/2026-04-25")
+        assert response.status_code == 200
+        assert 'data-reservation-dates=' in response.text
+        assert '"2026-04-25"' in response.text
+        assert '"2026-04-27"' in response.text
 
 
 class TestToggleFilter:
     def test_toggle_persists(self, app_client, session_cookie, mock_wodapp_client, preferences_service):
         mock_wodapp_client.get_day_schedule.return_value = []
+        mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         app_client.cookies.set("session", session_cookie)
         response = app_client.post(
             "/filters/toggle/CrossFit", data={"current_date": "2026-04-25"}
@@ -176,6 +212,7 @@ class TestSubscribeUnsubscribeViews:
             status="OK", subscribedWithSuccess=1
         )
         mock_wodapp_client.get_day_schedule.return_value = []
+        mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         app_client.cookies.set("session", session_cookie)
         response = app_client.post(
             "/appointments/1/subscribe",
@@ -189,6 +226,7 @@ class TestSubscribeUnsubscribeViews:
             status="OK"
         )
         mock_wodapp_client.get_day_schedule.return_value = []
+        mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         app_client.cookies.set("session", session_cookie)
         response = app_client.post(
             "/appointments/1/waitinglist",
@@ -199,6 +237,7 @@ class TestSubscribeUnsubscribeViews:
     def test_unsubscribe(self, app_client, session_cookie, mock_wodapp_client):
         mock_wodapp_client.unsubscribe.return_value = SubscribeResponse(status="OK")
         mock_wodapp_client.get_day_schedule.return_value = []
+        mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         app_client.cookies.set("session", session_cookie)
         response = app_client.post(
             "/appointments/1/unsubscribe",
@@ -214,6 +253,7 @@ class TestSubscribeUnsubscribeViews:
     def test_unsubscribe_waitinglist(self, app_client, session_cookie, mock_wodapp_client):
         mock_wodapp_client.unsubscribe_waitinglist.return_value = SubscribeResponse(status="OK")
         mock_wodapp_client.get_day_schedule.return_value = []
+        mock_wodapp_client.get_upcoming_reservations.return_value = ([], {})
         app_client.cookies.set("session", session_cookie)
         response = app_client.post(
             "/appointments/1/unsubscribe",
