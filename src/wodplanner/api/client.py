@@ -380,6 +380,13 @@ class WodAppClient:
         Returns:
             Tuple of (list of Reservation sorted by date_start, company_images)
         """
+        cache_key = f"{self.session.agenda_id}:upcoming_reservations"
+
+        if self._cache:
+            cached = self._cache.get(cache_key)
+            if cached is not None:
+                return cast("tuple[list[Reservation], dict]", cached)
+
         params = {
             **self._base_params(),
             **self._auth_params(),
@@ -408,7 +415,13 @@ class WodAppClient:
             ))
 
         result.sort(key=lambda x: x.date_start)
-        return result, company_images
+        output = (result, company_images)
+
+        if self._cache:
+            self._cache.set(cache_key, output)
+            logger.debug("Cache set: %s", cache_key)
+
+        return output
 
     def get_appointment_members(
         self,

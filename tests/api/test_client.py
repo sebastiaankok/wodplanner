@@ -10,7 +10,7 @@ from wodplanner.api.client import (
     WodAppError,
 )
 from wodplanner.models.auth import AuthSession
-from wodplanner.models.calendar import Member, WaitingList
+from wodplanner.models.calendar import Member, Reservation, WaitingList
 from wodplanner.services.api_cache import ApiCacheService
 
 
@@ -488,6 +488,119 @@ class TestWodAppClientGetUpcomingReservations:
 
         assert result == []
         assert images == {}
+
+
+class TestWodAppClientGetUpcomingReservationsCache:
+    @patch("wodplanner.api.client.httpx.Client")
+    def test_cache_hit_returns_cached_data(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.post.return_value = MockResponse({
+            "status": "OK",
+            "widgets": {
+                "reservations": {
+                    "data": [
+                        {"id_appointment": 1, "name": "CrossFit", "date_start": "23-04-2026 10:00"},
+                    ]
+                }
+            },
+            "companyImages": {"logo": "https://example.com/logo.png"},
+        })
+
+        cache = ApiCacheService(ttl_seconds=120)
+        client = WodAppClient()
+        client._cache = cache
+        session = AuthSession(
+            token="test_token", user_id=1, username="test", firstname="Test",
+            gym_id=100, gym_name="Test Gym", agenda_id=5,
+        )
+        client._session = session
+
+        cache_key = "5:upcoming_reservations"
+        pre_cache = (
+            [Reservation(id_appointment=99, name="Cached", date_start=datetime(2026, 4, 23, 10, 0))],
+            {"logo": "cached.png"},
+        )
+        cache.set(cache_key, pre_cache)
+
+        result, images = client.get_upcoming_reservations()
+
+        assert len(result) == 1
+        assert result[0].id_appointment == 99
+        assert result[0].name == "Cached"
+        assert images == {"logo": "cached.png"}
+        assert mock_client.post.call_count == 0
+
+    @patch("wodplanner.api.client.httpx.Client")
+    def test_cache_miss_hits_api(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.post.return_value = MockResponse({
+            "status": "OK",
+            "widgets": {
+                "reservations": {
+                    "data": [
+                        {"id_appointment": 1, "name": "CrossFit", "date_start": "23-04-2026 10:00"},
+                    ]
+                }
+            },
+            "companyImages": {"logo": "https://example.com/logo.png"},
+        })
+
+        cache = ApiCacheService(ttl_seconds=120)
+        client = WodAppClient()
+        client._cache = cache
+        session = AuthSession(
+            token="test_token", user_id=1, username="test", firstname="Test",
+            gym_id=100, gym_name="Test Gym", agenda_id=5,
+        )
+        client._session = session
+
+        result, images = client.get_upcoming_reservations()
+
+        assert len(result) == 1
+        assert result[0].id_appointment == 1
+        assert mock_client.post.call_count == 1
+
+    @patch("wodplanner.api.client.httpx.Client")
+    def test_cache_invalidated_after_ttl(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.post.return_value = MockResponse({
+            "status": "OK",
+            "widgets": {
+                "reservations": {
+                    "data": [
+                        {"id_appointment": 2, "name": "Open Gym", "date_start": "24-04-2026 11:00"},
+                    ]
+                }
+            },
+            "companyImages": {},
+        })
+
+        cache = ApiCacheService(ttl_seconds=0)  # expires immediately
+        client = WodAppClient()
+        client._cache = cache
+        session = AuthSession(
+            token="test_token", user_id=1, username="test", firstname="Test",
+            gym_id=100, gym_name="Test Gym", agenda_id=5,
+        )
+        client._session = session
+
+        cache_key = "5:upcoming_reservations"
+        stale_data = (
+            [Reservation(id_appointment=99, name="Stale", date_start=datetime(2026, 4, 23, 10, 0))],
+            {},
+        )
+        cache.set(cache_key, stale_data)
+
+        # The cache entry has TTL=0 so it expires immediately; should hit the API
+        result, images = client.get_upcoming_reservations()
+
+        assert len(result) == 1
+        assert result[0].id_appointment == 2
+        assert result[0].name == "Open Gym"
+        assert mock_client.post.call_count == 1
 
 
 class TestWodAppClientGetAppointmentMembers:
