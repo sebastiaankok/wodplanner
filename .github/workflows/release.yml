@@ -65,3 +65,26 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  update-argocd:
+    needs: build-and-push
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: gha-runner-scale-set-wodplanner
+    steps:
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o /usr/local/bin/argocd \
+            "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64"
+          chmod +x /usr/local/bin/argocd
+
+      - name: Login to ArgoCD
+        run: |
+          argocd login argocd-server.argocd.svc.cluster.local \
+            --auth-token ${{ secrets.ARGOCD_AUTH_TOKEN }} \
+            --grpc-web
+
+      - name: Update image tag
+        run: |
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          argocd app set wodplanner \
+            --helm-set image.tag="${TAG#v}"
