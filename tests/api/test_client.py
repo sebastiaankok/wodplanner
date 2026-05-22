@@ -516,7 +516,7 @@ class TestWodAppClientGetUpcomingReservationsCache:
         )
         client._session = session
 
-        cache_key = "5:upcoming_reservations"
+        cache_key = "1:5:upcoming_reservations"
         pre_cache = (
             [Reservation(id_appointment=99, name="Cached", date_start=datetime(2026, 4, 23, 10, 0))],
             {"logo": "cached.png"},
@@ -587,7 +587,7 @@ class TestWodAppClientGetUpcomingReservationsCache:
         )
         client._session = session
 
-        cache_key = "5:upcoming_reservations"
+        cache_key = "1:5:upcoming_reservations"
         stale_data = (
             [Reservation(id_appointment=99, name="Stale", date_start=datetime(2026, 4, 23, 10, 0))],
             {},
@@ -694,7 +694,7 @@ class TestWodAppClientGetAppointmentMembers:
         )
         client._session = session
 
-        cache_key = f"5:1:{datetime(2026, 4, 23, 10, 0).isoformat()}:{datetime(2026, 4, 23, 11, 0).isoformat()}"
+        cache_key = f"1:5:1:{datetime(2026, 4, 23, 10, 0).isoformat()}:{datetime(2026, 4, 23, 11, 0).isoformat()}"
         pre_cache_members = [Member(id_appuser=99, name="CachedUser", imageURL="")]
         cache.set(cache_key, (pre_cache_members, WaitingList(total=0, members=[])))
 
@@ -748,7 +748,7 @@ class TestWodAppClientGetAppointmentMembers:
         )
         client._session = session
 
-        cache_key = f"5:1:{datetime(2026, 4, 23, 10, 0).isoformat()}:{datetime(2026, 4, 23, 11, 0).isoformat()}"
+        cache_key = f"1:5:1:{datetime(2026, 4, 23, 10, 0).isoformat()}:{datetime(2026, 4, 23, 11, 0).isoformat()}"
         pre_cache_members = [Member(id_appuser=99, name="CachedUser", imageURL="")]
         cache.set(cache_key, (pre_cache_members, WaitingList(total=0, members=[])))
 
