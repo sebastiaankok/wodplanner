@@ -80,6 +80,7 @@ jobs:
           TAG="${{ needs.release-please.outputs.tag_name }}"
           argocd app set wodplanner \
             --helm-set controllers.wodplanner.containers.app.image.tag="${TAG#v}" \
+            --helm-set controllers.wodplanner.containers.app.env.APP_VERSION.value="${TAG#v}" \
             --server argocd-server.argocd.svc.cluster.local:80 \
             --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}" \
             --insecure --plaintext \
