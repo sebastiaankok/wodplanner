@@ -380,7 +380,7 @@ class WodAppClient:
         Returns:
             Tuple of (list of Reservation sorted by date_start, company_images)
         """
-        cache_key = f"{self.session.agenda_id}:upcoming_reservations"
+        cache_key = f"{self.session.user_id}:{self.session.agenda_id}:upcoming_reservations"
 
         if self._cache:
             cached = self._cache.get(cache_key)
@@ -431,7 +431,7 @@ class WodAppClient:
         expected_total: int | None = None,
     ) -> tuple[list[Member], WaitingList]:
         """Return subscribed members and waiting list. Cached when ApiCacheService is available."""
-        cache_key = f"{self.session.agenda_id}:{appointment_id}:{date_start.isoformat()}:{date_end.isoformat()}"
+        cache_key = f"{self.session.user_id}:{self.session.agenda_id}:{appointment_id}:{date_start.isoformat()}:{date_end.isoformat()}"
 
         if self._cache:
             cached = self._cache.get(cache_key)
