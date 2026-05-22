@@ -1,5 +1,9 @@
 name: Release
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
@@ -77,6 +81,6 @@ jobs:
           argocd app set wodplanner \
             --helm-set controllers.wodplanner.containers.app.image.tag="${TAG#v}" \
             --server argocd-server.argocd.svc.cluster.local:80 \
-            --auth-token $ARGOCD_AUTH_TOKEN \
+            --auth-token "${{ secrets.ARGOCD_AUTH_TOKEN }}" \
             --insecure --plaintext \
             --source-position 2
