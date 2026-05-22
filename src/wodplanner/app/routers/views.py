@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from wodplanner.api.client import WodAppClient
+from wodplanner.app.config import settings
 from wodplanner.app.dependencies import (
     get_benchmark_service,
     get_client_from_session_for_view,
@@ -108,6 +109,11 @@ try:
     templates.env.globals["css_version"] = hashlib.md5(_css_path.read_bytes()).hexdigest()[:8]
 except Exception:
     templates.env.globals["css_version"] = "1"
+
+try:
+    templates.env.globals["app_version"] = settings.app_version
+except Exception:
+    templates.env.globals["app_version"] = "unknown"
 
 
 def render(request: Request, name: str, context: dict):
