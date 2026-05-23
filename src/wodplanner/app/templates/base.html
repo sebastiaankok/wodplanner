@@ -188,9 +188,9 @@
             var prevMonthDays = new Date(year, month, 0).getDate();
 
             var html = '<div class="calendar-header">';
-            html += '<button onclick="changeMonth(-1)">&larr;</button>';
+            html += '<button onclick="changeMonth(-1); event.stopPropagation();">&larr;</button>';
             html += '<span class="calendar-month-year">' + monthNames[month] + ' ' + year + '</span>';
-            html += '<button onclick="changeMonth(1)">&rarr;</button>';
+            html += '<button onclick="changeMonth(1); event.stopPropagation();">&rarr;</button>';
             html += '</div>';
 
             html += '<div class="calendar-weekdays">';
