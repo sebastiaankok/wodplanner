@@ -36,3 +36,5 @@ htmlcov/
 
 wodplanner.db*
 .env
+
+examples/pdf
