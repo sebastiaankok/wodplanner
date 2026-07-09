@@ -3,7 +3,11 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from wodplanner.services.benchmark import BenchmarkService, find_benchmark_in_schedule
+from wodplanner.services.benchmark import (
+    BenchmarkService,
+    extract_benchmark_names,
+    find_benchmark_in_schedule,
+)
 
 
 class TestFindBenchmarkInSchedule:
@@ -70,6 +74,42 @@ class TestFindBenchmarkInSchedule:
             benchmark_names=names,
         )
         assert result == "Fran"
+
+
+class TestExtractBenchmarkNames:
+    def test_empty_text_returns_empty(self):
+        assert extract_benchmark_names(None) == []
+        assert extract_benchmark_names("") == []
+
+    def test_quoted_benchmark_extracts_name(self):
+        text = "MetCon\nBenchmark \u2018Cindy\u2019\n20min AMRAP"
+        result = extract_benchmark_names(text)
+        assert result == ["Cindy"]
+
+    def test_unquoted_benchmark_extracts_name(self):
+        text = "MetCon\nBenchmark Battle of the Bull 22.3\n3 Rounds For Time"
+        result = extract_benchmark_names(text)
+        assert result == ["Battle of the Bull 22.3"]
+
+    def test_multiple_benchmarks_in_text(self):
+        text = "Benchmark \u2018Nasty Girls\u2019 and Benchmark \u2018Helen\u2019"
+        result = extract_benchmark_names(text)
+        assert result == ["Nasty Girls", "Helen"]
+
+    def test_no_benchmark_prefix_returns_empty(self):
+        text = "Just a normal metcon with no benchmarks"
+        result = extract_benchmark_names(text)
+        assert result == []
+
+    def test_benchmark_in_mobility_column_ignored(self):
+        text = "Mobility: Banded Shoulder Dislocation"
+        result = extract_benchmark_names(text)
+        assert result == []
+
+    def test_benchmark_with_trailing_punctuation_stripped(self):
+        text = "Benchmark \u2018Hero DT\u2019: For Time"
+        result = extract_benchmark_names(text)
+        assert result == ["Hero DT"]
 
 
 class TestDayCardEnrichment:

@@ -19,6 +19,14 @@ def _schedule() -> Schedule:
     )
 
 
+def _schedule_with_benchmark() -> Schedule:
+    return Schedule(
+        date=date(2026, 5, 22),
+        class_type="CrossFit",
+        metcon="MetCon\nBenchmark \u2018Nasty Girls\u2019\n3 Rounds Of",
+    )
+
+
 class TestImportScheduleMain:
     def test_missing_pdf_exits_1(self, monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(
@@ -123,3 +131,63 @@ class TestImportScheduleMain:
                 import_schedule.main()
         out = capsys.readouterr().out
         assert "..." in out
+
+    def test_benchmark_detected_and_added(self, monkeypatch, tmp_path):
+        pdf = tmp_path / "x.pdf"
+        pdf.touch()
+        db = tmp_path / "test.db"
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "import-schedule",
+                str(pdf),
+                "--year",
+                "2026",
+                "--gym-id",
+                "100",
+                "--db",
+                str(db),
+            ],
+        )
+        schedule = _schedule_with_benchmark()
+        with patch.object(
+            import_schedule, "extract_schedules_from_pdf", return_value=[schedule]
+        ), patch.object(
+            import_schedule, "resolve_exercise_interactive", return_value=None
+        ), patch("builtins.input", return_value="y"):
+            import_schedule.main()
+        from wodplanner.services.benchmark import BenchmarkService
+
+        bm_svc = BenchmarkService(db)
+        names = bm_svc.get_benchmark_list()
+        assert "Nasty Girls" in names
+
+    def test_benchmark_detected_and_skipped(self, monkeypatch, tmp_path):
+        pdf = tmp_path / "x.pdf"
+        pdf.touch()
+        db = tmp_path / "test.db"
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "import-schedule",
+                str(pdf),
+                "--year",
+                "2026",
+                "--gym-id",
+                "100",
+                "--db",
+                str(db),
+            ],
+        )
+        schedule = _schedule_with_benchmark()
+        with patch.object(
+            import_schedule, "extract_schedules_from_pdf", return_value=[schedule]
+        ), patch.object(
+            import_schedule, "resolve_exercise_interactive", return_value=None
+        ), patch("builtins.input", return_value="n"):
+            import_schedule.main()
+        from wodplanner.services.benchmark import BenchmarkService
+
+        bm_svc = BenchmarkService(db)
+        names = bm_svc.get_benchmark_list()
+        assert "Nasty Girls" not in names
