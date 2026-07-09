@@ -4,7 +4,8 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from wodplanner.app.dependencies import get_schedule_service
+from wodplanner.app.dependencies import get_schedule_service, require_session
+from wodplanner.models.auth import AuthSession
 from wodplanner.models.schedule import ScheduleResponse
 from wodplanner.services.schedule import ScheduleService
 
@@ -25,10 +26,11 @@ def _schedule_to_response(schedule) -> ScheduleResponse:
 @router.get("/{schedule_date}", response_model=list[ScheduleResponse])
 def get_schedules_by_date(
     schedule_date: date,
+    session: AuthSession = Depends(require_session),
     service: ScheduleService = Depends(get_schedule_service),
 ) -> list[ScheduleResponse]:
     """Get all workout schedules for a specific date."""
-    schedules = service.get_by_date(schedule_date)
+    schedules = service.get_by_date(schedule_date, gym_id=session.gym_id)
     return [_schedule_to_response(s) for s in schedules]
 
 
@@ -36,10 +38,11 @@ def get_schedules_by_date(
 def get_schedule_by_date_and_class(
     schedule_date: date,
     class_type: str,
+    session: AuthSession = Depends(require_session),
     service: ScheduleService = Depends(get_schedule_service),
 ) -> ScheduleResponse:
     """Get workout schedule for a specific date and class type."""
-    schedule = service.get_by_date_and_class(schedule_date, class_type)
+    schedule = service.get_by_date_and_class(schedule_date, class_type, gym_id=session.gym_id)
     if not schedule:
         raise HTTPException(
             status_code=404,
