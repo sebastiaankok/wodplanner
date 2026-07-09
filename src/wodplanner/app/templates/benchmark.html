@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Benchmark - WodPlanner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Benchmark WODs</h1>
+    <button class="btn btn-primary btn-sm" onclick="toggleBenchmarkLogForm()">+ Log</button>
+</div>
+
+<div id="log-form-card" class="card" style="display:none; margin-bottom: 1rem;">
+    <div class="card-header">
+        <span class="card-title">Log a Benchmark Result</span>
+    </div>
+    <div style="padding: 1rem;">
+        <form hx-post="/benchmark-results/add"
+              hx-target="#benchmark-history"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) toggleBenchmarkLogForm()"
+              class="benchmark-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="benchmark-name">Benchmark</label>
+                    <select id="benchmark-name" name="benchmark_name" required class="form-control">
+                        <option value="">— Select benchmark —</option>
+                        {% for name in benchmark_list %}
+                        <option value="{{ name }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="benchmark-minutes">Minutes</label>
+                    <input type="number"
+                           id="benchmark-minutes"
+                           name="minutes"
+                           min="0"
+                           max="999"
+                           placeholder="0"
+                           required
+                           class="form-control">
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="benchmark-seconds">Seconds</label>
+                    <input type="number"
+                           id="benchmark-seconds"
+                           name="seconds"
+                           min="0"
+                           max="59"
+                           placeholder="00"
+                           required
+                           class="form-control">
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label>RX / Scaled</label>
+                    <div class="radio-group">
+                        <label class="radio-inline">
+                            <input type="radio" name="is_rx" value="true" checked> RX
+                        </label>
+                        <label class="radio-inline">
+                            <input type="radio" name="is_rx" value="false"> Scaled
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="benchmark-date">Date</label>
+                    <input type="date"
+                           id="benchmark-date"
+                           name="recorded_at"
+                           value="{{ today }}"
+                           required
+                           class="form-control">
+                </div>
+                <div class="form-group form-group-submit">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+    <div class="card-header">
+        <span class="card-title">Progress</span>
+        <select id="benchmark-select" class="form-control form-control-inline" onchange="updateBenchmarkChart()">
+            <option value="">— Select benchmark —</option>
+            {% for name in entries | map(attribute='benchmark_name') | unique | sort %}
+            <option value="{{ name }}">{{ name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="benchmark-chart-container">
+        <canvas id="benchmark-chart"></canvas>
+        <p id="benchmark-no-data" class="text-muted benchmark-empty">Select a benchmark to see progress.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">History</span>
+    </div>
+    <div style="padding: 1rem;">
+        {% include "partials/benchmark_history.html" %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+var __benchmarkData = {{ benchmark_data_json | safe }};
+var __benchmarkChart = null;
+var __benchmarkLogFormOpen = false;
+
+function toggleBenchmarkLogForm() {
+    __benchmarkLogFormOpen = !__benchmarkLogFormOpen;
+    document.getElementById('log-form-card').style.display = __benchmarkLogFormOpen ? 'block' : 'none';
+}
+
+function formatTime(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function updateBenchmarkChart() {
+    var select = document.getElementById('benchmark-select');
+    var canvas = document.getElementById('benchmark-chart');
+    var noData = document.getElementById('benchmark-no-data');
+    if (!select || !canvas) return;
+    var name = select.value;
+
+    if (!name || !__benchmarkData[name] || !__benchmarkData[name].length) {
+        canvas.style.display = 'none';
+        noData.style.display = 'block';
+        if (__benchmarkChart) { __benchmarkChart.destroy(); __benchmarkChart = null; }
+        return;
+    }
+
+    canvas.style.display = 'block';
+    noData.style.display = 'none';
+
+    var points = __benchmarkData[name];
+    var labels = points.map(function(p) { return p.label; });
+    var times = points.map(function(p) { return p.time; });
+
+    if (__benchmarkChart) __benchmarkChart.destroy();
+    __benchmarkChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: name + ' (seconds)',
+                data: times,
+                borderColor: '#7c3aed',
+                backgroundColor: 'rgba(124,58,237,0.08)',
+                tension: 0.2,
+                fill: true,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return formatTime(ctx.parsed.y);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    title: { display: true, text: 'Time (mm:ss)' },
+                    ticks: {
+                        callback: function(value) {
+                            return formatTime(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var select = document.getElementById('benchmark-select');
+    if (select && select.options.length > 1) {
+        select.selectedIndex = 1;
+        updateBenchmarkChart();
+    } else {
+        document.getElementById('benchmark-chart').style.display = 'none';
+    }
+});
+
+document.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target && e.detail.target.id === 'benchmark-history') {
+        var raw = document.getElementById('benchmark-history').dataset.benchmark;
+        if (!raw) return;
+        __benchmarkData = JSON.parse(raw);
+        var select = document.getElementById('benchmark-select');
+        if (!select) return;
+        var current = select.value;
+        select.innerHTML = '<option value="">— Select benchmark —</option>';
+        Object.keys(__benchmarkData).sort().forEach(function(name) {
+            var opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+        select.value = (__benchmarkData[current]) ? current : (Object.keys(__benchmarkData)[0] || '');
+        updateBenchmarkChart();
+    }
+});
+</script>
+{% endblock %}
