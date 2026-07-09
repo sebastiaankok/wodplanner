@@ -36,6 +36,7 @@ ruff check .
 mypy src
 
 # Import workout schedule from PDF (--dry-run to preview)
+# Test PDFs in examples/pdf/ (Bull_202602.pdf–Bull_202605.pdf)
 import-schedule schedule.pdf --year 2026 --gym-id 2495
 import-schedule schedule.pdf --year 2026 --gym-id 2495 --dry-run
 

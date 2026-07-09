@@ -233,6 +233,16 @@ def _mock_pdf(self, tables_per_page):
     return pdf
 ```
 
+### Real PDF test data
+
+For manual or integration testing of `import-schedule` against real PDFs, sample schedules are in `examples/pdf/`:
+
+```bash
+import-schedule examples/pdf/Bull_202603.pdf --year 2026 --gym-id 2495 --dry-run
+```
+
+Five months available: February through May 2026 (`Bull_202602.pdf` – `Bull_202605.pdf`). These are real Bull CrossFit Purmerend schedules in the Dutch format the parser expects.
+
 ## Mocking httpx (WodApp API)
 
 `WodAppClient` tests patch `wodplanner.api.client.httpx.Client` and feed `MockResponse(json_data, status_code)` to `mock_client.post`. Retry tests also patch `time.sleep` to avoid real waits. See `tests/api/test_client.py` and `tests/api/test_client_retry.py`.
