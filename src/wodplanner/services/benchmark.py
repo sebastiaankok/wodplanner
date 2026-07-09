@@ -9,6 +9,30 @@ from wodplanner.services import migrations
 from wodplanner.services.base import BaseService
 from wodplanner.utils.dates import parse_iso_datetime
 
+_BENCHMARK_PATTERN = re.compile(
+    r'Benchmark\s+\u2018([^\u2019]+)\u2019|Benchmark\s+([^\n]+)',
+    re.IGNORECASE,
+)
+
+
+def extract_benchmark_names(text: str | None) -> list[str]:
+    """Extract benchmark WOD names from schedule text.
+
+    Matches patterns like:
+      Benchmark 'Cindy'            -> "Cindy"
+      Benchmark 'Nasty Girls'      -> "Nasty Girls"
+      Benchmark Battle of the Bull 22.3  -> "Battle of the Bull 22.3"
+    """
+    if not text:
+        return []
+    names = []
+    for match in _BENCHMARK_PATTERN.finditer(text):
+        name = (match.group(1) or match.group(2)).strip().rstrip(',.:;')
+        if name:
+            names.append(name)
+    return names
+
+
 _SEED_BENCHMARKS: dict[str, list[str]] = {
     "The Girls": [
         "Fran", "Helen", "Cindy", "Annie", "Isabel", "Jackie", "Karen",

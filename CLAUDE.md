@@ -36,6 +36,7 @@ ruff check .
 mypy src
 
 # Import workout schedule from PDF (--dry-run to preview)
+# Auto-detects Benchmark WODs (Benchmark 'Name' or Benchmark Name) and 1RM exercises interactively
 # Test PDFs in examples/pdf/ (Bull_202602.pdf–Bull_202605.pdf)
 import-schedule schedule.pdf --year 2026 --gym-id 2495
 import-schedule schedule.pdf --year 2026 --gym-id 2495 --dry-run
@@ -43,6 +44,9 @@ import-schedule schedule.pdf --year 2026 --gym-id 2495 --dry-run
 # Manage 1RM exercise list (fuzzy-match, add new, rename)
 add-1rm --exercise "Back Squat"
 add-1rm  # interactive: shows existing list, prompts for name
+
+# Manage benchmark WOD list (add names for detection)
+add-benchmark --name "Nasty Girls"
 
 # Backup database (safe during live writes, keeps 7 by default)
 backup-db

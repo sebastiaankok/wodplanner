@@ -9,6 +9,7 @@ from pathlib import Path
 import pdfplumber
 
 from wodplanner.models.schedule import Schedule
+from wodplanner.services.benchmark import BenchmarkService, extract_benchmark_names
 from wodplanner.services.migrations import ensure_migrations
 from wodplanner.services.one_rep_max import (
     OneRepMaxService,
@@ -323,7 +324,31 @@ def main():
                 exercises.sort()
                 print(f'  Added new exercise: "{resolved}"')
             else:
-                print(f'  Matched "{raw_name}" → "{resolved}"')
+                print(f'  Matched "{raw_name}" \u2192 "{resolved}"')
+
+    # Resolve benchmark WODs found in the PDF
+    bm_service = BenchmarkService(args.db)
+    existing_benchmarks = bm_service.get_benchmark_list()
+
+    all_bm_raw: list[str] = []
+    for s in schedules:
+        all_bm_raw.extend(extract_benchmark_names(s.metcon or ""))
+
+    unique_bm = list(dict.fromkeys(all_bm_raw))
+    if unique_bm:
+        print("\n--- Benchmark WOD Detection ---")
+        for name in unique_bm:
+            if name in existing_benchmarks:
+                print(f'  Already exists: "{name}"')
+            else:
+                answer = input(f'  Add "{name}" to benchmark list? [y/N]: ').strip().lower()
+                if answer == "y":
+                    bm_service.add_benchmark_wod(name, "Benchmark")
+                    existing_benchmarks.append(name)
+                    existing_benchmarks.sort()
+                    print(f'  Added: "{name}"')
+                else:
+                    print(f'  Skipped: "{name}"')
 
     # Save to database
     print(f"\nSaving to database: {args.db}")
