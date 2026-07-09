@@ -6,6 +6,8 @@ from typing import Literal
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from wodplanner import __version__
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
@@ -28,8 +30,8 @@ class Settings(BaseSettings):
     # Set SECRET_KEY env var in production; random default invalidates sessions on restart
     secret_key: str = secrets.token_hex(32)
 
-    # App version (injected at deploy time, e.g. from git tag)
-    app_version: str = "unknown"
+    # App version (derived from package __version__)
+    app_version: str = __version__
 
     # Google Calendar sync (all optional — feature is disabled when client_id is unset)
     google_client_id: str | None = None
