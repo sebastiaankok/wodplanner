@@ -1,8 +1,9 @@
-<div id="benchmark-history" class="benchmark-history">
+<div id="benchmark-history" class="benchmark-history"{% if benchmark_data_json %} data-benchmark='{{ benchmark_data_json | safe }}'{% endif %}>
     {% if entries %}
     <table class="benchmark-table">
         <thead>
             <tr>
+                <th>Benchmark</th>
                 <th>Date</th>
                 <th>Time</th>
                 <th>RX / Scaled</th>
@@ -12,6 +13,7 @@
         <tbody>
             {% for entry in entries %}
             <tr>
+                <td class="benchmark-name">{{ entry.benchmark_name }}</td>
                 <td class="benchmark-date text-muted">{{ entry.recorded_at }}</td>
                 <td class="benchmark-time">{{ entry.formatted_time }}</td>
                 <td>

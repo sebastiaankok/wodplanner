@@ -98,6 +98,24 @@ def _build_exercises_chart_data(formatted_entries: list) -> str:
     return json.dumps(data).replace("</", "<\\/")
 
 
+def _build_benchmark_chart_data(formatted_entries: list) -> str:
+    data: dict[str, list] = {}
+    for e in formatted_entries:
+        name = e["benchmark_name"]
+        if name not in data:
+            data[name] = []
+        data[name].append({
+            "date": e["recorded_at"],
+            "time": e["time_seconds"],
+            "label": e["recorded_at"],
+            "time_display": e["formatted_time"],
+            "is_rx": e["is_rx"],
+        })
+    for name in data:
+        data[name].sort(key=lambda x: x["date"])
+    return json.dumps(data).replace("</", "<\\/")
+
+
 router = APIRouter(tags=["views"])
 
 # Setup templates
@@ -379,6 +397,31 @@ def one_rep_max_page(
             "default_exercise": entries[0]["exercise"] if entries else "",
             "entries": entries,
             "exercises_data_json": _build_exercises_chart_data(entries),
+            "today": date.today().isoformat(),
+            **get_user_context(session),
+        },
+    )
+
+
+@router.get("/benchmark", response_class=HTMLResponse)
+def benchmark_page(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+):
+    """Benchmark tracking page."""
+    raw = benchmark_service.get_all_results(session.user_id)
+    entries = _format_benchmark_entries(raw)
+    benchmark_list = benchmark_service.get_benchmark_list()
+
+    return render(
+        request,
+        "benchmark.html",
+        {
+            "active_page": "benchmark",
+            "benchmark_list": benchmark_list,
+            "entries": entries,
+            "benchmark_data_json": _build_benchmark_chart_data(entries),
             "today": date.today().isoformat(),
             **get_user_context(session),
         },
@@ -886,12 +929,15 @@ def add_benchmark_result_view(
         recorded_at=recorded_at,
     )
 
-    raw = benchmark_service.get_results_for_benchmark(session.user_id, benchmark_name)
+    raw = benchmark_service.get_all_results(session.user_id)
     entries = _format_benchmark_entries(raw)
     return render(
         request,
         "partials/benchmark_history.html",
-        {"entries": entries},
+        {
+            "entries": entries,
+            "benchmark_data_json": _build_benchmark_chart_data(entries),
+        },
     )
 
 
@@ -903,15 +949,15 @@ def delete_benchmark_result_view(
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Delete a benchmark result (htmx)."""
-    result = benchmark_service.get_result(session.user_id, result_id)
-    benchmark_name = result.benchmark_name if result else None
-
     benchmark_service.delete_result(session.user_id, result_id)
 
-    raw = benchmark_service.get_results_for_benchmark(session.user_id, benchmark_name) if benchmark_name else []
+    raw = benchmark_service.get_all_results(session.user_id)
     entries = _format_benchmark_entries(raw)
     return render(
         request,
         "partials/benchmark_history.html",
-        {"entries": entries},
+        {
+            "entries": entries,
+            "benchmark_data_json": _build_benchmark_chart_data(entries),
+        },
     )

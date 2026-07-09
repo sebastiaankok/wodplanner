@@ -165,6 +165,22 @@ class BenchmarkService(BaseService):
             ).fetchall()
             return [self._row_to_result(row) for row in rows]
 
+    def get_all_results(self, user_id: int) -> list[BenchmarkResult]:
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM benchmark_results WHERE user_id = ? ORDER BY recorded_at DESC",
+                (user_id,),
+            ).fetchall()
+            return [self._row_to_result(row) for row in rows]
+
+    def get_benchmark_names_for_user(self, user_id: int) -> list[str]:
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT benchmark_name FROM benchmark_results WHERE user_id = ? ORDER BY benchmark_name",
+                (user_id,),
+            ).fetchall()
+            return [row["benchmark_name"] for row in rows]
+
     def get_result(self, user_id: int, result_id: int) -> BenchmarkResult | None:
         with self._get_connection() as conn:
             row = conn.execute(
