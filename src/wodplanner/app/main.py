@@ -66,6 +66,39 @@ class CloudflareIPMiddleware(BaseHTTPMiddleware):
         return cast(Response, await call_next(request))
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Set strict security headers on every response.
+
+    CSP allows known CDNs and inline scripts/styles (required by HTMX/Chart.js).
+    HSTS is production-only since dev runs on HTTP.
+    """
+
+    _csp = (
+        "default-src 'self'; "
+        "script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "connect-src 'self'; "
+        "img-src 'self' https: data:; "
+        "font-src 'self'; "
+        "frame-src 'none'; "
+        "object-src 'none'; "
+        "base-uri 'none'; "
+        "form-action 'self'"
+    )
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = cast(Response, await call_next(request))
+        response.headers["Content-Security-Policy"] = self._csp
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        if settings.environment == "production":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
+        return response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Run pending schema migrations at startup."""
@@ -90,6 +123,7 @@ static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 app.add_middleware(CloudflareIPMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 @app.exception_handler(WodAppError)
 async def wodapp_error_handler(request: Request, exc: WodAppError) -> Response:
