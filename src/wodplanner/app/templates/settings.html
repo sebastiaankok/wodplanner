@@ -6,4 +6,67 @@
 <div class="page-header">
     <h1>Settings</h1>
 </div>
+
+<div class="settings-sections">
+
+    <section class="card settings-section">
+        <h2>Appearance</h2>
+        <div class="settings-item disabled">
+            <label>Color theme</label>
+            <span class="coming-soon">Coming soon</span>
+        </div>
+    </section>
+
+    <section class="card settings-section">
+        <h2>Tutorial</h2>
+        <div class="settings-item">
+            <label>Reset onboarding tooltips</label>
+            <button class="btn btn-sm btn-secondary" onclick="openConfirmModal()">Reset</button>
+        </div>
+    </section>
+
+    <section class="card settings-section">
+        <h2>Calendar Filters</h2>
+        <p class="settings-description">Hide class types from calendar pages.</p>
+        <div id="settings-filters" class="settings-filters">
+            {% include "partials/settings_filters.html" %}
+        </div>
+    </section>
+
+</div>
+
+<!-- Reset Tutorial Confirmation Modal -->
+<div id="reset-confirm-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3>Reset Tutorial</h3>
+            <button class="modal-close" onclick="closeConfirmModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>This will make all onboarding tooltips appear again on the calendar page. Continue?</p>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button class="btn btn-sm btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn btn-sm btn-primary"
+                        hx-post="/settings/reset-tutorial"
+                        hx-target="#reset-result"
+                        hx-swap="innerHTML"
+                        onclick="closeConfirmModal()">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="reset-result"></div>
+
+<script>
+    function openConfirmModal() {
+        document.getElementById('reset-confirm-modal').classList.add('active');
+    }
+    function closeConfirmModal() {
+        document.getElementById('reset-confirm-modal').classList.remove('active');
+    }
+    document.getElementById('reset-confirm-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeConfirmModal();
+    });
+</script>
 {% endblock %}

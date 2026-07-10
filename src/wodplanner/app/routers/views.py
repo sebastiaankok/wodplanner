@@ -375,6 +375,50 @@ def dismiss_tooltip(
     return HTMLResponse("")
 
 
+@router.get("/settings", response_class=HTMLResponse)
+def settings_page(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    prefs_service: PreferencesService = Depends(get_preferences_service),
+):
+    """Settings page."""
+    hidden_types = prefs_service.get_hidden_class_types(session.user_id)
+    filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
+    return render(
+        request,
+        "settings.html",
+        {
+            "active_page": "",
+            "filters": filters,
+            **get_user_context(session),
+        },
+    )
+
+
+@router.post("/settings/reset-tutorial", response_class=HTMLResponse)
+def reset_tutorial(
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    prefs_service: PreferencesService = Depends(get_preferences_service),
+):
+    """Reset all dismissed tooltips."""
+    prefs_service.reset_tooltips(session.user_id)
+    return HTMLResponse('<p class="success-msg">Tutorial will show again on your next visit.</p>')
+
+
+@router.post("/settings/toggle-filter/{class_type}", response_class=HTMLResponse)
+def settings_toggle_filter(
+    request: Request,
+    class_type: str,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    prefs_service: PreferencesService = Depends(get_preferences_service),
+):
+    """Toggle a class type filter from the settings page."""
+    prefs_service.toggle_hidden_class_type(session.user_id, class_type)
+    hidden_types = prefs_service.get_hidden_class_types(session.user_id)
+    filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
+    return render(request, "partials/settings_filters.html", {"filters": filters})
+
+
 @router.get("/1rm", response_class=HTMLResponse)
 def one_rep_max_page(
     request: Request,

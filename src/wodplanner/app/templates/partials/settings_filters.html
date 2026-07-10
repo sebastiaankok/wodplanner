@@ -1,0 +1,10 @@
+{% for filter in filters %}
+<label class="filter-toggle">
+    <input type="checkbox"
+           {% if filter.hidden %}checked{% endif %}
+           hx-post="/settings/toggle-filter/{{ filter.name }}"
+           hx-target="#settings-filters"
+           hx-swap="innerHTML">
+    {{ filter.name }}
+</label>
+{% endfor %}

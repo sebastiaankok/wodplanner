@@ -1909,3 +1909,78 @@ body {
         color: #86efac;
     }
 }
+
+/* Settings page */
+.settings-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 600px;
+}
+
+.settings-section h2 {
+    margin: 0 0 1rem;
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+}
+
+.settings-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--gray-200);
+}
+
+.settings-item.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.coming-soon {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    font-style: italic;
+}
+
+.settings-description {
+    margin: 0 0 0.75rem;
+    font-size: 0.9rem;
+    color: var(--gray-500);
+}
+
+.settings-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.success-msg {
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    background: #d1fae5;
+    color: #065f46;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+}
+
+.settings-icon {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+    color: var(--gray-500);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.settings-icon:hover {
+    color: var(--text-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+    .success-msg {
+        background: #064e3b;
+        color: #6ee7b7;
+    }
+}
