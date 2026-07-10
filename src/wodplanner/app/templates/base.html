@@ -12,6 +12,7 @@
     <link rel="shortcut icon" href="/static/favicon.ico">
     <link rel="manifest" href="/static/site.webmanifest">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <nav class="navbar">
@@ -330,5 +331,7 @@
         })();
     </script>
     {% endif %}
+
+    {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -18,6 +18,7 @@ from wodplanner.services.one_rep_max import OneRepMaxService
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
 from wodplanner.services.subscription import SubscriptionService
+from wodplanner.services.subscription_tracker import SubscriptionTrackerService
 
 
 def _get_db_path() -> Path:
@@ -145,3 +146,9 @@ def get_subscription_service(
 ) -> SubscriptionService:
     """Create a per-request SubscriptionService."""
     return SubscriptionService(client=client)
+
+
+@lru_cache
+def get_subscription_tracker_service() -> SubscriptionTrackerService:
+    """Get the singleton subscription tracker service."""
+    return SubscriptionTrackerService(_get_db_path())

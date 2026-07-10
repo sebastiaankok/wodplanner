@@ -36,4 +36,107 @@
     <a href="/calendar" class="btn btn-sm btn-secondary">Browse calendar</a>
 </div>
 {% endif %}
+
+{% if has_chart_data %}
+<div class="card" style="margin-top: 1.25rem;">
+    <div class="card-header">
+        <span class="card-title">Weekly Sessions</span>
+        <span class="text-muted">This week: {{ week_stats.past }} completed, {{ week_stats.future }} planned</span>
+    </div>
+    <div style="padding: 0.75rem 1rem 0.25rem;">
+        <canvas id="weeklyChart" height="180"></canvas>
+    </div>
+    <div style="display: flex; gap: 1.5rem; padding: 0.25rem 1rem 0.75rem; font-size: 0.875rem; color: var(--gray-500);">
+        <span style="display: flex; align-items: center; gap: 0.35rem;">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #3b82f6;"></span>
+            Completed
+        </span>
+        <span style="display: flex; align-items: center; gap: 0.35rem;">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #93c5fd; opacity: 0.6;"></span>
+            Planned
+        </span>
+        <span>Avg: <strong>{{ average }}</strong> /week ({{ weeks_tracked }} weeks)</span>
+    </div>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 2rem 1rem; margin-top: 1.25rem;">
+    <p class="text-muted" style="margin: 0;">Your weekly stats will appear here once you subscribe to your first CrossFit class.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if has_chart_data %}
+<script>
+(function() {
+    var data = {{ chart_data|safe }};
+    var ctx = document.getElementById('weeklyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.weeks.map(function(w) {
+                var parts = w.split('-');
+                var year = parts[0];
+                var month = parseInt(parts[1], 10);
+                var day = parseInt(parts[2], 10);
+                var d = new Date(year, month - 1, day);
+                var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return monthNames[d.getMonth()] + ' ' + day;
+            }),
+            datasets: [{
+                label: 'Completed',
+                data: data.past,
+                backgroundColor: '#3b82f6',
+                borderRadius: 2,
+                barPercentage: 0.7,
+            }, {
+                label: 'Planned',
+                data: data.future,
+                backgroundColor: 'rgba(147, 197, 253, 0.5)',
+                borderRadius: 2,
+                barPercentage: 0.7,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw + ' session' + (context.raw !== 1 ? 's' : '');
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: {
+                        maxTicksLimit: 12,
+                        font: { size: 10 },
+                        color: '#999',
+                        maxRotation: 45,
+                    }
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0,
+                        font: { size: 10 },
+                        color: '#999',
+                    },
+                    grid: {
+                        color: 'rgba(0,0,0,0.06)',
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

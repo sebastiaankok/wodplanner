@@ -146,7 +146,7 @@
                 {% elif appt.status == 'subscribed' or appt.status == 'waiting' %}
                     <button class="btn btn-danger btn-sm"
                             hx-post="/appointments/{{ appt.id }}/unsubscribe"
-                            hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}", "is_waitinglist": "{{ 'true' if appt.status == 'waiting' else 'false' }}"}'
+                            hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}", "is_waitinglist": "{{ 'true' if appt.status == 'waiting' else 'false' }}", "class_name": "{{ appt.name }}"}'
                             hx-target="#calendar-content"
                             hx-swap="innerHTML"
                             hx-confirm="Sign out of {{ appt.name }}?">
@@ -156,7 +156,7 @@
                     {% if appt.status == 'open' %}
                     <button class="btn btn-primary btn-sm"
                             hx-post="/appointments/{{ appt.id }}/subscribe"
-                            hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}"}'
+                            hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}", "class_name": "{{ appt.name }}"}'
                             hx-target="#calendar-content"
                             hx-swap="innerHTML">
                         Sign up
