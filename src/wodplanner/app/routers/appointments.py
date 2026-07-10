@@ -1,11 +1,15 @@
 """Appointment detail and subscription endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from wodplanner.api.client import WodAppClient, WodAppError
 from wodplanner.app.dependencies import get_client_from_session
 from wodplanner.utils.dates import parse_api_datetime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
@@ -72,7 +76,8 @@ def get_appointment_details(
     try:
         details = client.get_appointment_details(appointment_id, start, end)
     except WodAppError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Failed to load appointment %d: %s", appointment_id, e)
+        raise HTTPException(status_code=400, detail="Failed to load appointment details")
 
     return AppointmentDetailResponse(
         id=details.id_appointment,
@@ -123,7 +128,8 @@ def subscribe_to_appointment(
             message=result.notice,
         )
     except WodAppError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Failed to subscribe to appointment %d: %s", appointment_id, e)
+        raise HTTPException(status_code=400, detail="Failed to subscribe. Please try again.")
 
 
 @router.post("/{appointment_id}/waitinglist", response_model=SubscribeResponse)
@@ -149,4 +155,5 @@ def subscribe_to_waitinglist(
             message=result.notice,
         )
     except WodAppError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Failed to join waiting list for appointment %d: %s", appointment_id, e)
+        raise HTTPException(status_code=400, detail="Failed to join waiting list. Please try again.")

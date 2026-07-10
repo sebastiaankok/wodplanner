@@ -96,9 +96,10 @@ def login(
             status_code=303,
         )
     except WodAppError as e:
+        logger.error("Login failed for %s: %s", username, e)
         limiter.record_failure(ip)
         return RedirectResponse(
-            url=f"/login?error=Login failed: {e}",
+            url="/login?error=Login failed due to a server error. Please try again later.",
             status_code=303,
         )
 
