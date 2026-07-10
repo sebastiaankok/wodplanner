@@ -10,13 +10,10 @@ from fastapi import Cookie, Depends, HTTPException, Request, Response, status
 from wodplanner.api.client import WodAppClient
 from wodplanner.app.config import settings
 from wodplanner.models.auth import AuthSession
-from wodplanner.services import crypto
 from wodplanner.services import session as cookie_session
 from wodplanner.services.api_cache import ApiCacheService
 from wodplanner.services.benchmark import BenchmarkService
-from wodplanner.services.calendar_sync import CalendarSyncService
 from wodplanner.services.friends import FriendsService
-from wodplanner.services.google_accounts import GoogleAccountsService
 from wodplanner.services.one_rep_max import OneRepMaxService
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
@@ -49,22 +46,6 @@ def get_schedule_service() -> ScheduleService:
 def get_one_rep_max_service() -> OneRepMaxService:
     """Get the singleton one rep max service."""
     return OneRepMaxService(_get_db_path())
-
-
-@lru_cache
-def get_google_accounts_service() -> GoogleAccountsService:
-    """Get the singleton Google accounts service."""
-    enc_key = crypto.get_enc_key(settings.google_token_enc_key, settings.secret_key)
-    return GoogleAccountsService(_get_db_path(), enc_key)
-
-
-@lru_cache
-def get_calendar_sync_service() -> CalendarSyncService:
-    """Get the singleton calendar sync service."""
-    return CalendarSyncService(
-        db=get_google_accounts_service(),
-        schedule_service=get_schedule_service(),
-    )
 
 
 @lru_cache
@@ -145,7 +126,7 @@ def get_client_from_session(
 
     This creates a new client per request using stored session data.
     """
-    return WodAppClient.from_session(session, cache=get_api_cache_service())
+    return WodAppClient.from_session(settings.wodapp_api_base_url, session, cache=get_api_cache_service())
 
 
 def get_client_from_session_for_view(
@@ -156,15 +137,11 @@ def get_client_from_session_for_view(
 
     Redirects to login if no valid session.
     """
-    return WodAppClient.from_session(session, cache=get_api_cache_service())
+    return WodAppClient.from_session(settings.wodapp_api_base_url, session, cache=get_api_cache_service())
 
 
 def get_subscription_service(
     client: Annotated[WodAppClient, Depends(get_client_from_session_for_view)],
 ) -> SubscriptionService:
     """Create a per-request SubscriptionService."""
-    return SubscriptionService(
-        client=client,
-        google_db=get_google_accounts_service(),
-        sync_service=get_calendar_sync_service(),
-    )
+    return SubscriptionService(client=client)

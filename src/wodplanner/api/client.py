@@ -1,4 +1,4 @@
-"""WodApp API client for interacting with ws.paynplan.nl."""
+"""WodApp API client."""
 
 import logging
 import random
@@ -39,32 +39,38 @@ class AuthenticationError(WodAppError):
 
 
 class WodAppClient:
-    """Client for the WodApp API (ws.paynplan.nl)."""
+    """Client for the WodApp API."""
 
-    BASE_URL = "https://ws.paynplan.nl/"
     APP = "wodapp"
     VERSION = "14.0"
     LANGUAGE = "nl_NL"
     CLIENT_USER_AGENT = "browser"
 
-    def __init__(self) -> None:
+    def __init__(self, base_url: str) -> None:
+        self._base_url = base_url
         self._client = httpx.Client(timeout=30.0)
         self._session: AuthSession | None = None
         self._cache: "ApiCacheService | None" = None
 
     @classmethod
-    def from_session(cls, session: AuthSession, cache: "ApiCacheService | None" = None) -> "WodAppClient":
+    def from_session(
+        cls,
+        base_url: str,
+        session: AuthSession,
+        cache: "ApiCacheService | None" = None,
+    ) -> "WodAppClient":
         """
         Create a pre-authenticated client from an existing session.
 
         Args:
+            base_url: Base URL for the WodApp API
             session: An AuthSession with valid token and user info
             cache: Optional cache service for non-user-specific data
 
         Returns:
             WodAppClient ready to make authenticated requests
         """
-        client = cls()
+        client = cls(base_url)
         client._session = session
         client._cache = cache
         return client
@@ -129,7 +135,7 @@ class WodAppClient:
         for attempt in range(self._MAX_RETRIES + 1):
             try:
                 response = self._client.post(
-                    self.BASE_URL,
+                    self._base_url,
                     data=params,
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                 )

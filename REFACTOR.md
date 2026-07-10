@@ -1,6 +1,6 @@
 # Refactor Candidates — Deepening Opportunities
 
-Surfaced via `/improve-codebase-architecture`. Vocabulary: `LANGUAGE.md` (Module, Interface, Depth, Seam, Adapter, Leverage, Locality) + `CONTEXT.md` (Appointment, Schedule, Friend, Member, Class Type, Sign Up, Google Calendar Sync, 1RM).
+Surfaced via `/improve-codebase-architecture`. Vocabulary: `LANGUAGE.md` (Module, Interface, Depth, Seam, Adapter, Leverage, Locality) + `CONTEXT.md` (Appointment, Schedule, Friend, Member, Class Type, Sign Up, 1RM).
 
 ADRs not re-litigated: 0001 (reverse-engineered API), 0002 (cookie sessions), 0003 (SQLite single-process).
 
@@ -33,11 +33,11 @@ Locality: one place owns enrichment rules. Leverage: HTML and JSON callers both 
 **Files**
 - `src/wodplanner/services/calendar_view.py:50` — inline fallback `schedule_map.get(appt.name) or schedule_map.get(normalize_class_name(appt.name))`
 - `src/wodplanner/services/schedule.py:34-61` — `normalize_class_name`, `get_all_class_aliases`
-- `src/wodplanner/services/calendar_sync.py:51-66` — private `_lookup_schedule` helper
+- *(removed — `calendar_sync.py` deleted with Google Calendar sync)*
 - `src/wodplanner/app/routers/views.py:646` — schedule_modal_view direct call
 
 **Problem**
-"Given Appointment with Class Type X on date D, find matching Schedule" rule lives in three places. `calendar_view.py` does fallback lookup inline. `calendar_sync.py` wraps `find_for_appointment` in a try/except local helper. Schedule modal hits service directly. Normalization (`normalize_class_name`) leaks at call sites — caller must remember to fall back. Forget fallback, miss Schedule.
+"Given Appointment with Class Type X on date D, find matching Schedule" rule lives in two places. `calendar_view.py` does fallback lookup inline. Schedule modal hits service directly. Normalization (`normalize_class_name`) leaks at call sites — caller must remember to fall back. Forget fallback, miss Schedule.
 
 **Solution sketch**
 One deepened lookup module: `match_schedule(appt, date) -> Schedule | None` owns alias map + normalization fallback + try/except + logging. Callers go to one line.
@@ -50,32 +50,13 @@ Locality of the join rule; one test for "alias maps + normalization fallback bot
 
 ---
 
-## 3. Sign Up + Google Calendar Sync orchestration repeated in three handlers
 
-**Files**
-- `src/wodplanner/app/routers/views.py:417-448` — subscribe_view
-- `src/wodplanner/app/routers/views.py:451-482` — waitinglist_view
-- `src/wodplanner/app/routers/views.py:485-521` — unsubscribe_view
-
-**Problem**
-Three handlers, near-identical body: parse datetimes → call `client.subscribe` / `subscribe_waitinglist` / `unsubscribe[_waitinglist]` → `_enqueue_google_sync` → re-render `calendar_day_partial`. Six dependencies injected per handler. Composition "Sign Up an Appointment + trigger Google Calendar Sync" is a domain concept (per `CONTEXT.md` example dialogue), but lives in routers. Tests must wire all six fakes per endpoint.
-
-**Solution sketch**
-`SubscriptionService.subscribe(appt_id, when, mode)` (mode ∈ {direct, waitlist, cancel, cancel_waitlist}). Router becomes thin parse-and-render shell. "Sign-up triggers sync" rule has one home.
-
-**Concept**
-Sign Up (existing `CONTEXT.md` term). Composition rule: sign-up triggers Google Calendar Sync.
-
-**Benefit**
-One test that asserts "subscribe enqueues sync". Routers stop being orchestrators. Real seam: future "sign-up triggers Slack notification" plugs in here, not in three handlers.
-
----
 
 ## 4. WodApp reservation dict shape leaks past API-client seam
 
 **Files**
 - `src/wodplanner/api/client.py` — `get_upcoming_reservations` returns `list[dict]`
-- `src/wodplanner/services/calendar_sync.py:187-260` — indexes `reservation["name"]`, `reservation["date_start"]`, `reservation.get("date_end")`, `reservation["id_appointment"]`
+- *(removed — `calendar_sync.py` deleted with Google Calendar sync)*
 - `src/wodplanner/app/routers/views.py` — home_page builds dicts from same keys
 
 **Problem**

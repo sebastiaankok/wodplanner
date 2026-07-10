@@ -59,7 +59,7 @@ def live_server(tmp_path_factory):
 
     original_from_session = WodAppClient.__dict__["from_session"]
     WodAppClient.from_session = classmethod(  # type: ignore[assignment]
-        lambda cls, s, cache=None: _mock_holder[0]
+        lambda cls, b, s, cache=None: _mock_holder[0]
     )
 
     port = _free_port()

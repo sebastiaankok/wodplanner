@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -507,7 +507,6 @@ def delete_friend_view(
 @router.post("/appointments/{appointment_id}/subscribe", response_class=HTMLResponse)
 def subscribe_view(
     request: Request,
-    background_tasks: BackgroundTasks,
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
@@ -528,8 +527,6 @@ def subscribe_view(
         start=start,
         end=end,
         action=SubscribeAction.SUBSCRIBE,
-        background_tasks=background_tasks,
-        session=session,
     )
 
     # Return updated calendar
@@ -548,7 +545,6 @@ def subscribe_view(
 @router.post("/appointments/{appointment_id}/waitinglist", response_class=HTMLResponse)
 def waitinglist_view(
     request: Request,
-    background_tasks: BackgroundTasks,
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
@@ -569,8 +565,6 @@ def waitinglist_view(
         start=start,
         end=end,
         action=SubscribeAction.WAITLIST,
-        background_tasks=background_tasks,
-        session=session,
     )
 
     # Return updated calendar
@@ -589,7 +583,6 @@ def waitinglist_view(
 @router.post("/appointments/{appointment_id}/unsubscribe", response_class=HTMLResponse)
 def unsubscribe_view(
     request: Request,
-    background_tasks: BackgroundTasks,
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
@@ -617,8 +610,6 @@ def unsubscribe_view(
         start=start,
         end=end,
         action=action,
-        background_tasks=background_tasks,
-        session=session,
     )
 
     # Return updated calendar

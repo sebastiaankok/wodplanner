@@ -66,7 +66,7 @@ def login(
         )
 
     try:
-        client = WodAppClient()
+        client = WodAppClient(settings.wodapp_api_base_url)
         auth_session = client.login(username, password)
         client.close()
 

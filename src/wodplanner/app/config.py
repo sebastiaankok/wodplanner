@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     wodapp_username: str | None = None
     wodapp_password: str | None = None
 
+    # WodApp API
+    wodapp_api_base_url: str = ""  # Required: set WODAPP_API_BASE_URL env var
+
     # Logging
     log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
 
@@ -33,17 +36,12 @@ class Settings(BaseSettings):
     # App version (derived from package __version__)
     app_version: str = __version__
 
-    # Google Calendar sync (all optional — feature is disabled when client_id is unset)
-    google_client_id: str | None = None
-    google_client_secret: str | None = None
-    google_redirect_uri: str = "http://localhost:8000/google/callback"
-    # Optional: base64url-encoded 32-byte Fernet key; derived from secret_key when absent
-    google_token_enc_key: str | None = None
-
     @model_validator(mode="after")
     def apply_environment_defaults(self) -> "Settings":
         if self.cookie_secure is None:
             self.cookie_secure = self.environment == "production"
+        if not self.wodapp_api_base_url:
+            raise ValueError("WODAPP_API_BASE_URL environment variable is required")
         return self
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

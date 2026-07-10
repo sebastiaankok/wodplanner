@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WodPlanner is a custom frontend for WodApp (app.wodapp.nl), a CrossFit class scheduling app. It wraps the reverse-engineered `ws.paynplan.nl` API to provide:
+WodPlanner is a custom frontend for WodApp (app.wodapp.nl), a CrossFit class scheduling app. It wraps the reverse-engineered WodApp API to provide:
 - **Friends tracking**: See which friends are signed up for classes
 - **Browser-based authentication**: Users log in with their WodApp credentials
 
@@ -57,7 +57,7 @@ backup-db --db-path /data/wodplanner.db --backup-dir /data/backups --keep 7
 
 ```
 src/wodplanner/
-├── api/client.py          # WodApp API client (ws.paynplan.nl)
+├── api/client.py          # WodApp API client
 ├── app/                   # FastAPI application
 │   ├── main.py            # App entry point
 │   ├── config.py          # Settings (session expiry, cookie config)
@@ -76,7 +76,8 @@ src/wodplanner/
 
 ## Configuration
 
-Environment variables (all optional for web usage):
+Environment variables:
+- `WODAPP_API_BASE_URL` — **Required.** Base URL for the WodApp API
 - `ENVIRONMENT` — `development` (default) or `production`; production enables `COOKIE_SECURE` automatically
 - `SESSION_EXPIRE_DAYS` — session lifetime in days (default: unset = never expire; browser max_age capped at 400 days)
 - `COOKIE_SECURE` — override cookie secure flag; auto-enabled when `ENVIRONMENT=production`

@@ -39,7 +39,7 @@ class TestRetryEdges:
             }),
             _Resp({"status": "OK", "resultset": [{"id_agenda": 7}]}),
         ]
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = client.login("u", "p")
         assert session.token == "t"
         assert mock_client.post.call_count == 3
@@ -50,7 +50,7 @@ class TestRetryEdges:
         mock_client_cls.return_value = mock_client
         mock_client.post.side_effect = httpx.TransportError("net down")
         with pytest.raises(WodAppError, match="Cannot reach"):
-            WodAppClient().login("u", "p")
+            WodAppClient("https://example.com/").login("u", "p")
 
     @patch("wodplanner.api.client.httpx.Client")
     def test_status_not_ok_raises_wodapp_error(self, mock_client_cls):
@@ -61,7 +61,7 @@ class TestRetryEdges:
             "notice": "bad pass",
         })
         with pytest.raises(WodAppError, match="API error: bad pass"):
-            WodAppClient().login("u", "p")
+            WodAppClient("https://example.com/").login("u", "p")
 
     @patch("wodplanner.api.client.httpx.Client")
     def test_non_retry_status_raises_immediately(self, mock_client_cls):
@@ -69,4 +69,4 @@ class TestRetryEdges:
         mock_client_cls.return_value = mock_client
         mock_client.post.return_value = _Resp({}, status_code=400)
         with pytest.raises(WodAppError, match="status 400"):
-            WodAppClient().login("u", "p")
+            WodAppClient("https://example.com/").login("u", "p")

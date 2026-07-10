@@ -90,9 +90,9 @@ def app_client(monkeypatch, mock_wodapp_client):
 
     for mod in (deps_mod, appt_mod, cal_mod, views_mod):
         if hasattr(mod, "WodAppClient"):
-            monkeypatch.setattr(mod.WodAppClient, "from_session", classmethod(lambda cls, s, cache=None: mock_wodapp_client))
+            monkeypatch.setattr(mod.WodAppClient, "from_session", classmethod(lambda cls, b, s, cache=None: mock_wodapp_client))
 
-    monkeypatch.setattr(WodAppClient, "from_session", classmethod(lambda cls, s, cache=None: mock_wodapp_client))
+    monkeypatch.setattr(WodAppClient, "from_session", classmethod(lambda cls, b, s, cache=None: mock_wodapp_client))
 
     with TestClient(app) as client:
         yield client

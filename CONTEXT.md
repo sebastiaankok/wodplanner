@@ -1,13 +1,13 @@
 # WodPlanner
 
-A personal tool that wraps the WodApp gym platform to add friends tracking, workout schedules, 1RM logging, and Google Calendar sync — features WodApp itself does not provide.
+A personal tool that wraps the WodApp gym platform to add friends tracking, workout schedules, and 1RM logging — features WodApp itself does not provide.
 
 ## Language
 
 ### External platform
 
 **WodApp**:
-The upstream gym management SaaS (`app.wodapp.nl / ws.paynplan.nl`) that WodPlanner wraps. WodApp owns all class scheduling and user account data; WodPlanner reads and acts on it via a reverse-engineered internal API.
+The upstream gym management SaaS (`app.wodapp.nl`) that WodPlanner wraps. WodApp owns all class scheduling and user account data; WodPlanner reads and acts on it via a reverse-engineered internal API.
 _Avoid_: backend, API, upstream app
 
 **Gym**:
@@ -76,24 +76,14 @@ _Avoid_: benchmark workout, named workout, hero wod
 A named barbell or gymnastics movement with a canonical name (e.g. "Back Squat"). Stored in the `exercises` table; seeded with 28 defaults. Users log 1RMs against canonical Exercise names.
 _Avoid_: movement, lift
 
-### Integrations
-
-**Google Calendar Sync**:
-One-way push of the user's WodApp sign-ups to a Google Calendar. One-way because WodApp exposes no external write API for reservations.
-_Avoid_: calendar integration, two-way sync
-
 ## Relationships
 
 - An **Appointment** has a **Class Type**; a **Schedule** is looked up by `(date, Class Type)` to enrich it
 - A **Friend** is a **Member** the user has chosen to track
 - **Account ID** and **Member ID** are different values for the same WodApp user — never use Account ID to match against a participant list
-- **Signing Up** for an **Appointment** triggers a **Google Calendar Sync** in the background
 - A **Schedule** may reference a **1RM** exercise, which flags the corresponding **Appointment** on the calendar
 
 ## Example dialogue
-
-> **Dev:** "When a user clicks 'sign up' on an Appointment, do we store anything locally?"
-> **Domain expert:** "No — we call the WodApp subscribe endpoint and trigger a Google Calendar Sync. The Appointment itself is never persisted; next page load fetches it live."
 
 > **Dev:** "How does the calendar know which Friends are in a class?"
 > **Domain expert:** "We fetch the Appointment's Member list from WodApp and cross-reference it against the user's stored Friend Member IDs."

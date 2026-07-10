@@ -4,14 +4,14 @@ Unofficial WodApp alternative for planning CrossFit classes. Uses the same crede
 
 > **Privacy:** Your password is never stored. Login sends it directly to WodApp, which returns an auth token — only that token is kept in your browser cookie.
 
-> **Disclaimer:** This is a personal experiment, not affiliated with or endorsed by WodApp or Paynplan. It uses a reverse-engineered, undocumented API (`ws.paynplan.nl`). The API may change or break at any time. **For personal use only — do not run as a public service.**
+> **Disclaimer:** This is a personal experiment, not affiliated with or endorsed by WodApp. It uses a reverse-engineered, undocumented API. The API may change or break at any time. **For personal use only — do not run as a public service.**
 
 ## Features
 
 - **Friend tracking** — see what classes your friends are joining
 - **Exercises overview** — browse all programmed movements across the schedule
 - **1RM tracker** — log and track your personal records per exercise
-- **Google Calendar sync** — automatically sync class signups to Google Calendar (requires a GCP OAuth client)
+
 
 ## Using the app
 
@@ -48,14 +48,12 @@ All settings are optional. Set via environment variables or a `.env` file:
 
 | Variable | Default | Description |
 |---|---|---|
+| `WODAPP_API_BASE_URL` | — | **Required.** Base URL for the WodApp API |
 | `SECRET_KEY` | random | Cookie signing key — set this in production or sessions reset on restart |
 | `ENVIRONMENT` | `development` | Set to `production` to enable secure cookies |
 | `SESSION_EXPIRE_DAYS` | never | Session lifetime in days |
 | `API_CACHE_TTL_SECONDS` | `600` | Cache TTL for schedule data |
-| `GOOGLE_CLIENT_ID` | — | Google OAuth client ID (enables Calendar sync) |
-| `GOOGLE_CLIENT_SECRET` | — | Google OAuth client secret |
-| `GOOGLE_REDIRECT_URI` | `http://localhost:8000/google/callback` | Must match the URI registered in GCP |
-| `GOOGLE_TOKEN_ENC_KEY` | derived | Fernet key for token encryption; set explicitly in production |
+
 
 ### Import workout schedule
 
@@ -76,4 +74,4 @@ backup-db --db-path /data/wodplanner.db --backup-dir /data/backups --keep 7
 
 ## Disclaimer
 
-This project is not affiliated with or endorsed by WodApp or Paynplan. It uses a reverse-engineered, undocumented API (`ws.paynplan.nl`) and is intended for personal use only. It is experimental — the upstream API may change without notice. Do not run this as a public service or share access with others.
+This project is not affiliated with or endorsed by WodApp. It uses a reverse-engineered, undocumented API and is intended for personal use only. It is experimental — the upstream API may change without notice. Do not run this as a public service or share access with others.

@@ -43,7 +43,7 @@ class TestWodAppClientLogin:
             "gyms": [{"id_gym": 1, "idc": 1, "name": "Test Gym", "city": "Test City"}],
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = client.login("user", "pass")
 
         assert session.token == "test_token"
@@ -63,7 +63,7 @@ class TestWodAppClientLogin:
             "gyms": [],
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         with pytest.raises(AuthenticationError, match="No gyms"):
             client.login("user", "pass")
 
@@ -76,7 +76,7 @@ class TestWodAppClientLogin:
             "notice": "Invalid credentials",
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         with pytest.raises(WodAppError, match="API error"):
             client.login("user", "pass")
 
@@ -88,7 +88,7 @@ class TestWodAppClientLogin:
             "error", request=MagicMock(), response=MockResponse({}, 500)
         )
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         with pytest.raises(WodAppError):
             client.login("user", "pass")
 
@@ -104,7 +104,7 @@ class TestWodAppClientFromSession:
             gym_name="Test Gym",
         )
         cache = ApiCacheService()
-        client = WodAppClient.from_session(session, cache)
+        client = WodAppClient.from_session("https://example.com/", session, cache)
 
         assert client.is_authenticated is True
         assert client.session.token == "test_token"
@@ -113,12 +113,12 @@ class TestWodAppClientFromSession:
 
 class TestWodAppClientProperties:
     def test_session_not_authenticated_raises(self):
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         with pytest.raises(AuthenticationError, match="Not logged in"):
             _ = client.session
 
     def test_is_authenticated_false_when_not_logged_in(self):
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         assert client.is_authenticated is False
 
 
@@ -147,7 +147,7 @@ class TestWodAppClientGetDaySchedule:
             ]
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = AuthSession(
             token="test_token",
             user_id=1,
@@ -201,7 +201,7 @@ class TestWodAppClientGetAppointmentDetails:
             }
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = AuthSession(
             token="test_token",
             user_id=1,
@@ -236,7 +236,7 @@ class TestWodAppClientSubscribeUnsubscribe:
             "subscribedWithSuccess": 1,
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = AuthSession(
             token="test_token",
             user_id=1,
@@ -266,7 +266,7 @@ class TestWodAppClientSubscribeUnsubscribe:
             "subscribedWithSuccess": 1,
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = AuthSession(
             token="test_token",
             user_id=1,
@@ -341,7 +341,7 @@ class TestWodAppClientFindFriendsInAppointments:
             }),
         ]
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = AuthSession(
             token="test_token",
             user_id=1,
@@ -384,7 +384,7 @@ class TestWodAppClientRetryLogic:
             }),
         ]
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = client.login("user", "pass")
 
         assert session is not None
@@ -396,7 +396,7 @@ class TestWodAppClientRetryLogic:
         mock_client_cls.return_value = mock_client
         mock_client.post.return_value = MockResponse({}, status_code=502)
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         with pytest.raises(WodAppError, match="temporarily unavailable"):
             client.login("user", "pass")
 
@@ -438,7 +438,7 @@ class TestWodAppClientGetUpcomingReservations:
             "companyImages": {"logo": "https://example.com/logo.png"},
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = AuthSession(
             token="test_token",
             user_id=1,
@@ -472,7 +472,7 @@ class TestWodAppClientGetUpcomingReservations:
             "companyImages": {},
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = AuthSession(
             token="test_token",
             user_id=1,
@@ -508,7 +508,7 @@ class TestWodAppClientGetUpcomingReservationsCache:
         })
 
         cache = ApiCacheService(ttl_seconds=120)
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         client._cache = cache
         session = AuthSession(
             token="test_token", user_id=1, username="test", firstname="Test",
@@ -548,7 +548,7 @@ class TestWodAppClientGetUpcomingReservationsCache:
         })
 
         cache = ApiCacheService(ttl_seconds=120)
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         client._cache = cache
         session = AuthSession(
             token="test_token", user_id=1, username="test", firstname="Test",
@@ -579,7 +579,7 @@ class TestWodAppClientGetUpcomingReservationsCache:
         })
 
         cache = ApiCacheService(ttl_seconds=0)  # expires immediately
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         client._cache = cache
         session = AuthSession(
             token="test_token", user_id=1, username="test", firstname="Test",
@@ -631,7 +631,7 @@ class TestWodAppClientGetAppointmentMembers:
             }
         })
 
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         session = AuthSession(
             token="test_token",
             user_id=1,
@@ -681,7 +681,7 @@ class TestWodAppClientGetAppointmentMembers:
         })
 
         cache = ApiCacheService(ttl_seconds=120)
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         client._cache = cache
         session = AuthSession(
             token="test_token",
@@ -735,7 +735,7 @@ class TestWodAppClientGetAppointmentMembers:
         })
 
         cache = ApiCacheService(ttl_seconds=120)
-        client = WodAppClient()
+        client = WodAppClient("https://example.com/")
         client._cache = cache
         session = AuthSession(
             token="test_token",

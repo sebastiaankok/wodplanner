@@ -95,7 +95,6 @@ def _import_services_for_registration() -> None:
     from wodplanner.services import (  # noqa: F401
         benchmark,
         friends,
-        google_accounts,
         one_rep_max,
         preferences,
         schedule,
