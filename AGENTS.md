@@ -8,6 +8,10 @@ WodPlanner is a custom frontend for WodApp, a CrossFit class scheduling app. It 
 - **Friends tracking**: See which friends are signed up for classes
 - **Browser-based authentication**: Users log in with their WodApp credentials
 
+## Git / Pull requests
+
+This project uses CI pipelines to validate PR's, when requested to create a branch and PR also use automerge
+
 ## Commands
 
 ```bash
