@@ -4,10 +4,17 @@ import logging
 from unittest.mock import MagicMock
 
 from fastapi import APIRouter
+from fastapi.responses import Response
 from fastapi.testclient import TestClient
 
 from wodplanner.api.client import AuthenticationError, WodAppError
-from wodplanner.app.main import CloudflareIPMiddleware, _StripZeroPort, app
+from wodplanner.app.config import settings
+from wodplanner.app.main import (
+    CloudflareIPMiddleware,
+    SecurityHeadersMiddleware,
+    _StripZeroPort,
+    app,
+)
 
 
 def _attach_temp_router(routes: APIRouter):
@@ -156,6 +163,97 @@ class TestStripZeroPortFilter:
         f = _StripZeroPort()
         record = logging.LogRecord("test", logging.INFO, "f", 1, "msg", None, None)
         assert f.filter(record) is True
+
+
+class TestSecurityHeadersMiddleware:
+    def test_all_security_headers_present(self, app_client):
+        resp = app_client.get("/health")
+        csp = resp.headers.get("content-security-policy")
+        assert csp is not None
+        assert "default-src 'self'" in csp
+        assert "script-src 'self'" in csp
+        assert "https://unpkg.com" in csp
+        assert "https://cdn.jsdelivr.net" in csp
+        assert "'unsafe-inline'" in csp
+        assert "frame-src 'none'" in csp
+        assert "object-src 'none'" in csp
+        assert "base-uri 'none'" in csp
+        assert resp.headers.get("x-frame-options") == "DENY"
+        assert resp.headers.get("x-content-type-options") == "nosniff"
+        assert resp.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+
+    def test_hsts_set_in_production(self):
+        mw = SecurityHeadersMiddleware(app=MagicMock())
+        request = MagicMock()
+        expected = Response()
+
+        async def call_next(_req):
+            return expected
+
+        import asyncio
+
+        prev = settings.environment
+        settings.environment = "production"
+        try:
+            result = asyncio.run(mw.dispatch(request, call_next))
+            assert result is expected
+            assert result.headers.get("strict-transport-security") == (
+                "max-age=31536000; includeSubDomains"
+            )
+        finally:
+            settings.environment = prev
+
+    def test_hsts_not_set_in_development(self):
+        mw = SecurityHeadersMiddleware(app=MagicMock())
+        request = MagicMock()
+        expected = Response()
+
+        async def call_next(_req):
+            return expected
+
+        import asyncio
+
+        prev = settings.environment
+        settings.environment = "development"
+        try:
+            result = asyncio.run(mw.dispatch(request, call_next))
+            assert result is expected
+            assert "strict-transport-security" not in result.headers
+        finally:
+            settings.environment = prev
+
+    def test_headers_set_on_error_responses(self, app_client):
+        router = APIRouter()
+
+        @router.get("/__test__/sec_err")
+        def boom():
+            raise WodAppError("boom")
+
+        cleanup = _attach_temp_router(router)
+        try:
+            resp = app_client.get("/__test__/sec_err")
+            assert resp.headers.get("content-security-policy") is not None
+            assert resp.headers.get("x-frame-options") == "DENY"
+            assert resp.headers.get("x-content-type-options") == "nosniff"
+        finally:
+            cleanup()
+
+    def test_headers_set_on_redirect_responses(self, app_client):
+        router = APIRouter()
+
+        @router.get("/__test__/sec_auth_err")
+        def boom():
+            raise AuthenticationError("expired")
+
+        cleanup = _attach_temp_router(router)
+        try:
+            resp = app_client.get("/__test__/sec_auth_err", follow_redirects=False)
+            assert resp.status_code == 303
+            assert resp.headers.get("content-security-policy") is not None
+            assert resp.headers.get("x-frame-options") == "DENY"
+            assert resp.headers.get("x-content-type-options") == "nosniff"
+        finally:
+            cleanup()
 
 
 class TestLifespanRunsMigrations:
