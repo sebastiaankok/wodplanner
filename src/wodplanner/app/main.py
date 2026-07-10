@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import AsyncIterator, Callable, cast
 
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -91,16 +90,6 @@ static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 app.add_middleware(CloudflareIPMiddleware)
-
-# CORS middleware for frontend access
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 @app.exception_handler(WodAppError)
 async def wodapp_error_handler(request: Request, exc: WodAppError) -> Response:
