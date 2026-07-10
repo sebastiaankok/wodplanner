@@ -1,6 +1,6 @@
 # WodPlanner
 
-Unofficial WodApp alternative for planning CrossFit classes. Uses the same credentials as [app.wodapp.nl](https://app.wodapp.nl) — no separate account needed.
+Unofficial WodApp alternative for planning CrossFit classes. Uses the same credentials as WodApp — no separate account needed.
 
 > **Privacy:** Your password is never stored. Login sends it directly to WodApp, which returns an auth token — only that token is kept in your browser cookie.
 

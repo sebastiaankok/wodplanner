@@ -1,6 +1,6 @@
 # WodApp API Documentation
 
-Reverse-engineered API documentation for the WodApp backend (`app.wodapp.nl`).
+Reverse-engineered API documentation for the WodApp backend.
 
 ## Base Configuration
 

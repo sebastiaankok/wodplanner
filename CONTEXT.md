@@ -7,7 +7,7 @@ A personal tool that wraps the WodApp gym platform to add friends tracking, work
 ### External platform
 
 **WodApp**:
-The upstream gym management SaaS (`app.wodapp.nl`) that WodPlanner wraps. WodApp owns all class scheduling and user account data; WodPlanner reads and acts on it via a reverse-engineered internal API.
+The upstream gym management SaaS that WodPlanner wraps. WodApp owns all class scheduling and user account data; WodPlanner reads and acts on it via a reverse-engineered internal API.
 _Avoid_: backend, API, upstream app
 
 **Gym**:

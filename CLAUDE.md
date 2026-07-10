@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WodPlanner is a custom frontend for WodApp (app.wodapp.nl), a CrossFit class scheduling app. It wraps the reverse-engineered WodApp API to provide:
+WodPlanner is a custom frontend for WodApp, a CrossFit class scheduling app. It wraps the reverse-engineered WodApp API to provide:
 - **Friends tracking**: See which friends are signed up for classes
 - **Browser-based authentication**: Users log in with their WodApp credentials
 
