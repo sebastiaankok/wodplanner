@@ -1,4 +1,6 @@
 
+from itsdangerous import URLSafeTimedSerializer
+
 from wodplanner.models.auth import AuthSession
 from wodplanner.services import session
 
@@ -114,3 +116,65 @@ class TestDecode:
         result = session.decode(cookie, "secret_key", max_age_seconds=None)
         assert result is not None
         assert result.agenda_id == 42
+
+    def test_decode_old_signed_format_backward_compatible(self):
+        """Old signed-only cookies (URLSafeTimedSerializer) must still decode."""
+        auth_session = AuthSession(
+            token="old_token",
+            user_id=1,
+            username="olduser",
+            firstname="Old",
+            gym_id=100,
+            gym_name="Old Gym",
+        )
+        s = URLSafeTimedSerializer("secret_key")
+        old_cookie = s.dumps(auth_session.model_dump())
+        result = session.decode(old_cookie, "secret_key", max_age_seconds=None)
+        assert result is not None
+        assert result.token == "old_token"
+        assert result.user_id == 1
+        assert result.username == "olduser"
+
+
+class TestDecodeAndUpgrade:
+    def test_new_format_returns_no_upgrade(self):
+        auth = AuthSession(
+            token="tok", user_id=1, username="u", firstname="U", gym_id=1, gym_name="G"
+        )
+        cookie = session.encode(auth, "secret_key")
+        decoded, upgraded = session.decode_and_upgrade(cookie, "secret_key", None)
+        assert decoded is not None
+        assert decoded.token == "tok"
+        assert upgraded is None
+
+    def test_old_format_returns_upgraded_cookie(self):
+        auth = AuthSession(
+            token="old_tok", user_id=1, username="u", firstname="U", gym_id=1, gym_name="G"
+        )
+        s = URLSafeTimedSerializer("secret_key")
+        old_cookie = s.dumps(auth.model_dump())
+        decoded, upgraded = session.decode_and_upgrade(old_cookie, "secret_key", None)
+        assert decoded is not None
+        assert decoded.token == "old_tok"
+        assert upgraded is not None
+        assert upgraded != old_cookie
+        re_decoded = session.decode(upgraded, "secret_key", None)
+        assert re_decoded is not None
+        assert re_decoded.token == "old_tok"
+
+    def test_tampered_cookie_returns_no_upgrade(self):
+        decoded, upgraded = session.decode_and_upgrade(
+            "garbage", "secret_key", None
+        )
+        assert decoded is None
+        assert upgraded is None
+
+    def test_expired_old_format_returns_no_upgrade(self):
+        auth = AuthSession(
+            token="tok", user_id=1, username="u", firstname="U", gym_id=1, gym_name="G"
+        )
+        s = URLSafeTimedSerializer("secret_key")
+        old_cookie = s.dumps(auth.model_dump())
+        decoded, upgraded = session.decode_and_upgrade(old_cookie, "secret_key", -1)
+        assert decoded is None
+        assert upgraded is None
