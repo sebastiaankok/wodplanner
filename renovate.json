@@ -1,7 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
-  "repositories": ["sebastiaankok/wodplanner"],
   "gitAuthor": "Sebastiaan Kok <sebastiaan@linux.com>",
   "schedule": ["before 6am on Monday"],
   "timezone": "Europe/Amsterdam",
@@ -11,13 +10,13 @@
   "semanticCommits": "enabled",
   "packageRules": [
     {
-      "matchManagers": ["pyproject"],
+      "matchManagers": ["pep621"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "Python dependencies (non-major)",
       "automerge": false
     },
     {
-      "matchManagers": ["pyproject"],
+      "matchManagers": ["pep621"],
       "matchUpdateTypes": ["major"],
       "automerge": false
     },
