@@ -22,6 +22,7 @@ from wodplanner.app.dependencies import (
     get_schedule_service,
     get_session_from_cookie,
     get_subscription_service,
+    get_subscription_tracker_service,
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
@@ -37,6 +38,7 @@ from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
 from wodplanner.services.schedule_lookup import match_schedule, match_schedules_for_date
 from wodplanner.services.subscription import SubscribeAction, SubscriptionService
+from wodplanner.services.subscription_tracker import SubscriptionTrackerService
 from wodplanner.utils.dates import parse_api_datetime, parse_iso_date
 
 logger = logging.getLogger(__name__)
@@ -168,8 +170,9 @@ def home_page(
     request: Request,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
+    tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
 ):
-    """Homepage showing upcoming reservations."""
+    """Homepage showing upcoming reservations and weekly stats."""
     reservations, company_images = client.get_upcoming_reservations()
 
     # Group by date for display
@@ -186,6 +189,25 @@ def home_page(
             "display_date": r.date_start.strftime("%B %d"),
         })
 
+    # Weekly stats
+    user_id = session.user_id
+    has_data = tracker.has_any_events(user_id)
+    chart_data: dict[str, list] = {"weeks": [], "past": [], "future": []}
+    week_stats = {"past": 0, "future": 0}
+    average = 0.0
+    weeks_tracked = 0
+
+    if has_data:
+        weekly = tracker.get_weekly_counts(user_id)
+        chart_data = {
+            "weeks": [w["week_start"] for w in weekly],
+            "past": [w["past"] for w in weekly],
+            "future": [w["future"] for w in weekly],
+        }
+        week_stats = tracker.get_current_week_stats(user_id)
+        average = round(tracker.get_average_per_week(user_id), 1)
+        weeks_tracked = tracker.get_weeks_tracked(user_id)
+
     return render(
         request,
         "home.html",
@@ -193,6 +215,11 @@ def home_page(
             "active_page": "home",
             "days": days,
             "gym_logo": company_images.get("logo", ""),
+            "has_chart_data": has_data,
+            "chart_data": json.dumps(chart_data).replace("</", "<\\/"),
+            "week_stats": week_stats,
+            "average": average,
+            "weeks_tracked": weeks_tracked,
             **get_user_context(session),
         },
     )
@@ -554,6 +581,7 @@ def subscribe_view(
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
+    class_name: str = Form(""),
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
@@ -561,6 +589,7 @@ def subscribe_view(
     schedule_service: ScheduleService = Depends(get_schedule_service),
     subscription_service: SubscriptionService = Depends(get_subscription_service),
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+    tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
 ):
     """Subscribe to appointment from calendar (htmx)."""
     start = parse_api_datetime(date_start)
@@ -571,6 +600,13 @@ def subscribe_view(
         start=start,
         end=end,
         action=SubscribeAction.SUBSCRIBE,
+    )
+
+    tracker.record_subscribe(
+        user_id=session.user_id,
+        appointment_id=appointment_id,
+        class_name=class_name,
+        class_date=start.date(),
     )
 
     # Return updated calendar
@@ -631,6 +667,7 @@ def unsubscribe_view(
     date_start: str = Form(...),
     date_end: str = Form(...),
     is_waitinglist: str = Form("false"),
+    class_name: str = Form(""),
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
@@ -638,6 +675,7 @@ def unsubscribe_view(
     schedule_service: ScheduleService = Depends(get_schedule_service),
     subscription_service: SubscriptionService = Depends(get_subscription_service),
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+    tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
 ):
     """Unsubscribe from appointment (htmx)."""
     start = parse_api_datetime(date_start)
@@ -655,6 +693,14 @@ def unsubscribe_view(
         end=end,
         action=action,
     )
+
+    if is_waitinglist != "true":
+        tracker.record_unsubscribe(
+            user_id=session.user_id,
+            appointment_id=appointment_id,
+            class_name=class_name,
+            class_date=start.date(),
+        )
 
     # Return updated calendar
     return calendar_day_partial(

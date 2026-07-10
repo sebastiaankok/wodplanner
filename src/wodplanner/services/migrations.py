@@ -98,6 +98,7 @@ def _import_services_for_registration() -> None:
         one_rep_max,
         preferences,
         schedule,
+        subscription_tracker,
     )
 
 
