@@ -107,6 +107,9 @@ class PreferencesService(BaseService):
             dismissed.append(tooltip_id)
             self._set(user_id, "dismissed_tooltips", json.dumps(dismissed))
 
+    def reset_tooltips(self, user_id: int) -> None:
+        self._set(user_id, "dismissed_tooltips", "[]")
+
     def get_for_user(self, user_id: int) -> UserPreferences:
         """Get all preferences for a user in a single query."""
         with self._get_connection() as conn:
