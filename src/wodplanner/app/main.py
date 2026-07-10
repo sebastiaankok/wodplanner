@@ -30,6 +30,7 @@ from wodplanner.services import friends as _friends_svc  # noqa: F401
 from wodplanner.services import one_rep_max as _orm_svc  # noqa: F401
 from wodplanner.services import preferences as _prefs_svc  # noqa: F401
 from wodplanner.services import schedule as _schedule_svc  # noqa: F401
+from wodplanner.services import session as cookie_session
 from wodplanner.services.migrations import ensure_migrations
 
 numeric_level = getattr(logging, settings.log_level.upper(), logging.INFO)
@@ -99,6 +100,40 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class SessionUpgradeMiddleware(BaseHTTPMiddleware):
+    """Transparently upgrade old signed-only cookies to encrypted Fernet format."""
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = cast(Response, await call_next(request))
+
+        cookie = request.cookies.get("session")
+        if cookie:
+            max_age = (
+                settings.session_expire_days * 24 * 60 * 60
+                if settings.session_expire_days
+                else None
+            )
+            _, upgraded = cookie_session.decode_and_upgrade(
+                cookie, settings.secret_key, max_age
+            )
+            if upgraded is not None:
+                cookie_max_age = (
+                    settings.session_expire_days * 24 * 60 * 60
+                    if settings.session_expire_days
+                    else 400 * 24 * 60 * 60
+                )
+                response.set_cookie(
+                    key="session",
+                    value=upgraded,
+                    httponly=True,
+                    secure=settings.cookie_secure if settings.cookie_secure is not None else False,
+                    samesite="lax",
+                    max_age=cookie_max_age,
+                )
+
+        return response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Run pending schema migrations at startup."""
@@ -124,6 +159,7 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 app.add_middleware(CloudflareIPMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(SessionUpgradeMiddleware)
 
 @app.exception_handler(WodAppError)
 async def wodapp_error_handler(request: Request, exc: WodAppError) -> Response:
