@@ -26,4 +26,4 @@ jobs:
 
       - run: mypy src
 
-      - run: pytest --tb=short
+      - run: WODAPP_API_BASE_URL=http://test.test pytest --tb=short
