@@ -174,7 +174,10 @@ def changelog_page(
     """Render the CHANGELOG.md as an HTML page."""
     repo_root = Path(__file__).parent.parent.parent.parent.parent
     changelog_path = repo_root / "CHANGELOG.md"
-    raw = changelog_path.read_text(encoding="utf-8")
+    try:
+        raw = changelog_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raw = "# Changelog\n\nChangelog file not found."
     html_content = markdown.markdown(
         raw,
         extensions=["fenced_code", "codehilite"],
