@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Changelog - WodPlanner{% endblock %}
+
+{% block content %}
+<div class="card" style="padding: 1.5rem 2rem; max-width: 800px;">
+    <div class="changelog-content" style="line-height: 1.7; font-size: 0.9375rem;">
+        {{ changelog_html|safe }}
+    </div>
+</div>
+{% endblock %}

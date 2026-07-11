@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, cast
 
+import markdown
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -163,6 +164,22 @@ def login_page(
         return RedirectResponse(url="/", status_code=303)
 
     return render(request, "login.html", {"error": error})
+
+
+@router.get("/changelog", response_class=HTMLResponse)
+def changelog_page(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+):
+    """Render the CHANGELOG.md as an HTML page."""
+    repo_root = Path(__file__).parent.parent.parent.parent.parent
+    changelog_path = repo_root / "CHANGELOG.md"
+    raw = changelog_path.read_text(encoding="utf-8")
+    html_content = markdown.markdown(
+        raw,
+        extensions=["fenced_code", "codehilite"],
+    )
+    return render(request, "changelog.html", {"changelog_html": html_content, **get_user_context(session)})
 
 
 @router.get("/", response_class=HTMLResponse)
