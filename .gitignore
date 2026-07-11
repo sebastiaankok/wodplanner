@@ -37,4 +37,9 @@ htmlcov/
 wodplanner.db*
 .env
 
+# Lock files (pip-based, no uv/pipenv/poetry)
+uv.lock
+Pipfile.lock
+poetry.lock
+
 examples/pdf
