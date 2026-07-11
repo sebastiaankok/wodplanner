@@ -11,6 +11,7 @@ from wodplanner.services.base import BaseService
 
 logger = logging.getLogger(__name__)
 
+
 def _migrate_v700(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
@@ -33,28 +34,40 @@ def _migrate_v700(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_v701(conn: sqlite3.Connection) -> None:
+    conn.execute("ALTER TABLE subscription_events ADD COLUMN class_end TEXT")
+
+
 migrations.register(
     700,
     "Create subscription_events table for weekly session tracking",
     _migrate_v700,
 )
 
+migrations.register(
+    701,
+    "Add class_end column to subscription_events for time-based past/future classification",
+    _migrate_v701,
+)
 
 class SubscriptionTrackerService(BaseService):
     def record_subscribe(
-        self, user_id: int, appointment_id: int, class_name: str, class_date: date
+        self, user_id: int, appointment_id: int, class_name: str, class_date: date,
+        class_end: datetime | None = None,
     ) -> None:
         with self._get_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO subscription_events (user_id, appointment_id, class_name, event_type, class_date, created_at)
-                VALUES (?, ?, ?, 'subscribe', ?, ?)
+                INSERT INTO subscription_events (user_id, appointment_id, class_name, event_type, class_date, class_end, created_at)
+                VALUES (?, ?, ?, 'subscribe', ?, ?, ?)
                 """,
-                (user_id, appointment_id, class_name, class_date.isoformat(), datetime.now().isoformat()),
+                (user_id, appointment_id, class_name, class_date.isoformat(),
+                 class_end.isoformat() if class_end else None, datetime.now().isoformat()),
             )
 
     def record_unsubscribe(
-        self, user_id: int, appointment_id: int, class_name: str, class_date: date
+        self, user_id: int, appointment_id: int, class_name: str, class_date: date,
+        class_end: datetime | None = None,
     ) -> None:
         with self._get_connection() as conn:
             row = conn.execute(
@@ -70,16 +83,18 @@ class SubscriptionTrackerService(BaseService):
                 return
             conn.execute(
                 """
-                INSERT INTO subscription_events (user_id, appointment_id, class_name, event_type, class_date, created_at)
-                VALUES (?, ?, ?, 'unsubscribe', ?, ?)
+                INSERT INTO subscription_events (user_id, appointment_id, class_name, event_type, class_date, class_end, created_at)
+                VALUES (?, ?, ?, 'unsubscribe', ?, ?, ?)
                 """,
-                (user_id, appointment_id, class_name, class_date.isoformat(), datetime.now().isoformat()),
+                (user_id, appointment_id, class_name, class_date.isoformat(),
+                 class_end.isoformat() if class_end else None, datetime.now().isoformat()),
             )
 
     def get_weekly_counts(
         self, user_id: int, weeks: int = 52
     ) -> list[dict]:
         """Return list of {week_start, past_count, future_count} for last N weeks."""
+        now = datetime.now()
         today = date.today()
         # Start of current week (Monday)
         current_monday = today - timedelta(days=today.weekday())
@@ -91,6 +106,7 @@ class SubscriptionTrackerService(BaseService):
                 """
                 SELECT
                     class_date,
+                    class_end,
                     SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
                 FROM subscription_events
                 WHERE user_id = ?
@@ -109,10 +125,17 @@ class SubscriptionTrackerService(BaseService):
             key = week_monday.isoformat()
             if key not in weeks_data:
                 weeks_data[key] = {"past": 0, "future": 0}
-            if d < today:
-                weeks_data[key]["past"] += row["net"]
+            if row["class_end"]:
+                class_end = datetime.fromisoformat(row["class_end"])
+                if class_end < now:
+                    weeks_data[key]["past"] += row["net"]
+                else:
+                    weeks_data[key]["future"] += row["net"]
             else:
-                weeks_data[key]["future"] += row["net"]
+                if d < today:
+                    weeks_data[key]["past"] += row["net"]
+                else:
+                    weeks_data[key]["future"] += row["net"]
 
         # Build complete list of 52 weeks
         result = []
@@ -127,18 +150,20 @@ class SubscriptionTrackerService(BaseService):
 
     def get_current_week_stats(self, user_id: int) -> dict:
         """Return {past, future} for current week."""
-        today = date.today()
-        current_monday = today - timedelta(days=today.weekday())
-        return self._get_week_stats(user_id, current_monday)
+        now = datetime.now()
+        current_monday = date.today() - timedelta(days=date.today().weekday())
+        return self._get_week_stats(user_id, current_monday, now)
 
-    def _get_week_stats(self, user_id: int, week_monday: date) -> dict:
+    def _get_week_stats(self, user_id: int, week_monday: date, now: datetime | None = None) -> dict:
         today = date.today()
+        now = now or datetime.now()
         week_end = week_monday + timedelta(days=7)
         with self._get_connection() as conn:
             rows = conn.execute(
                 """
                 SELECT
                     class_date,
+                    class_end,
                     SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
                 FROM subscription_events
                 WHERE user_id = ?
@@ -154,10 +179,17 @@ class SubscriptionTrackerService(BaseService):
         future = 0
         for row in rows:
             d = date.fromisoformat(row["class_date"])
-            if d < today:
-                past += row["net"]
+            if row["class_end"]:
+                class_end = datetime.fromisoformat(row["class_end"])
+                if class_end < now:
+                    past += row["net"]
+                else:
+                    future += row["net"]
             else:
-                future += row["net"]
+                if d < today:
+                    past += row["net"]
+                else:
+                    future += row["net"]
         return {"past": past, "future": future}
 
     def get_average_per_week(self, user_id: int) -> float:
