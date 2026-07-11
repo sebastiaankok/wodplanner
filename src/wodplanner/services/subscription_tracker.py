@@ -5,11 +5,14 @@ from __future__ import annotations
 import logging
 import sqlite3
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from wodplanner.services import migrations
 from wodplanner.services.base import BaseService
 
 logger = logging.getLogger(__name__)
+
+_TZ = ZoneInfo("Europe/Amsterdam")
 
 
 def _migrate_v700(conn: sqlite3.Connection) -> None:
@@ -62,7 +65,7 @@ class SubscriptionTrackerService(BaseService):
                 VALUES (?, ?, ?, 'subscribe', ?, ?, ?)
                 """,
                 (user_id, appointment_id, class_name, class_date.isoformat(),
-                 class_end.isoformat() if class_end else None, datetime.now().isoformat()),
+                 self._aware(class_end).isoformat() if class_end else None, datetime.now(_TZ).isoformat()),
             )
 
     def record_unsubscribe(
@@ -87,14 +90,28 @@ class SubscriptionTrackerService(BaseService):
                 VALUES (?, ?, ?, 'unsubscribe', ?, ?, ?)
                 """,
                 (user_id, appointment_id, class_name, class_date.isoformat(),
-                 class_end.isoformat() if class_end else None, datetime.now().isoformat()),
+                 self._aware(class_end).isoformat() if class_end else None, datetime.now(_TZ).isoformat()),
             )
+
+    @staticmethod
+    def _aware(dt: datetime) -> datetime:
+        return dt.replace(tzinfo=_TZ) if dt.tzinfo is None else dt
+
+    @staticmethod
+    def _parse_end(raw: str) -> datetime:
+        dt = datetime.fromisoformat(raw)
+        return dt.replace(tzinfo=_TZ) if dt.tzinfo is None else dt
+
+    def _is_past(self, class_end_raw: str | None, class_date_raw: str, now: datetime) -> bool:
+        if class_end_raw:
+            return self._parse_end(class_end_raw) < now
+        return date.fromisoformat(class_date_raw) < date.today()
 
     def get_weekly_counts(
         self, user_id: int, weeks: int = 52
     ) -> list[dict]:
         """Return list of {week_start, past_count, future_count} for last N weeks."""
-        now = datetime.now()
+        now = datetime.now(_TZ)
         today = date.today()
         # Start of current week (Monday)
         current_monday = today - timedelta(days=today.weekday())
@@ -125,17 +142,10 @@ class SubscriptionTrackerService(BaseService):
             key = week_monday.isoformat()
             if key not in weeks_data:
                 weeks_data[key] = {"past": 0, "future": 0}
-            if row["class_end"]:
-                class_end = datetime.fromisoformat(row["class_end"])
-                if class_end < now:
-                    weeks_data[key]["past"] += row["net"]
-                else:
-                    weeks_data[key]["future"] += row["net"]
+            if self._is_past(row["class_end"], row["class_date"], now):
+                weeks_data[key]["past"] += row["net"]
             else:
-                if d < today:
-                    weeks_data[key]["past"] += row["net"]
-                else:
-                    weeks_data[key]["future"] += row["net"]
+                weeks_data[key]["future"] += row["net"]
 
         # Build complete list of 52 weeks
         result = []
@@ -150,13 +160,12 @@ class SubscriptionTrackerService(BaseService):
 
     def get_current_week_stats(self, user_id: int) -> dict:
         """Return {past, future} for current week."""
-        now = datetime.now()
+        now = datetime.now(_TZ)
         current_monday = date.today() - timedelta(days=date.today().weekday())
         return self._get_week_stats(user_id, current_monday, now)
 
     def _get_week_stats(self, user_id: int, week_monday: date, now: datetime | None = None) -> dict:
-        today = date.today()
-        now = now or datetime.now()
+        now = now or datetime.now(_TZ)
         week_end = week_monday + timedelta(days=7)
         with self._get_connection() as conn:
             rows = conn.execute(
@@ -178,18 +187,10 @@ class SubscriptionTrackerService(BaseService):
         past = 0
         future = 0
         for row in rows:
-            d = date.fromisoformat(row["class_date"])
-            if row["class_end"]:
-                class_end = datetime.fromisoformat(row["class_end"])
-                if class_end < now:
-                    past += row["net"]
-                else:
-                    future += row["net"]
+            if self._is_past(row["class_end"], row["class_date"], now):
+                past += row["net"]
             else:
-                if d < today:
-                    past += row["net"]
-                else:
-                    future += row["net"]
+                future += row["net"]
         return {"past": past, "future": future}
 
     def get_average_per_week(self, user_id: int) -> float:
