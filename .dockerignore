@@ -7,6 +7,5 @@ __pycache__/
 .env
 examples/
 *.md
-!CHANGELOG.md
 .github/
 tests/
