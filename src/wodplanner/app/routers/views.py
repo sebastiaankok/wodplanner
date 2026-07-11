@@ -607,6 +607,7 @@ def subscribe_view(
         appointment_id=appointment_id,
         class_name=class_name,
         class_date=start.date(),
+        class_end=end,
     )
 
     # Return updated calendar
@@ -700,6 +701,7 @@ def unsubscribe_view(
             appointment_id=appointment_id,
             class_name=class_name,
             class_date=start.date(),
+            class_end=end,
         )
 
     # Return updated calendar
