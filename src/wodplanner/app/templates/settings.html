@@ -10,6 +10,26 @@
 <div class="settings-sections">
 
     <section class="card settings-section">
+        <h2>Session Tracking</h2>
+        <p class="settings-description">Track your class attendance to see weekly stats on the home page.</p>
+        <div class="settings-item">
+            <label>Tracking is {{ 'disabled' if tracking_disabled else 'enabled' }}</label>
+            <button class="btn btn-sm {{ 'btn-secondary' if tracking_disabled else 'btn-danger' }}"
+                    onclick="toggleTracking(event)"
+                    id="tracking-toggle-btn">
+                {{ 'Enable' if tracking_disabled else 'Disable' }} tracking
+            </button>
+        </div>
+        {% if tracking_disabled %}
+        <div class="settings-item" style="margin-top: 0.5rem;">
+            <label style="color: var(--gray-400);">Delete my tracking data</label>
+            <button class="btn btn-sm btn-secondary"
+                    onclick="deleteTrackingData(event)">Delete</button>
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="card settings-section">
         <h2>Appearance</h2>
         <div class="settings-item disabled">
             <label>Color theme</label>
@@ -31,26 +51,6 @@
         <div id="settings-filters" class="settings-filters">
             {% include "partials/settings_filters.html" %}
         </div>
-    </section>
-
-    <section class="card settings-section">
-        <h2>Session Tracking</h2>
-        <p class="settings-description">Track your class attendance to see weekly stats on the home page.</p>
-        <div class="settings-item">
-            <label>Tracking is {{ 'disabled' if tracking_disabled else 'enabled' }}</label>
-            <button class="btn btn-sm {{ 'btn-secondary' if tracking_disabled else 'btn-danger' }}"
-                    onclick="toggleTracking(event)"
-                    id="tracking-toggle-btn">
-                {{ 'Enable' if tracking_disabled else 'Disable' }} tracking
-            </button>
-        </div>
-        {% if tracking_disabled %}
-        <div class="settings-item" style="margin-top: 0.5rem;">
-            <label style="color: var(--gray-400);">Delete my tracking data</label>
-            <button class="btn btn-sm btn-secondary"
-                    onclick="deleteTrackingData(event)">Delete</button>
-        </div>
-        {% endif %}
     </section>
 
 </div>
