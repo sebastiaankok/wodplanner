@@ -40,6 +40,7 @@ import-schedule = "wodplanner.cli.import_schedule:main"
 backup-db = "wodplanner.cli.backup_db:main"
 add-1rm = "wodplanner.cli.add_1rm:main"
 add-benchmark = "wodplanner.cli.add_benchmark:main"
+seed-subscriptions = "wodplanner.cli.seed_subscriptions:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]

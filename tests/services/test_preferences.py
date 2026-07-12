@@ -60,6 +60,29 @@ class TestPreferencesService:
         assert svc.get_hidden_class_types(user_id=1) == ["CrossFit"]
         assert svc.get_hidden_class_types(user_id=2) == ["Gymnastics"]
 
+    def test_tracking_disabled_default_false(self, db_path):
+        svc = PreferencesService(db_path)
+        assert svc.is_tracking_disabled(user_id=1) is False
+
+    def test_set_tracking_disabled(self, db_path):
+        svc = PreferencesService(db_path)
+        svc.set_tracking_disabled(user_id=1, disabled=True)
+        assert svc.is_tracking_disabled(user_id=1) is True
+        svc.set_tracking_disabled(user_id=1, disabled=False)
+        assert svc.is_tracking_disabled(user_id=1) is False
+
+    def test_tracking_disabled_in_get_all(self, db_path):
+        svc = PreferencesService(db_path)
+        svc.set_tracking_disabled(user_id=1, disabled=True)
+        prefs = svc.get_all(user_id=1)
+        assert prefs.tracking_disabled is True
+
+    def test_tracking_disabled_user_isolation(self, db_path):
+        svc = PreferencesService(db_path)
+        svc.set_tracking_disabled(user_id=1, disabled=True)
+        assert svc.is_tracking_disabled(user_id=1) is True
+        assert svc.is_tracking_disabled(user_id=2) is False
+
     def test_migration_from_old_schema(self, tmp_path, clean_registry):
         import sqlite3
 

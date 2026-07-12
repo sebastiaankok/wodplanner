@@ -228,6 +228,14 @@ class SubscriptionTrackerService(BaseService):
 
         return sum(week_counts.values()) / len(week_counts)
 
+    def delete_all_for_user(self, user_id: int) -> None:
+        with self._get_connection() as conn:
+            conn.execute(
+                "DELETE FROM subscription_events WHERE user_id = ?",
+                (user_id,),
+            )
+            conn.commit()
+
     def has_any_events(self, user_id: int) -> bool:
         with self._get_connection() as conn:
             row = conn.execute(

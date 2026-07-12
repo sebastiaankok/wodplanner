@@ -14,6 +14,7 @@ class UserPreferences:
     """User preferences."""
     hidden_class_types: list[str] = field(default_factory=list)
     dismissed_tooltips: list[str] = field(default_factory=list)
+    tracking_disabled: bool = False
 
 
 def _migrate_v300(conn: sqlite3.Connection) -> None:
@@ -110,6 +111,13 @@ class PreferencesService(BaseService):
     def reset_tooltips(self, user_id: int) -> None:
         self._set(user_id, "dismissed_tooltips", "[]")
 
+    def is_tracking_disabled(self, user_id: int) -> bool:
+        value = self._get(user_id, "tracking_disabled", "false")
+        return cast("bool", json.loads(value))
+
+    def set_tracking_disabled(self, user_id: int, disabled: bool) -> None:
+        self._set(user_id, "tracking_disabled", json.dumps(disabled))
+
     def get_for_user(self, user_id: int) -> UserPreferences:
         """Get all preferences for a user in a single query."""
         with self._get_connection() as conn:
@@ -124,6 +132,8 @@ class PreferencesService(BaseService):
                 prefs.hidden_class_types = json.loads(value)
             elif key == "dismissed_tooltips":
                 prefs.dismissed_tooltips = json.loads(value)
+            elif key == "tracking_disabled":
+                prefs.tracking_disabled = json.loads(value)
         return prefs
 
     def get_all(self, user_id: int) -> UserPreferences:
