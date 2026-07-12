@@ -33,6 +33,26 @@
         </div>
     </section>
 
+    <section class="card settings-section">
+        <h2>Session Tracking</h2>
+        <p class="settings-description">Track your class attendance to see weekly stats on the home page.</p>
+        <div class="settings-item">
+            <label>Tracking is {{ 'disabled' if tracking_disabled else 'enabled' }}</label>
+            <button class="btn btn-sm {{ 'btn-secondary' if tracking_disabled else 'btn-danger' }}"
+                    onclick="toggleTracking(event)"
+                    id="tracking-toggle-btn">
+                {{ 'Enable' if tracking_disabled else 'Disable' }} tracking
+            </button>
+        </div>
+        {% if tracking_disabled %}
+        <div class="settings-item" style="margin-top: 0.5rem;">
+            <label style="color: var(--gray-400);">Delete my tracking data</label>
+            <button class="btn btn-sm btn-secondary"
+                    onclick="deleteTrackingData(event)">Delete</button>
+        </div>
+        {% endif %}
+    </section>
+
 </div>
 
 <!-- Reset Tutorial Confirmation Modal -->
@@ -57,6 +77,7 @@
 </div>
 
 <div id="reset-result"></div>
+<div id="tracking-result"></div>
 
 <script>
     function openConfirmModal() {
@@ -68,5 +89,35 @@
     document.getElementById('reset-confirm-modal').addEventListener('click', function(e) {
         if (e.target === this) closeConfirmModal();
     });
+
+    function toggleTracking(event) {
+        var btn = event.currentTarget;
+        var currentlyDisabled = {{ 'true' if tracking_disabled else 'false' }};
+        if (currentlyDisabled) {
+            // Enable tracking
+            htmx.ajax('POST', '/settings/toggle-tracking', {
+                values: {enable: 'true', delete_data: 'false'},
+                target: '#tracking-result',
+                swap: 'innerHTML',
+            }).then(function() { location.reload(); });
+        } else {
+            // Disable tracking
+            if (!confirm('Disable session tracking? The weekly chart will be hidden on the home page.')) return;
+            var deleteData = confirm('Delete existing tracking data too? This cannot be undone.');
+            htmx.ajax('POST', '/settings/toggle-tracking', {
+                values: {enable: 'false', delete_data: deleteData ? 'true' : 'false'},
+                target: '#tracking-result',
+                swap: 'innerHTML',
+            }).then(function() { location.reload(); });
+        }
+    }
+
+    function deleteTrackingData(event) {
+        if (!confirm('Delete all your tracking data? This cannot be undone.')) return;
+        htmx.ajax('POST', '/settings/delete-tracking-data', {
+            target: '#tracking-result',
+            swap: 'innerHTML',
+        }).then(function() { location.reload(); });
+    }
 </script>
 {% endblock %}

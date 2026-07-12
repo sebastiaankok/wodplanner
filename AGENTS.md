@@ -52,6 +52,10 @@ add-1rm  # interactive: shows existing list, prompts for name
 # Manage benchmark WOD list (add names for detection)
 add-benchmark --name "Nasty Girls"
 
+# Seed test data for the weekly chart on the home page (--dry-run to preview)
+seed-subscriptions --user-id 123 --weeks 12 --avg-per-week 3
+seed-subscriptions --user-id 123 --weeks 26 --avg-per-week 4 --dry-run
+
 # Backup database (safe during live writes, keeps 7 by default)
 backup-db
 backup-db --db-path /data/wodplanner.db --backup-dir /data/backups --keep 7

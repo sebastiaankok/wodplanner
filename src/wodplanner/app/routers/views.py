@@ -191,6 +191,7 @@ def home_page(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
+    prefs_service: PreferencesService = Depends(get_preferences_service),
 ):
     """Homepage showing upcoming reservations and weekly stats."""
     reservations, company_images = client.get_upcoming_reservations()
@@ -209,24 +210,26 @@ def home_page(
             "display_date": r.date_start.strftime("%B %d"),
         })
 
-    # Weekly stats
+    # Weekly stats (skip if tracking disabled)
     user_id = session.user_id
-    has_data = tracker.has_any_events(user_id)
+    has_data = False
     chart_data: dict[str, list] = {"weeks": [], "past": [], "future": []}
     week_stats = {"past": 0, "future": 0}
     average = 0.0
     weeks_tracked = 0
 
-    if has_data:
-        weekly = tracker.get_weekly_counts(user_id)
-        chart_data = {
-            "weeks": [w["week_start"] for w in weekly],
-            "past": [w["past"] for w in weekly],
-            "future": [w["future"] for w in weekly],
-        }
-        week_stats = tracker.get_current_week_stats(user_id)
-        average = round(tracker.get_average_per_week(user_id), 1)
-        weeks_tracked = tracker.get_weeks_tracked(user_id)
+    if not prefs_service.is_tracking_disabled(user_id):
+        has_data = tracker.has_any_events(user_id)
+        if has_data:
+            weekly = tracker.get_weekly_counts(user_id)
+            chart_data = {
+                "weeks": [w["week_start"] for w in weekly],
+                "past": [w["past"] for w in weekly],
+                "future": [w["future"] for w in weekly],
+            }
+            week_stats = tracker.get_current_week_stats(user_id)
+            average = round(tracker.get_average_per_week(user_id), 1)
+            weeks_tracked = tracker.get_weeks_tracked(user_id)
 
     return render(
         request,
@@ -431,12 +434,14 @@ def settings_page(
     """Settings page."""
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
+    tracking_disabled = prefs_service.is_tracking_disabled(session.user_id)
     return render(
         request,
         "settings.html",
         {
             "active_page": "",
             "filters": filters,
+            "tracking_disabled": tracking_disabled,
             **get_user_context(session),
         },
     )
@@ -464,6 +469,36 @@ def settings_toggle_filter(
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
     return render(request, "partials/settings_filters.html", {"filters": filters})
+
+
+@router.post("/settings/toggle-tracking", response_class=HTMLResponse)
+def toggle_tracking(
+    request: Request,
+    enable: str = Form("true"),
+    delete_data: str = Form("false"),
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    prefs_service: PreferencesService = Depends(get_preferences_service),
+    tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
+):
+    """Enable or disable session tracking."""
+    disabled = enable != "true"
+    prefs_service.set_tracking_disabled(session.user_id, disabled)
+
+    if delete_data == "true":
+        tracker.delete_all_for_user(session.user_id)
+
+    return HTMLResponse("")
+
+
+@router.post("/settings/delete-tracking-data", response_class=HTMLResponse)
+def delete_tracking_data(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
+):
+    """Delete all tracking data for the current user."""
+    tracker.delete_all_for_user(session.user_id)
+    return HTMLResponse('<p class="success-msg">Tracking data deleted.</p>')
 
 
 @router.get("/1rm", response_class=HTMLResponse)
@@ -622,13 +657,14 @@ def subscribe_view(
         action=SubscribeAction.SUBSCRIBE,
     )
 
-    tracker.record_subscribe(
-        user_id=session.user_id,
-        appointment_id=appointment_id,
-        class_name=class_name,
-        class_date=start.date(),
-        class_end=end,
-    )
+    if not prefs_service.is_tracking_disabled(session.user_id):
+        tracker.record_subscribe(
+            user_id=session.user_id,
+            appointment_id=appointment_id,
+            class_name=class_name,
+            class_date=start.date(),
+            class_end=end,
+        )
 
     # Return updated calendar
     return calendar_day_partial(
@@ -715,7 +751,7 @@ def unsubscribe_view(
         action=action,
     )
 
-    if is_waitinglist != "true":
+    if is_waitinglist != "true" and not prefs_service.is_tracking_disabled(session.user_id):
         tracker.record_unsubscribe(
             user_id=session.user_id,
             appointment_id=appointment_id,

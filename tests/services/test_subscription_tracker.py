@@ -134,3 +134,19 @@ class TestWeeksTracked:
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=past)
         weeks = svc.get_weeks_tracked(1)
         assert weeks > 0
+
+
+class TestDeleteAllForUser:
+    def test_deletes_all_events_for_user(self, db_path):
+        svc = SubscriptionTrackerService(db_path)
+        svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 6, 1))
+        svc.record_subscribe(user_id=1, appointment_id=11, class_name="CrossFit", class_date=date(2026, 6, 2))
+        svc.record_subscribe(user_id=2, appointment_id=12, class_name="CrossFit", class_date=date(2026, 6, 1))
+        svc.delete_all_for_user(user_id=1)
+        assert not svc.has_any_events(1)
+        assert svc.has_any_events(2)
+
+    def test_noop_when_no_data(self, db_path):
+        svc = SubscriptionTrackerService(db_path)
+        svc.delete_all_for_user(user_id=1)
+        assert not svc.has_any_events(1)
