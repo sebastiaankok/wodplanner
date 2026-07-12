@@ -113,7 +113,7 @@ class PreferencesService(BaseService):
 
     def is_tracking_disabled(self, user_id: int) -> bool:
         value = self._get(user_id, "tracking_disabled", "false")
-        return json.loads(value)
+        return cast("bool", json.loads(value))
 
     def set_tracking_disabled(self, user_id: int, disabled: bool) -> None:
         self._set(user_id, "tracking_disabled", json.dumps(disabled))

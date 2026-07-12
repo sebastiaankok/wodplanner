@@ -52,6 +52,7 @@ def generate_events(
             )
             class_end = class_start + timedelta(hours=1)
             if not dry_run:
+                assert svc is not None
                 svc.record_subscribe(
                     user_id=user_id,
                     appointment_id=next_appt_id,
