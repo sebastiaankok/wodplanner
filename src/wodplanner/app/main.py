@@ -222,3 +222,11 @@ app.include_router(views.router)
 def health_check():
     """Health check endpoint."""
     return {"status": "ok", "service": "wodplanner"}
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    return Response(
+        content="User-agent: *\nDisallow: /\n",
+        media_type="text/plain",
+    )
