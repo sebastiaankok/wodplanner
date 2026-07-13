@@ -10,7 +10,9 @@ WodPlanner is a custom frontend for WodApp, a CrossFit class scheduling app. It 
 
 ## Git / Pull requests
 
-This project uses CI pipelines to validate PR's, when requested to create a branch and PR also use automerge
+This project uses CI pipelines to validate PR's. When requested to create a branch and PR, also enable automerge so the PR merges automatically once CI passes.
+
+Auto-merge test: 2026-07-13 — verifying automerge behaviour with current branch protection rules.
 
 ## Commands
 
