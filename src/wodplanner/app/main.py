@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import AsyncIterator, Callable, cast
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -156,6 +156,11 @@ app = FastAPI(
 # Mount static files
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt() -> str:
+    return "User-agent: *\nDisallow: /\n"
 
 app.add_middleware(CloudflareIPMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
