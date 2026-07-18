@@ -123,7 +123,7 @@ class SubscriptionTrackerService(BaseService):
                 """
                 SELECT
                     class_date,
-                    class_end,
+                    MAX(class_end) AS class_end,
                     SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
                 FROM subscription_events
                 WHERE user_id = ?
@@ -172,7 +172,7 @@ class SubscriptionTrackerService(BaseService):
                 """
                 SELECT
                     class_date,
-                    class_end,
+                    MAX(class_end) AS class_end,
                     SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
                 FROM subscription_events
                 WHERE user_id = ?
