@@ -277,15 +277,20 @@ def _fetch_calendar_data(
 ) -> list:
     """Fetch appointment data and build DayCard objects for calendar rendering."""
     appointments = client.get_day_schedule(target_date)
-    visible = [a for a in appointments if a.name not in hidden_types]
 
     friends = friends_service.get_all(session.user_id)
+    friends_by_appt = find_friends_in_appointments(appointments, friends, client) or {}
+
+    visible = [
+        a for a in appointments
+        if a.name not in hidden_types
+        or (friends_by_appt.get(a.id_appointment) or [])
+    ]
 
     schedule_map = match_schedules_for_date(
         target_date, gym_id=session.gym_id, schedule_service=schedule_service
     )
 
-    friends_by_appt = find_friends_in_appointments(visible, friends, client) or {}
     benchmark_names = benchmark_service.get_benchmark_list()
 
     return build_day_cards(
