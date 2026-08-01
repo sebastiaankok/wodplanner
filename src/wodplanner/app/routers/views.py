@@ -655,14 +655,14 @@ def subscribe_view(
     start = parse_api_datetime(date_start)
     end = parse_api_datetime(date_end)
 
-    subscription_service.act(
+    result = subscription_service.act(
         appointment_id=appointment_id,
         start=start,
         end=end,
         action=SubscribeAction.SUBSCRIBE,
     )
 
-    if not prefs_service.is_tracking_disabled(session.user_id):
+    if result.subscribedWithSuccess and not prefs_service.is_tracking_disabled(session.user_id):
         tracker.record_subscribe(
             user_id=session.user_id,
             appointment_id=appointment_id,
@@ -749,14 +749,14 @@ def unsubscribe_view(
         else SubscribeAction.UNSUBSCRIBE
     )
 
-    subscription_service.act(
+    result = subscription_service.act(
         appointment_id=appointment_id,
         start=start,
         end=end,
         action=action,
     )
 
-    if is_waitinglist != "true" and not prefs_service.is_tracking_disabled(session.user_id):
+    if result.subscribedWithSuccess and is_waitinglist != "true" and not prefs_service.is_tracking_disabled(session.user_id):
         tracker.record_unsubscribe(
             user_id=session.user_id,
             appointment_id=appointment_id,
