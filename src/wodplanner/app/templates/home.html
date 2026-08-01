@@ -4,7 +4,7 @@
 
 {% block content %}
 {% if gym_logo %}
-<div style="display: flex; justify-content: center; margin: 0.75rem;">
+<div style="display: flex; justify-content: center; margin: 0.35rem;">
     <div style="background: white; border-radius: 0.75rem; padding: 0.75rem 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.12); border: 1px solid var(--gray-200);">
         <img src="{{ gym_logo }}" alt="Gym logo" style="display: block; max-height: 100px; max-width: 260px; object-fit: contain;">
     </div>
@@ -12,10 +12,10 @@
 {% endif %}
 
 {% if days %}
-<div class="card" style="padding: 0; overflow: hidden;">
+<div class="card" style="padding: 0; overflow: hidden; margin-bottom: 0;">
     {% for day_key, classes in days.items() %}
         {% for cls in classes %}
-        <div style="display: grid; grid-template-columns: 6rem 3.5rem 1fr auto; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--gray-100); border-left: 3px solid var(--primary);">
+        <div style="display: grid; grid-template-columns: 6rem 3.5rem 1fr auto; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--gray-100);">
             <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit; display: block;">
                 <span style="font-size: 0.8rem; color: var(--gray-500); white-space: nowrap;">{{ cls.weekday[:3] }} {{ cls.display_date }}</span>
             </a>
@@ -95,7 +95,7 @@
 {% endif %}
 
 {% if has_chart_data %}
-<div class="card" style="margin-top: 1.25rem; margin-bottom: 0;">
+<div class="card" style="border-top: 1px solid var(--gray-200); margin-bottom: 0;">
     <div class="card-header" style="flex-wrap: nowrap; gap: 0.5rem;">
         <span class="card-title" style="white-space: nowrap;">Weekly Sessions</span>
         <span class="text-muted" style="font-size: 0.8rem; white-space: nowrap; display: flex; align-items: center; gap: 0.35rem;">
@@ -127,7 +127,7 @@
     </div>
 </div>
 {% else %}
-<div class="card" style="text-align: center; padding: 2rem 1rem; margin-top: 1.25rem; margin-bottom: 0;">
+<div class="card" style="text-align: center; padding: 2rem 1rem; border-top: 1px solid var(--gray-200); margin-bottom: 0;">
     <p class="text-muted" style="margin: 0;">Your weekly stats will appear here once you subscribe to your first CrossFit class.</p>
 </div>
 {% endif %}
