@@ -13,7 +13,7 @@
                 <div class="person-left">
                     <div class="person-avatar">
                         {% if person.avatar %}
-                        <img src="/static/uploads/avatars/{{ person.avatar }}" alt="" class="person-avatar-img">
+                        <img src="/uploads/avatars/{{ person.avatar }}" alt="" class="person-avatar-img">
                         {% else %}
                         <span class="person-avatar-initials">{{ person.name[:2].upper() }}</span>
                         {% endif %}

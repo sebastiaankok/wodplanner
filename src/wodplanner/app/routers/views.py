@@ -1,9 +1,9 @@
 """HTML views for the web frontend."""
 
 import hashlib
+import io
 import json
 import logging
-import shutil
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi import File as FastAPIFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from PIL import Image
 
 from wodplanner.api.client import WodAppClient
 from wodplanner.app.config import settings
@@ -99,8 +100,9 @@ def _relative_time(dt: datetime) -> str:
     return f"{years}y ago"
 
 
-_UPLOAD_DIR = Path(__file__).parent.parent / "static" / "uploads" / "avatars"
+_UPLOAD_DIR = settings.upload_dir / "avatars"
 _ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+_MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 def _similarity_score(exercise: str, suggested: list[str]) -> int:
@@ -734,10 +736,32 @@ def upload_avatar(
     if ext not in _ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Invalid file type")
 
+    contents = avatar.file.read(_MAX_UPLOAD_SIZE + 1)
+    if len(contents) > _MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 5 MB)")
+
+    try:
+        img = Image.open(io.BytesIO(contents))
+        img.verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # format is set by Image.open; still accessible after verify()
+    fmt = img.format
+    if fmt == "JPEG":
+        ext = ".jpg"
+    elif fmt == "PNG":
+        ext = ".png"
+    elif fmt == "GIF":
+        ext = ".gif"
+    elif fmt == "WEBP":
+        ext = ".webp"
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported image format")
+
     filename = f"avatar_{session.user_id}{ext}"
     _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Remove old avatar if exists (any extension) — under both user_id and appuser_id
     def _remove_old(user_id: int) -> None:
         for old_ext in _ALLOWED_EXTENSIONS:
             old_path = _UPLOAD_DIR / f"avatar_{user_id}{old_ext}"
@@ -749,8 +773,9 @@ def upload_avatar(
         _remove_old(session.appuser_id)
 
     filepath = _UPLOAD_DIR / filename
-    with filepath.open("wb") as f:
-        shutil.copyfileobj(avatar.file, f)
+    # Re-encode to strip EXIF/metadata and any embedded payloads
+    img = Image.open(io.BytesIO(contents))
+    img.save(filepath, format=fmt)
 
     prefs_service.set_avatar_filename(session.user_id, filename)
     if session.appuser_id and session.appuser_id != session.user_id:

@@ -11,7 +11,7 @@
 <div class="friend-avatar-section">
     <div class="friend-avatar-self">
         {% if my_avatar %}
-        <img src="/static/uploads/avatars/{{ my_avatar }}" alt="Your avatar" class="friend-avatar-self-img">
+        <img src="/uploads/avatars/{{ my_avatar }}" alt="Your avatar" class="friend-avatar-self-img">
         {% else %}
         <span class="friend-avatar-self-initials">{{ user.firstname[:2].upper() }}</span>
         {% endif %}
