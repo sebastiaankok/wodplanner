@@ -6,12 +6,12 @@ from wodplanner.models.schedule import Schedule
 
 
 class TestSchedulesRouter:
-    def test_get_by_date_empty(self, app_client, session_cookie):
-        response = app_client.get("/api/schedules/2026-04-25", cookies={"session": session_cookie})
+    def test_get_by_date_empty(self, auth_client):
+        response = auth_client.get("/api/schedules/2026-04-25")
         assert response.status_code == 200
         assert response.json() == []
 
-    def test_get_by_date_populated(self, app_client, session_cookie, schedule_service):
+    def test_get_by_date_populated(self, auth_client, schedule_service):
         schedule_service.add(
             Schedule(
                 date=date(2026, 4, 25),
@@ -22,14 +22,14 @@ class TestSchedulesRouter:
                 gym_id=100,
             )
         )
-        response = app_client.get("/api/schedules/2026-04-25", cookies={"session": session_cookie})
+        response = auth_client.get("/api/schedules/2026-04-25")
         assert response.status_code == 200
         body = response.json()
         assert len(body) == 1
         assert body[0]["class_type"] == "CrossFit"
         assert body[0]["metcon"] == "21-15-9"
 
-    def test_get_by_date_and_class_200(self, app_client, session_cookie, schedule_service):
+    def test_get_by_date_and_class_200(self, auth_client, schedule_service):
         schedule_service.add(
             Schedule(
                 date=date(2026, 4, 25),
@@ -38,12 +38,12 @@ class TestSchedulesRouter:
                 gym_id=100,
             )
         )
-        response = app_client.get("/api/schedules/2026-04-25/CrossFit", cookies={"session": session_cookie})
+        response = auth_client.get("/api/schedules/2026-04-25/CrossFit")
         assert response.status_code == 200
         assert response.json()["class_type"] == "CrossFit"
 
-    def test_get_by_date_and_class_404(self, app_client, session_cookie):
-        response = app_client.get("/api/schedules/2026-04-25/Nonexistent", cookies={"session": session_cookie})
+    def test_get_by_date_and_class_404(self, auth_client):
+        response = auth_client.get("/api/schedules/2026-04-25/Nonexistent")
         assert response.status_code == 404
 
     def test_requires_auth(self, app_client):
