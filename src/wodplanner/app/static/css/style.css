@@ -2049,7 +2049,7 @@ body {
     box-shadow: 0 8px 32px rgba(124, 58, 237, 0.4);
     z-index: 100000;
     opacity: 0;
-    animation: pr-banner-in 0.4s ease-out 0.15s forwards, pr-banner-out 0.5s ease-in 4.5s forwards;
+    animation: pr-banner-in 0.4s ease-out 0.15s forwards, pr-banner-out 0.5s ease-in 3s forwards;
     pointer-events: none;
 }
 
