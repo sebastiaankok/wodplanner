@@ -1,6 +1,7 @@
 """Application configuration."""
 
 import secrets
+from pathlib import Path
 from typing import Literal
 
 from pydantic import model_validator
@@ -35,6 +36,9 @@ class Settings(BaseSettings):
 
     # App version (derived from package __version__)
     app_version: str = __version__
+
+    # Upload directory for avatars (default: /data/uploads for containers)
+    upload_dir: Path = Path("/data/uploads")
 
     @model_validator(mode="after")
     def apply_environment_defaults(self) -> "Settings":

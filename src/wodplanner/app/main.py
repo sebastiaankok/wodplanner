@@ -157,6 +157,13 @@ app = FastAPI(
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+# Mount uploads directory for avatars (configured via UPLOAD_DIR env var)
+try:
+    settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+except OSError:
+    logger.warning("Could not create uploads directory %s; uploads disabled", settings.upload_dir)
+
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 async def robots_txt() -> str:

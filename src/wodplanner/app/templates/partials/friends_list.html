@@ -5,7 +5,7 @@
         <div class="friend-card">
             <div class="friend-avatar">
                 {% if friend.avatar %}
-                <img src="/static/uploads/avatars/{{ friend.avatar }}" alt="" class="friend-avatar-img">
+                <img src="/uploads/avatars/{{ friend.avatar }}" alt="" class="friend-avatar-img">
                 {% else %}
                 <span class="friend-avatar-initials">{{ friend.name[:2].upper() }}</span>
                 {% endif %}
