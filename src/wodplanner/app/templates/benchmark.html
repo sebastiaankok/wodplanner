@@ -83,7 +83,7 @@
         <span class="card-title">Progress</span>
         <select id="benchmark-select" class="form-control form-control-inline" onchange="updateBenchmarkChart()">
             <option value="">— Select benchmark —</option>
-            {% for name in entries | map(attribute='benchmark_name') | unique | sort %}
+            {% for name in benchmarks_by_recency %}
             <option value="{{ name }}">{{ name }}</option>
             {% endfor %}
         </select>
@@ -203,7 +203,13 @@ document.addEventListener('htmx:afterSwap', function(e) {
         if (!select) return;
         var current = select.value;
         select.innerHTML = '<option value="">— Select benchmark —</option>';
-        Object.keys(__benchmarkData).sort().forEach(function(name) {
+        Object.keys(__benchmarkData)
+            .sort(function(a, b) {
+                var aLast = __benchmarkData[a][__benchmarkData[a].length - 1].date;
+                var bLast = __benchmarkData[b][__benchmarkData[b].length - 1].date;
+                return aLast < bLast ? 1 : aLast > bLast ? -1 : 0;
+            })
+            .forEach(function(name) {
             var opt = document.createElement('option');
             opt.value = name;
             opt.textContent = name;
