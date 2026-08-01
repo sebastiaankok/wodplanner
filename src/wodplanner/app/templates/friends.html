@@ -1,10 +1,33 @@
 {% extends "base.html" %}
-
 {% block title %}Friends - WodPlanner{% endblock %}
-
 {% block content %}
 <div class="page-header">
     <h1>Friends</h1>
+    {% if friend_count > 0 %}
+    <span class="friend-count-badge">{{ friend_count }} friend{% if friend_count != 1 %}s{% endif %}</span>
+    {% endif %}
+</div>
+
+<div class="friend-avatar-section">
+    <div class="friend-avatar-self">
+        {% if my_avatar %}
+        <img src="/static/uploads/avatars/{{ my_avatar }}" alt="Your avatar" class="friend-avatar-self-img">
+        {% else %}
+        <span class="friend-avatar-self-initials">{{ user.firstname[:2].upper() }}</span>
+        {% endif %}
+    </div>
+    <div class="friend-avatar-upload">
+        <span class="friend-avatar-label">Your photo</span>
+        <form action="/avatar/upload" method="post" enctype="multipart/form-data" id="avatar-form">
+            <label class="btn btn-sm btn-secondary upload-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Upload
+                <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="upload-input" onchange="document.getElementById('avatar-form').submit()">
+            </label>
+        </form>
+    </div>
 </div>
 
 <div id="friends-list">

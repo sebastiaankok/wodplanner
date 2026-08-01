@@ -10,11 +10,20 @@
         <ul class="people-list">
             {% for person in participants %}
             <li class="person-item {% if person.is_friend %}is-friend{% endif %}{% if person.is_self %} is-self{% endif %}">
-                <span class="person-name">{{ person.name }}{% if person.is_self %} (you){% endif %}</span>
+                <div class="person-left">
+                    <div class="person-avatar">
+                        {% if person.avatar %}
+                        <img src="/static/uploads/avatars/{{ person.avatar }}" alt="" class="person-avatar-img">
+                        {% else %}
+                        <span class="person-avatar-initials">{{ person.name[:2].upper() }}</span>
+                        {% endif %}
+                    </div>
+                    <span class="person-name">{{ person.name }}{% if person.is_self %} (you){% endif %}</span>
+                </div>
                 {% if person.is_self %}
                     {# No button for self #}
                 {% elif person.is_friend %}
-                <span class="friend-badge">Friend</span>
+                <span class="badge badge-info">Friend</span>
                 {% else %}
                 <button class="btn btn-sm btn-secondary add-friend-btn"
                         hx-post="/friends/add-from-people"

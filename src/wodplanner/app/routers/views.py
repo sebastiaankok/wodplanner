@@ -3,12 +3,14 @@
 import hashlib
 import json
 import logging
+import shutil
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
 import markdown
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi import File as FastAPIFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -73,6 +75,32 @@ def _format_benchmark_entries(entries):
         }
         for e in entries
     ]
+
+
+def _relative_time(dt: datetime) -> str:
+    now = dt.tzinfo and datetime.now(dt.tzinfo) or datetime.now()
+    diff = now - dt
+    if diff.days < 0:
+        return "just now"
+    if diff.days == 0:
+        hours = diff.seconds // 3600
+        if hours == 0:
+            minutes = diff.seconds // 60
+            return "just now" if minutes < 1 else f"{minutes}m ago"
+        return f"{hours}h ago"
+    if diff.days == 1:
+        return "yesterday"
+    if diff.days < 30:
+        return f"{diff.days}d ago"
+    if diff.days < 365:
+        months = diff.days // 30
+        return f"{months}mo ago"
+    years = diff.days // 365
+    return f"{years}y ago"
+
+
+_UPLOAD_DIR = Path(__file__).parent.parent / "static" / "uploads" / "avatars"
+_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
 def _similarity_score(exercise: str, suggested: list[str]) -> int:
@@ -603,15 +631,22 @@ def friends_page(
     request: Request,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
+    prefs_service: PreferencesService = Depends(get_preferences_service),
 ):
     """Friends management page."""
     friends = friends_service.get_all(session.user_id)
+    friend_user_ids = [f.appuser_id for f in friends]
+    avatar_map = prefs_service.get_avatar_filenames(friend_user_ids)
+    my_avatar = prefs_service.get_avatar_filename(session.user_id)
+
     friends_data = [
         {
             "id": f.id,
             "appuser_id": f.appuser_id,
             "name": f.name,
             "added_at": f.added_at.isoformat() if f.added_at else "",
+            "added_ago": _relative_time(f.added_at) if f.added_at else "",
+            "avatar": avatar_map.get(f.appuser_id),
         }
         for f in friends
     ]
@@ -622,6 +657,8 @@ def friends_page(
         {
             "active_page": "friends",
             "friends": friends_data,
+            "friend_count": len(friends_data),
+            "my_avatar": my_avatar,
             **get_user_context(session),
         },
     )
@@ -634,16 +671,22 @@ def add_friend_view(
     name: str = Form(...),
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
+    prefs_service: PreferencesService = Depends(get_preferences_service),
 ):
     """Add a friend (htmx form submission)."""
     friends_service.add(session.user_id, appuser_id, name)
     friends = friends_service.get_all(session.user_id)
+    friend_user_ids = [f.appuser_id for f in friends]
+    avatar_map = prefs_service.get_avatar_filenames(friend_user_ids)
+
     friends_data = [
         {
             "id": f.id,
             "appuser_id": f.appuser_id,
             "name": f.name,
             "added_at": f.added_at.isoformat() if f.added_at else "",
+            "added_ago": _relative_time(f.added_at) if f.added_at else "",
+            "avatar": avatar_map.get(f.appuser_id),
         }
         for f in friends
     ]
@@ -657,21 +700,62 @@ def delete_friend_view(
     friend_id: int,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
+    prefs_service: PreferencesService = Depends(get_preferences_service),
 ):
     """Delete a friend (htmx)."""
     friends_service.delete(session.user_id, friend_id)
     friends = friends_service.get_all(session.user_id)
+    friend_user_ids = [f.appuser_id for f in friends]
+    avatar_map = prefs_service.get_avatar_filenames(friend_user_ids)
+
     friends_data = [
         {
             "id": f.id,
             "appuser_id": f.appuser_id,
             "name": f.name,
             "added_at": f.added_at.isoformat() if f.added_at else "",
+            "added_ago": _relative_time(f.added_at) if f.added_at else "",
+            "avatar": avatar_map.get(f.appuser_id),
         }
         for f in friends
     ]
 
     return render(request, "partials/friends_list.html", {"friends": friends_data})
+
+
+@router.post("/avatar/upload", response_class=RedirectResponse)
+def upload_avatar(
+    request: Request,
+    avatar: UploadFile = FastAPIFile(...),
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    prefs_service: PreferencesService = Depends(get_preferences_service),
+):
+    ext = Path(avatar.filename or "").suffix.lower()
+    if ext not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    filename = f"avatar_{session.user_id}{ext}"
+    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Remove old avatar if exists (any extension) — under both user_id and appuser_id
+    def _remove_old(user_id: int) -> None:
+        for old_ext in _ALLOWED_EXTENSIONS:
+            old_path = _UPLOAD_DIR / f"avatar_{user_id}{old_ext}"
+            if old_path.exists():
+                old_path.unlink()
+                return
+    _remove_old(session.user_id)
+    if session.appuser_id and session.appuser_id != session.user_id:
+        _remove_old(session.appuser_id)
+
+    filepath = _UPLOAD_DIR / filename
+    with filepath.open("wb") as f:
+        shutil.copyfileobj(avatar.file, f)
+
+    prefs_service.set_avatar_filename(session.user_id, filename)
+    if session.appuser_id and session.appuser_id != session.user_id:
+        prefs_service.set_avatar_filename(session.appuser_id, filename)
+    return RedirectResponse(url="/friends", status_code=303)
 
 
 @router.post("/appointments/{appointment_id}/subscribe", response_class=HTMLResponse)
@@ -847,12 +931,20 @@ def people_modal_view(
             prefs_service.set_my_appuser_id(session.user_id, current_appuser_id)
 
     participants = []
+    all_user_ids = [m.id_appuser for m in members]
+    avatar_map = prefs_service.get_avatar_filenames(all_user_ids)
+    # Current user's avatar is stored under session.user_id, not appuser_id
+    if current_appuser_id and current_appuser_id not in avatar_map:
+        my_avatar = prefs_service.get_avatar_filename(session.user_id)
+        if my_avatar:
+            avatar_map[current_appuser_id] = my_avatar
     for member in members:
         participants.append({
             "id": member.id_appuser,
             "name": member.name,
             "is_friend": member.id_appuser in friend_ids,
             "is_self": member.id_appuser == current_appuser_id,
+            "avatar": avatar_map.get(member.id_appuser),
         })
 
     # Sort: self first, then friends, then alphabetically
@@ -884,6 +976,7 @@ def add_friend_from_people(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
+    prefs_service: PreferencesService = Depends(get_preferences_service),
 ):
     """Add a friend from the people modal."""
     friends_service.add(session.user_id, appuser_id, name)
@@ -897,6 +990,7 @@ def add_friend_from_people(
         session=session,
         client=client,
         friends_service=friends_service,
+        prefs_service=prefs_service,
     )
 
 

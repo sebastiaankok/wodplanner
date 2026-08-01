@@ -477,5 +477,28 @@
     {% endif %}
 
     {% block scripts %}{% endblock %}
+
+    <div id="avatar-lightbox" class="avatar-lightbox-overlay" onclick="closeAvatarLightbox()">
+        <img id="avatar-lightbox-img" class="avatar-lightbox-img" src="" alt="Avatar" onclick="event.stopPropagation()">
+    </div>
+
+    <script>
+        document.addEventListener('click', function(e) {
+            var img = e.target.closest('.friend-avatar-img, .person-avatar-img, .friend-avatar-self-img');
+            if (img) {
+                openAvatarLightbox(img.src);
+            }
+        });
+        function openAvatarLightbox(src) {
+            document.getElementById('avatar-lightbox-img').src = src;
+            document.getElementById('avatar-lightbox').classList.add('active');
+        }
+        function closeAvatarLightbox() {
+            document.getElementById('avatar-lightbox').classList.remove('active');
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeAvatarLightbox();
+        });
+    </script>
 </body>
 </html>

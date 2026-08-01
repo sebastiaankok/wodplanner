@@ -138,3 +138,21 @@ class PreferencesService(BaseService):
 
     def get_all(self, user_id: int) -> UserPreferences:
         return self.get_for_user(user_id)
+
+    def get_avatar_filename(self, user_id: int) -> str | None:
+        value = self._get(user_id, "avatar_filename", "")
+        return value if value else None
+
+    def set_avatar_filename(self, user_id: int, filename: str) -> None:
+        self._set(user_id, "avatar_filename", filename)
+
+    def get_avatar_filenames(self, user_ids: list[int]) -> dict[int, str]:
+        if not user_ids:
+            return {}
+        with self._get_connection() as conn:
+            placeholders = ",".join("?" * len(user_ids))
+            rows = conn.execute(
+                f"SELECT user_id, value FROM preferences WHERE user_id IN ({placeholders}) AND key = 'avatar_filename'",
+                user_ids,
+            ).fetchall()
+        return {row["user_id"]: row["value"] for row in rows}

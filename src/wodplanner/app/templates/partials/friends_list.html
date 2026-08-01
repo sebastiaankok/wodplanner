@@ -1,37 +1,41 @@
 <div class="card">
     {% if friends %}
-    <div class="table-scroll-wrapper">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Added</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for friend in friends %}
-            <tr>
-                <td><strong>{{ friend.name }}</strong></td>
-                <td class="text-muted">{{ friend.added_at[:10] if friend.added_at else '' }}</td>
-                <td>
-                    <button class="btn btn-danger btn-sm"
-                            hx-delete="/friends/{{ friend.id }}/delete"
-                            hx-target="#friends-list"
-                            hx-swap="innerHTML"
-                            hx-confirm="Remove {{ friend.name }} from friends?">
-                        Remove
-                    </button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="friend-list">
+        {% for friend in friends %}
+        <div class="friend-card">
+            <div class="friend-avatar">
+                {% if friend.avatar %}
+                <img src="/static/uploads/avatars/{{ friend.avatar }}" alt="" class="friend-avatar-img">
+                {% else %}
+                <span class="friend-avatar-initials">{{ friend.name[:2].upper() }}</span>
+                {% endif %}
+            </div>
+            <div class="friend-info">
+                <span class="friend-name">{{ friend.name }}</span>
+                <span class="friend-meta">Added {{ friend.added_ago }}</span>
+            </div>
+            <button class="friend-remove"
+                    hx-delete="/friends/{{ friend.id }}/delete"
+                    hx-target="#friends-list"
+                    hx-swap="innerHTML"
+                    hx-confirm="Remove {{ friend.name }} from friends?"
+                    title="Remove friend">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        {% endfor %}
     </div>
     {% else %}
     <div class="empty-state">
+        <div class="empty-state-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+        </div>
         <h3>No friends yet</h3>
-        <p>Add friends to see which classes they're signed up for.</p>
+        <p>Add friends from the participants list of any class to see who's signed up.</p>
     </div>
     {% endif %}
 </div>
