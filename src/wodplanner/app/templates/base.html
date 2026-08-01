@@ -310,6 +310,48 @@
             }
         });
 
+        // PR Celebration
+        document.addEventListener('pr-celebration', function() {
+            var container = document.createElement('div');
+            container.className = 'pr-celebration-container';
+            var icons = ['💪', '💪', '💪', '🏋️', '🏋️', '🏆', '💪', '💪', '💪', '🔥'];
+            for (var i = 0; i < 50; i++) {
+                var el = document.createElement('div');
+                el.className = 'pr-celebration-icon';
+                el.textContent = icons[i % icons.length];
+                var angle = Math.random() * 2 * Math.PI;
+                var dist = 150 + Math.random() * 400;
+                el.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+                el.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+                el.style.fontSize = (1.2 + Math.random() * 2.2) + 'rem';
+                el.style.animationDelay = (Math.random() * 0.6) + 's';
+                el.style.animationDuration = (2.5 + Math.random() * 1.5) + 's';
+                container.appendChild(el);
+            }
+            var confettiColors = ['#7c3aed', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#14b8a6'];
+            for (var i = 0; i < 120; i++) {
+                var el = document.createElement('div');
+                el.className = 'pr-celebration-confetti';
+                var angle = Math.random() * 2 * Math.PI;
+                var dist = 200 + Math.random() * 500;
+                el.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+                el.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+                el.style.width = (4 + Math.random() * 10) + 'px';
+                el.style.height = (4 + Math.random() * 10) + 'px';
+                el.style.background = confettiColors[i % confettiColors.length];
+                el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                el.style.animationDelay = (Math.random() * 0.5) + 's';
+                el.style.animationDuration = (2.5 + Math.random() * 1.5) + 's';
+                container.appendChild(el);
+            }
+            var banner = document.createElement('div');
+            banner.className = 'pr-celebration-banner';
+            banner.textContent = '🔥 New PR! 🔥';
+            container.appendChild(banner);
+            document.body.appendChild(container);
+            setTimeout(function() { container.remove(); }, 5000);
+        });
+
         // Close calendar when clicking outside
         document.addEventListener('click', function(e) {
             var dropdown = document.getElementById('calendar-dropdown');
