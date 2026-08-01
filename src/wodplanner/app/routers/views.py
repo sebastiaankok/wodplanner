@@ -975,6 +975,10 @@ def add_one_rep_max_view(
         entry_date = parse_iso_date(recorded_at)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format.")
+
+    prev_max = one_rep_max_service.get_max_for_exercise(session.user_id, exercise)
+    is_pr = prev_max is not None and weight_kg > prev_max
+
     one_rep_max_service.add(
         user_id=session.user_id,
         exercise=exercise,
@@ -984,7 +988,7 @@ def add_one_rep_max_view(
 
     raw = one_rep_max_service.get_all(session.user_id)
     entries = _format_1rm_entries(raw)
-    return render(
+    resp = render(
         request,
         "partials/one_rep_max_history.html",
         {
@@ -992,6 +996,9 @@ def add_one_rep_max_view(
             "exercises_data_json": _build_exercises_chart_data(entries),
         },
     )
+    if is_pr:
+        resp.headers["HX-Trigger"] = "pr-celebration"
+    return resp
 
 
 @router.delete("/one-rep-maxes/{entry_id}/delete", response_class=HTMLResponse)
