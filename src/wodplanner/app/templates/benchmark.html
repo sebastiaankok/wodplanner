@@ -16,7 +16,6 @@
         <form hx-post="/benchmark-results/add"
               hx-target="#benchmark-history"
               hx-swap="outerHTML"
-              hx-on::after-request="if(event.detail.successful) toggleBenchmarkLogForm()"
               class="benchmark-form">
             <div class="form-row">
                 <div class="form-group">
