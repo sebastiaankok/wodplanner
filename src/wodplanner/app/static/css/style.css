@@ -45,7 +45,7 @@ body {
 .nav-top-row {
     display: flex;
     align-items: center;
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1.25rem;
     gap: 1rem;
 }
 
@@ -178,7 +178,7 @@ body {
     color: var(--gray-300);
     text-decoration: none;
     padding: 0.5rem 1rem;
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     border-bottom: 2px solid transparent;
     transition: color 0.15s, border-color 0.15s;
     white-space: nowrap;
@@ -1448,7 +1448,7 @@ body {
     }
 
     .nav-top-row {
-        padding: 0.35rem 0.75rem;
+        padding: 0.5rem 1rem;
     }
 
     .nav-tabs {
@@ -1457,8 +1457,8 @@ body {
     }
 
     .tab {
-        padding: 0.35rem 0.5rem;
-        font-size: 0.8125rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
     }
 
     .tab svg {
