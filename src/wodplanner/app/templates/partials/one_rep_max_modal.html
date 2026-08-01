@@ -14,11 +14,21 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="1rm-exercise">Exercise</label>
-                    <select id="1rm-exercise" name="exercise" required class="form-control" onchange="modalUpdate1rmChart()">
+                    <input type="text"
+                           id="1rm-exercise"
+                           name="exercise"
+                           list="exercise-list"
+                           placeholder="Search exercise…"
+                           value="{{ default_exercise }}"
+                           required
+                           class="form-control"
+                           autocomplete="off"
+                           oninput="modalUpdate1rmChart()">
+                    <datalist id="exercise-list">
                         {% for ex in exercises %}
-                        <option value="{{ ex }}" {% if suggested_exercises and ex == suggested_exercises[0] %}selected{% endif %}>{{ ex }}</option>
+                        <option value="{{ ex }}">
                         {% endfor %}
-                    </select>
+                    </datalist>
                 </div>
                 <div class="form-group form-group-narrow">
                     <label for="1rm-weight">Weight (kg)</label>
@@ -73,7 +83,6 @@
 <style>
 #one-rep-max-history { display: none !important; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 var __modal1rmData = {{ exercises_data_json | safe }};
 var __modal1rmChart = null;
@@ -114,10 +123,27 @@ function modalUpdate1rmChart() {
     document.getElementById('modal-1rm-no-data').style.display = 'none';
 
     var points = __modal1rmData[exercise];
-    var labels = points.map(function(p) { return p.label; });
-    var weights = points.map(function(p) { return p.weight; });
+    var sorted = points.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    var labels = sorted.map(function(p) { return p.label; });
+    var weights = sorted.map(function(p) { return p.weight; });
 
-    __modal1rmMaxWeight = Math.max.apply(null, points.map(function(p) { return p.weight; }));
+    var prColors = [], prRadii = [], prBorders = [];
+    var runningMax = 0;
+    for (var i = 0; i < sorted.length; i++) {
+        var w = sorted[i].weight;
+        if (w > runningMax) {
+            runningMax = w;
+            prColors.push('#f59e0b');
+            prRadii.push(7);
+            prBorders.push('#d97706');
+        } else {
+            prColors.push('#7c3aed');
+            prRadii.push(4);
+            prBorders.push('#7c3aed');
+        }
+    }
+
+    __modal1rmMaxWeight = runningMax;
     document.getElementById('modal-pct-section').style.display = 'block';
     modalSetPct(100);
 
@@ -133,8 +159,11 @@ function modalUpdate1rmChart() {
                 backgroundColor: 'rgba(124,58,237,0.08)',
                 tension: 0.2,
                 fill: true,
-                pointRadius: 5,
-                pointHoverRadius: 7,
+                pointBackgroundColor: prColors,
+                pointBorderColor: prBorders,
+                pointRadius: prRadii,
+                pointBorderWidth: 2,
+                pointHoverRadius: 10,
             }]
         },
         options: {

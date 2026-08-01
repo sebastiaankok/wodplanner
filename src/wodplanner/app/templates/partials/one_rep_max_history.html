@@ -16,14 +16,23 @@
                 <td class="one-rm-weight">{{ entry.weight_kg }} kg</td>
                 <td class="one-rm-date text-muted">{{ entry.recorded_at }}</td>
                 <td>
+                    <div class="one-rm-actions">
+                    <button class="btn-edit"
+                            hx-get="/one-rep-maxes/{{ entry.id }}/edit"
+                            hx-target="closest tr"
+                            hx-swap="outerHTML"
+                            title="Edit">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
                     <button class="btn-delete"
                             hx-delete="/one-rep-maxes/{{ entry.id }}/delete"
                             hx-target="#one-rep-max-history"
                             hx-swap="outerHTML"
-                            hx-confirm="Delete this 1rm entry?"
+                            hx-confirm="Delete {{ entry.exercise }} {{ entry.weight_kg }}kg entry?"
                             title="Delete">
                         &times;
                     </button>
+                    </div>
                 </td>
             </tr>
             {% endfor %}

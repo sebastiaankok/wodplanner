@@ -20,12 +20,19 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="benchmark-name">Benchmark</label>
-                    <select id="benchmark-name" name="benchmark_name" required class="form-control">
-                        <option value="">— Select benchmark —</option>
+                    <input type="text"
+                           id="benchmark-name"
+                           name="benchmark_name"
+                           list="benchmark-list"
+                           placeholder="Search benchmark…"
+                           required
+                           class="form-control"
+                           autocomplete="off">
+                    <datalist id="benchmark-list">
                         {% for name in benchmark_list %}
-                        <option value="{{ name }}">{{ name }}</option>
+                        <option value="{{ name }}">
                         {% endfor %}
-                    </select>
+                    </datalist>
                 </div>
                 <div class="form-group form-group-narrow">
                     <label for="benchmark-minutes">Minutes</label>
@@ -103,7 +110,6 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 var __benchmarkData = {{ benchmark_data_json | safe }};
 var __benchmarkChart = null;
@@ -138,8 +144,25 @@ function updateBenchmarkChart() {
     noData.style.display = 'none';
 
     var points = __benchmarkData[name];
-    var labels = points.map(function(p) { return p.label; });
-    var times = points.map(function(p) { return p.time; });
+    var sorted = points.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    var labels = sorted.map(function(p) { return p.label; });
+    var times = sorted.map(function(p) { return p.time; });
+
+    var prColors = [], prRadii = [], prBorders = [];
+    var runningMin = Infinity;
+    for (var i = 0; i < sorted.length; i++) {
+        var t = sorted[i].time;
+        if (t < runningMin) {
+            runningMin = t;
+            prColors.push('#f59e0b');
+            prRadii.push(8);
+            prBorders.push('#d97706');
+        } else {
+            prColors.push('#7c3aed');
+            prRadii.push(4);
+            prBorders.push('#7c3aed');
+        }
+    }
 
     if (__benchmarkChart) __benchmarkChart.destroy();
     __benchmarkChart = new Chart(canvas, {
@@ -153,8 +176,11 @@ function updateBenchmarkChart() {
                 backgroundColor: 'rgba(124,58,237,0.08)',
                 tension: 0.2,
                 fill: true,
-                pointRadius: 5,
-                pointHoverRadius: 7,
+                pointBackgroundColor: prColors,
+                pointBorderColor: prBorders,
+                pointRadius: prRadii,
+                pointBorderWidth: 2,
+                pointHoverRadius: 10,
             }]
         },
         options: {

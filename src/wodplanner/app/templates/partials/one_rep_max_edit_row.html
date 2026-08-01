@@ -1,0 +1,57 @@
+<tr id="edit-row-{{ entry_id }}" class="one-rm-edit-row">
+    <td colspan="4">
+        <form hx-put="/one-rep-maxes/{{ entry_id }}/edit"
+              hx-target="#one-rep-max-history"
+              hx-swap="outerHTML"
+              class="one-rm-form one-rm-form--inline">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="1rm-exercise-{{ entry_id }}">Exercise</label>
+                    <input type="text"
+                           id="1rm-exercise-{{ entry_id }}"
+                           name="exercise"
+                           list="exercise-list-{{ entry_id }}"
+                           value="{{ entry.exercise }}"
+                           placeholder="Exercise"
+                           required
+                           class="form-control form-control-sm"
+                           autocomplete="off">
+                    <datalist id="exercise-list-{{ entry_id }}">
+                        {% for ex in exercises %}
+                        <option value="{{ ex }}">
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="1rm-weight-{{ entry_id }}">Weight (kg)</label>
+                    <input type="number"
+                           id="1rm-weight-{{ entry_id }}"
+                           name="weight_kg"
+                           value="{{ entry.weight_kg }}"
+                           min="1"
+                           max="999"
+                           step="0.5"
+                           required
+                           class="form-control form-control-sm">
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="1rm-date-{{ entry_id }}">Date</label>
+                    <input type="date"
+                           id="1rm-date-{{ entry_id }}"
+                           name="recorded_at"
+                           value="{{ entry.recorded_at_iso }}"
+                           required
+                           class="form-control form-control-sm">
+                </div>
+                <div class="form-group form-group-submit">
+                    <label>&nbsp;</label>
+                    <div class="one-rm-edit-actions">
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                    <button type="button" class="btn btn-sm btn-cancel"
+                            onclick="var row = this.closest('tr'); row.parentElement.removeChild(row);" title="Cancel">&times;</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </td>
+</tr>

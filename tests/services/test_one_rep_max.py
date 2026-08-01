@@ -196,3 +196,48 @@ class TestOneRepMaxService:
         entry = svc.add(user_id=1, exercise="Back Squat", weight_kg=100.0, recorded_at=date(2026, 1, 1))
         deleted = svc.delete(user_id=999, entry_id=entry.id)
         assert deleted is False
+
+    def test_get_by_id(self, db_path):
+        from datetime import date
+
+        svc = OneRepMaxService(db_path)
+        entry = svc.add(user_id=1, exercise="Back Squat", weight_kg=100.0, recorded_at=date(2026, 1, 1))
+        found = svc.get_by_id(user_id=1, entry_id=entry.id)
+        assert found is not None
+        assert found.weight_kg == 100.0
+        assert found.exercise == "Back Squat"
+
+    def test_get_by_id_not_found(self, db_path):
+        svc = OneRepMaxService(db_path)
+        found = svc.get_by_id(user_id=1, entry_id=99999)
+        assert found is None
+
+    def test_get_by_id_wrong_user(self, db_path):
+        from datetime import date
+
+        svc = OneRepMaxService(db_path)
+        entry = svc.add(user_id=1, exercise="Back Squat", weight_kg=100.0, recorded_at=date(2026, 1, 1))
+        found = svc.get_by_id(user_id=999, entry_id=entry.id)
+        assert found is None
+
+    def test_update(self, db_path):
+        from datetime import date
+
+        svc = OneRepMaxService(db_path)
+        entry = svc.add(user_id=1, exercise="Back Squat", weight_kg=100.0, recorded_at=date(2026, 1, 1))
+        updated = svc.update(user_id=1, entry_id=entry.id, exercise="Front Squat", weight_kg=110.0, recorded_at=date(2026, 2, 1))
+        assert updated is True
+
+        updated_entry = svc.get_by_id(user_id=1, entry_id=entry.id)
+        assert updated_entry is not None
+        assert updated_entry.exercise == "Front Squat"
+        assert updated_entry.weight_kg == 110.0
+        assert updated_entry.recorded_at == date(2026, 2, 1)
+
+    def test_update_wrong_user_returns_false(self, db_path):
+        from datetime import date
+
+        svc = OneRepMaxService(db_path)
+        entry = svc.add(user_id=1, exercise="Back Squat", weight_kg=100.0, recorded_at=date(2026, 1, 1))
+        updated = svc.update(user_id=999, entry_id=entry.id, exercise="Front Squat", weight_kg=110.0, recorded_at=date(2026, 2, 1))
+        assert updated is False

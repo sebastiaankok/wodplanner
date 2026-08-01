@@ -445,6 +445,79 @@ class TestAddDeleteOneRepMax:
         response = app_client.delete(f"/one-rep-maxes/{entry.id}/delete")
         assert response.status_code == 200
 
+    def test_edit_form_renders(self, app_client, session_cookie, one_rep_max_service):
+        from datetime import date as _date
+
+        entry = one_rep_max_service.add(
+            user_id=42, exercise="Back Squat", weight_kg=100, recorded_at=_date(2026, 4, 25)
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.get(f"/one-rep-maxes/{entry.id}/edit")
+        assert response.status_code == 200
+        assert "Back Squat" in response.text
+        assert "100" in response.text
+
+    def test_edit_form_404(self, app_client, session_cookie):
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.get("/one-rep-maxes/99999/edit")
+        assert response.status_code == 404
+
+    def test_update(self, app_client, session_cookie, one_rep_max_service):
+        from datetime import date as _date
+
+        entry = one_rep_max_service.add(
+            user_id=42, exercise="Back Squat", weight_kg=100, recorded_at=_date(2026, 4, 25)
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.put(
+            f"/one-rep-maxes/{entry.id}/edit",
+            data={
+                "exercise": "Front Squat",
+                "weight_kg": "110",
+                "recorded_at": "2026-05-01",
+            },
+        )
+        assert response.status_code == 200
+        updated = one_rep_max_service.get_by_id(42, entry.id)
+        assert updated is not None
+        assert updated.exercise == "Front Squat"
+        assert updated.weight_kg == 110.0
+        assert updated.recorded_at.isoformat() == "2026-05-01"
+
+    def test_update_unknown_exercise_422(self, app_client, session_cookie, one_rep_max_service):
+        from datetime import date as _date
+
+        entry = one_rep_max_service.add(
+            user_id=42, exercise="Back Squat", weight_kg=100, recorded_at=_date(2026, 4, 25)
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.put(
+            f"/one-rep-maxes/{entry.id}/edit",
+            data={
+                "exercise": "Unknown Exercise",
+                "weight_kg": "110",
+                "recorded_at": "2026-05-01",
+            },
+        )
+        assert response.status_code == 422
+
+    def test_update_invalid_weight(self, app_client, session_cookie, one_rep_max_service):
+        from datetime import date as _date
+
+        entry = one_rep_max_service.add(
+            user_id=42, exercise="Back Squat", weight_kg=100, recorded_at=_date(2026, 4, 25)
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.put(
+            f"/one-rep-maxes/{entry.id}/edit",
+            data={
+                "exercise": "Back Squat",
+                "weight_kg": "9999",
+                "recorded_at": "2026-05-01",
+            },
+        )
+        assert response.status_code == 400
+
 
 class TestBenchmarkModal:
     def test_renders(self, app_client, session_cookie, schedule_service):
@@ -520,6 +593,65 @@ class TestAddDeleteBenchmarkResult:
         assert response.status_code == 200
         results = benchmark_service.get_results_for_benchmark(42, "Fran")
         assert len(results) == 0
+
+    def test_edit_form_renders(self, app_client, session_cookie, benchmark_service):
+        r = benchmark_service.add_result(
+            user_id=42, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05"
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.get(f"/benchmark-results/{r.id}/edit")
+        assert response.status_code == 200
+        assert "Fran" in response.text
+        assert 'name="minutes"' in response.text
+        assert 'name="seconds"' in response.text
+        assert "Minutes" in response.text
+        assert "Seconds" in response.text
+        assert "RX / Scaled" in response.text
+
+    def test_edit_form_404(self, app_client, session_cookie):
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.get("/benchmark-results/99999/edit")
+        assert response.status_code == 404
+
+    def test_update(self, app_client, session_cookie, benchmark_service):
+        r = benchmark_service.add_result(
+            user_id=42, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05"
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.put(
+            f"/benchmark-results/{r.id}/edit",
+            data={
+                "benchmark_name": "Helen",
+                "minutes": "4",
+                "seconds": "30",
+                "is_rx": "false",
+                "recorded_at": "2026-06-01",
+            },
+        )
+        assert response.status_code == 200
+        result = benchmark_service.get_result(42, r.id)
+        assert result is not None
+        assert result.benchmark_name == "Helen"
+        assert result.time_seconds == 270
+        assert result.is_rx is False
+        assert result.recorded_at == "2026-06-01"
+
+    def test_update_invalid_time(self, app_client, session_cookie, benchmark_service):
+        r = benchmark_service.add_result(
+            user_id=42, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05"
+        )
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.put(
+            f"/benchmark-results/{r.id}/edit",
+            data={
+                "benchmark_name": "Fran",
+                "minutes": "0",
+                "seconds": "0",
+                "is_rx": "true",
+                "recorded_at": "2026-06-01",
+            },
+        )
+        assert response.status_code == 400
 
 
 class TestRelativeTime:

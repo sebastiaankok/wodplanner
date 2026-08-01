@@ -41,7 +41,7 @@ def test_add_1rm_entry_updates_history(page, auth_session):
     page.goto("/1rm")
     page.get_by_text("+ Log").click()
 
-    page.locator("select[name=exercise]").select_option("Back Squat")
+    page.locator("input[name=exercise]").fill("Back Squat")
     page.locator("input[name=weight_kg]").fill("100")
     page.locator("input[name=recorded_at]").fill(date.today().isoformat())
 
