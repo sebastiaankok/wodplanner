@@ -850,24 +850,29 @@ body {
     flex: 0 0 auto;
 }
 
-/* Modal form: 2-row grid on all screen sizes */
+/* Modal form: single row - exercise | weight | save */
 .one-rm-form--modal .form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr auto auto;
     align-items: end;
     gap: 0.5rem;
 }
 
 .one-rm-form--modal .form-row > :nth-child(1) {
-    grid-column: 1 / -1;
-}
-
-.one-rm-form--modal .form-row > :nth-child(2) {
     grid-column: 1;
 }
 
-.one-rm-form--modal .form-row > :nth-child(3) {
+.one-rm-form--modal .form-row > :nth-child(2) {
     grid-column: 2;
+}
+
+.one-rm-form--modal .form-row > :nth-child(3) {
+    grid-column: 3;
+}
+
+.one-rm-form--modal .form-group-narrow {
+    flex: none;
+    min-width: 90px;
 }
 
 .one-rm-form--modal .form-group-submit .btn {
