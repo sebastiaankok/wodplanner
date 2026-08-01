@@ -59,6 +59,19 @@ class SubscriptionTrackerService(BaseService):
         class_end: datetime | None = None,
     ) -> None:
         with self._get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                """
+                SELECT SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
+                FROM subscription_events
+                WHERE user_id = ? AND appointment_id = ?
+                """,
+                (user_id, appointment_id),
+            ).fetchone()
+            current_net = row["net"] if row and row["net"] is not None else 0
+            if current_net > 0:
+                conn.execute("ROLLBACK")
+                return
             conn.execute(
                 """
                 INSERT INTO subscription_events (user_id, appointment_id, class_name, event_type, class_date, class_end, created_at)
@@ -67,12 +80,14 @@ class SubscriptionTrackerService(BaseService):
                 (user_id, appointment_id, class_name, class_date.isoformat(),
                  self._aware(class_end).isoformat() if class_end else None, datetime.now(_TZ).isoformat()),
             )
+            conn.commit()
 
     def record_unsubscribe(
         self, user_id: int, appointment_id: int, class_name: str, class_date: date,
         class_end: datetime | None = None,
     ) -> None:
         with self._get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
                 """
                 SELECT SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
@@ -83,6 +98,7 @@ class SubscriptionTrackerService(BaseService):
             ).fetchone()
             current_net = row["net"] if row and row["net"] is not None else 0
             if current_net <= 0:
+                conn.execute("ROLLBACK")
                 return
             conn.execute(
                 """
@@ -92,6 +108,7 @@ class SubscriptionTrackerService(BaseService):
                 (user_id, appointment_id, class_name, class_date.isoformat(),
                  self._aware(class_end).isoformat() if class_end else None, datetime.now(_TZ).isoformat()),
             )
+            conn.commit()
 
     @staticmethod
     def _aware(dt: datetime) -> datetime:

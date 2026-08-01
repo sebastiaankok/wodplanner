@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import Enum
 
 from wodplanner.api.client import WodAppClient
+from wodplanner.models.calendar import SubscribeResponse
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,8 @@ class SubscriptionService:
         start: datetime,
         end: datetime,
         action: SubscribeAction,
-    ) -> None:
-        self._dispatch(appointment_id, start, end, action)
+    ) -> SubscribeResponse:
+        return self._dispatch(appointment_id, start, end, action)
 
     def _dispatch(
         self,
@@ -37,7 +38,7 @@ class SubscriptionService:
         start: datetime,
         end: datetime,
         action: SubscribeAction,
-    ) -> None:
+    ) -> SubscribeResponse:
         dispatch_map = {
             SubscribeAction.SUBSCRIBE: self._client.subscribe,
             SubscribeAction.WAITLIST: self._client.subscribe_waitinglist,
@@ -45,4 +46,4 @@ class SubscriptionService:
             SubscribeAction.UNSUBSCRIBE_WAITLIST: self._client.unsubscribe_waitinglist,
         }
         handler = dispatch_map[action]
-        handler(appointment_id, start, end)
+        return handler(appointment_id, start, end)
