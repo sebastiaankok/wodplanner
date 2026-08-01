@@ -51,6 +51,8 @@
       <p>WodPlanner <strong>{{ app_version }}</strong> &mdash; <a href="/changelog">Changelog</a></p>
     </footer>
 
+    <div id="toast" class="toast" style="display:none; position:fixed; bottom:1.5rem; right:1.5rem; z-index:9999; background:#16a34a; color:#fff; padding:0.65rem 1.25rem; border-radius:0.5rem; font-size:0.9rem; box-shadow:0 4px 16px rgba(0,0,0,0.25); transition:opacity 0.3s;"></div>
+
     <!-- People Modal -->
     <div id="people-modal" class="modal">
         <div id="people-modal-container"></div>
@@ -259,6 +261,54 @@
             document.getElementById('calendar-dropdown').classList.remove('active');
             htmx.ajax('GET', '/calendar/' + dateStr, {target: '#calendar-content', swap: 'innerHTML'});
         }
+
+        // Toast + form helpers
+        function showToast(msg) {
+            var t = document.getElementById('toast');
+            if (!t) return;
+            t.textContent = msg;
+            t.style.display = 'block';
+            t.style.opacity = '1';
+            clearTimeout(t._hide);
+            t._hide = setTimeout(function() { t.style.opacity = '0'; }, 2200);
+        }
+
+        function disableBtn(form) {
+            var btn = form.querySelector('button[type=submit]');
+            if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+        }
+
+        function enableBtn(form) {
+            var btn = form.querySelector('button[type=submit]');
+            if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+        }
+
+        document.addEventListener('htmx:beforeRequest', function(e) {
+            var form = e.target.closest('.one-rm-form, .benchmark-form');
+            if (form) disableBtn(form);
+        });
+
+        document.addEventListener('htmx:afterRequest', function(e) {
+            var form = e.target.closest('.one-rm-form, .benchmark-form');
+            if (!form) return;
+            enableBtn(form);
+            if (!e.detail.successful) return;
+            if (form.classList.contains('one-rm-form')) {
+                showToast('1RM saved');
+                if (form.classList.contains('one-rm-form--modal')) {
+                    close1rmModal();
+                } else {
+                    toggle1rmLogForm();
+                }
+            } else {
+                showToast('Benchmark saved');
+                if (form.classList.contains('benchmark-form--modal')) {
+                    closeBenchmarkModal();
+                } else {
+                    toggleBenchmarkLogForm();
+                }
+            }
+        });
 
         // Close calendar when clicking outside
         document.addEventListener('click', function(e) {

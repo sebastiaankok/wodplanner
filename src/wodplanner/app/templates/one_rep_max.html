@@ -16,7 +16,6 @@
         <form hx-post="/one-rep-maxes/add"
               hx-target="#one-rep-max-history"
               hx-swap="outerHTML"
-              hx-on::after-request="if(event.detail.successful) toggle1rmLogForm()"
               class="one-rm-form">
             <div class="form-row">
                 <div class="form-group">
