@@ -61,7 +61,7 @@
         <span class="card-title">Progress</span>
         <select id="exercise-select" class="form-control form-control-inline" onchange="update1rmChart()">
             <option value="">— Select exercise —</option>
-            {% for ex in entries | map(attribute='exercise') | unique | sort %}
+            {% for ex in exercises_by_recency %}
             <option value="{{ ex }}">{{ ex }}</option>
             {% endfor %}
         </select>
@@ -205,7 +205,13 @@ document.addEventListener('htmx:afterSwap', function(e) {
         if (!select) return;
         var current = select.value;
         select.innerHTML = '<option value="">— Select exercise —</option>';
-        Object.keys(__1rmData).sort().forEach(function(ex) {
+        Object.keys(__1rmData)
+            .sort(function(a, b) {
+                var aLast = __1rmData[a][__1rmData[a].length - 1].date;
+                var bLast = __1rmData[b][__1rmData[b].length - 1].date;
+                return aLast < bLast ? 1 : aLast > bLast ? -1 : 0;
+            })
+            .forEach(function(ex) {
             var opt = document.createElement('option');
             opt.value = ex;
             opt.textContent = ex;

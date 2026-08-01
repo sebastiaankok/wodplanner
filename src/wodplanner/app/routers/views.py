@@ -119,6 +119,19 @@ def _build_benchmark_chart_data(formatted_entries: list) -> str:
     return json.dumps(data).replace("</", "<\\/")
 
 
+def _ordered_by_recency(
+    formatted_entries: list[dict], key: str
+) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for e in formatted_entries:
+        name = e[key]
+        if name not in seen:
+            seen.add(name)
+            result.append(name)
+    return result
+
+
 router = APIRouter(tags=["views"])
 
 # Setup templates
@@ -517,6 +530,7 @@ def one_rep_max_page(
     past_exercises = one_rep_max_service.get_exercises(session.user_id)
     exercises = one_rep_max_service.get_exercise_list()
     entries = _format_1rm_entries(raw)
+    exercises_by_recency = _ordered_by_recency(entries, "exercise")
 
     return render(
         request,
@@ -527,6 +541,7 @@ def one_rep_max_page(
             "past_exercises": past_exercises,
             "default_exercise": entries[0]["exercise"] if entries else "",
             "entries": entries,
+            "exercises_by_recency": exercises_by_recency,
             "exercises_data_json": _build_exercises_chart_data(entries),
             "today": date.today().isoformat(),
             **get_user_context(session),
@@ -543,6 +558,7 @@ def benchmark_page(
     """Benchmark tracking page."""
     raw = benchmark_service.get_all_results(session.user_id)
     entries = _format_benchmark_entries(raw)
+    benchmarks_by_recency = _ordered_by_recency(entries, "benchmark_name")
     benchmark_list = benchmark_service.get_benchmark_list()
 
     return render(
@@ -552,6 +568,7 @@ def benchmark_page(
             "active_page": "benchmark",
             "benchmark_list": benchmark_list,
             "entries": entries,
+            "benchmarks_by_recency": benchmarks_by_recency,
             "benchmark_data_json": _build_benchmark_chart_data(entries),
             "today": date.today().isoformat(),
             **get_user_context(session),
