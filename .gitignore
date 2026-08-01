@@ -43,3 +43,4 @@ Pipfile.lock
 poetry.lock
 
 examples/pdf
+scripts/
