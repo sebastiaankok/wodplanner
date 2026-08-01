@@ -5,7 +5,7 @@ import json
 import logging
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Annotated, cast
+from typing import Annotated
 
 import markdown
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -936,17 +936,9 @@ def one_rep_max_modal_view(
     raw = one_rep_max_service.get_all(session.user_id)
     today = date.today().isoformat()
 
-    formatted = [
-        {
-            "id": e.id,
-            "exercise": e.exercise,
-            "weight_kg": e.weight_kg,
-            "recorded_at": e.recorded_at.strftime("%b %d, %Y"),
-        }
-        for e in raw
-    ]
-    if suggested_exercises:
-        formatted.sort(key=lambda e: -_similarity_score(cast("str", e["exercise"]), suggested_exercises))
+    formatted = _format_1rm_entries(raw)
+
+    default_exercise = suggested_exercises[0] if suggested_exercises else (formatted[0]["exercise"] if formatted else "")
 
     return render(
         request,
@@ -955,9 +947,11 @@ def one_rep_max_modal_view(
             "suggested_exercises": suggested_exercises,
             "exercises": exercises,
             "entries": formatted,
+            "default_exercise": default_exercise,
             "today": today,
             "show_date": False,
             "preset_date": schedule_date.isoformat(),
+            "exercises_data_json": _build_exercises_chart_data(formatted),
         },
     )
 
