@@ -101,6 +101,13 @@ def app_client(monkeypatch, mock_wodapp_client):
 
 
 @pytest.fixture
+def auth_client(app_client, session_cookie) -> TestClient:
+    """TestClient with the session cookie pre-set."""
+    app_client.cookies.set("session", session_cookie)
+    return app_client
+
+
+@pytest.fixture
 def friends_service(db_path) -> FriendsService:
     return FriendsService(db_path)
 
