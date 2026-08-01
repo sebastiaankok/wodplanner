@@ -39,23 +39,34 @@
 
 {% if has_chart_data %}
 <div class="card" style="margin-top: 1.25rem;">
-    <div class="card-header">
-        <span class="card-title">Weekly Sessions</span>
-        <span class="text-muted">This week: {{ week_stats.past }} completed, {{ week_stats.future }} planned</span>
+    <div class="card-header" style="flex-wrap: nowrap; gap: 0.5rem;">
+        <span class="card-title" style="white-space: nowrap;">Weekly Sessions</span>
+        <span class="text-muted" style="font-size: 0.8rem; white-space: nowrap; display: flex; align-items: center; gap: 0.35rem;">
+            This week:
+            <span style="display: inline-flex; align-items: center; gap: 0.15rem;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #3b82f6;"></span>
+                {{ week_stats.past }}
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 0.15rem;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #93c5fd; opacity: 0.6;"></span>
+                {{ week_stats.future }}
+            </span>
+        </span>
+        <span style="font-size: 0.8rem; color: var(--gray-500); white-space: nowrap; margin-left: auto;">Avg: <strong>{{ average }}</strong>/wk</span>
     </div>
-    <div style="padding: 0.75rem 1rem 0.25rem;">
-        <canvas id="weeklyChart" height="180"></canvas>
+    <div style="padding: 0.5rem 1rem 0.25rem;">
+        <canvas id="weeklyChart" height="160"></canvas>
     </div>
-    <div style="display: flex; gap: 1.5rem; padding: 0.25rem 1rem 0.75rem; font-size: 0.875rem; color: var(--gray-500);">
-        <span style="display: flex; align-items: center; gap: 0.35rem;">
-            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #3b82f6;"></span>
+    <div style="display: flex; gap: 0.75rem; padding: 0.25rem 1rem 0.75rem; font-size: 0.8rem; color: var(--gray-500);">
+        <span style="display: flex; align-items: center; gap: 0.25rem;">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #3b82f6;"></span>
             Completed
         </span>
-        <span style="display: flex; align-items: center; gap: 0.35rem;">
-            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #93c5fd; opacity: 0.6;"></span>
+        <span style="display: flex; align-items: center; gap: 0.25rem;">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #93c5fd; opacity: 0.6;"></span>
             Planned
         </span>
-        <span>Avg: <strong>{{ average }}</strong> /week ({{ weeks_tracked }} weeks)</span>
+        <span>{{ weeks_tracked }} weeks</span>
     </div>
 </div>
 {% else %}
