@@ -1,5 +1,14 @@
 # WodPlanner
 
+[![Python >=3.11](https://img.shields.io/badge/python-%3E%3D3.11-blue?logo=python)](https://python.org)
+[![GitHub release](https://img.shields.io/github/v/release/sebastiaankok/wodplanner?logo=github)](https://github.com/sebastiaankok/wodplanner/releases)
+[![CI](https://github.com/sebastiaankok/wodplanner/actions/workflows/ci.yml/badge.svg)](https://github.com/sebastiaankok/wodplanner/actions/workflows/ci.yml)
+[![Docker](https://github.com/sebastiaankok/wodplanner/actions/workflows/docker.yml/badge.svg)](https://github.com/sebastiaankok/wodplanner/actions/workflows/docker.yml)
+[![Ruff](https://img.shields.io/badge/ruff-checked-blueviolet)](https://github.com/astral-sh/ruff)
+[![mypy](https://img.shields.io/badge/mypy-checked-blue)](http://mypy-lang.org)
+[![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen?logo=renovate)](https://renovatebot.com)
+[![Last commit](https://img.shields.io/github/last-commit/sebastiaankok/wodplanner)](https://github.com/sebastiaankok/wodplanner/commits/main)
+
 Unofficial WodApp alternative for planning CrossFit classes. Uses the same credentials as WodApp — no separate account needed.
 
 > **Privacy:** Your password is never stored. Login sends it directly to WodApp, which returns an auth token — only that token is kept in your browser cookie.
