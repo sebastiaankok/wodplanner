@@ -1165,6 +1165,15 @@ body {
     overflow-y: auto;
 }
 
+.modal-content--wide {
+    max-width: 900px;
+    width: 95%;
+}
+
+.modal-content--wide .modal-body {
+    max-height: 600px;
+}
+
 /* People list */
 .people-list {
     list-style: none;
@@ -1405,6 +1414,10 @@ body {
         width: calc(100vw - 2rem);
         max-height: 80vh;
         overflow-y: auto;
+    }
+
+    .modal-content--wide .modal-body {
+        max-height: unset;
     }
 
     .btn-sm {
