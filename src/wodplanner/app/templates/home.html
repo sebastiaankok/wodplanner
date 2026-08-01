@@ -4,7 +4,7 @@
 
 {% block content %}
 {% if gym_logo %}
-<div style="display: flex; justify-content: center; margin-bottom: 1.25rem;">
+<div style="display: flex; justify-content: center; margin: 0.75rem;">
     <div style="background: white; border-radius: 0.75rem; padding: 0.75rem 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.12); border: 1px solid var(--gray-200);">
         <img src="{{ gym_logo }}" alt="Gym logo" style="display: block; max-height: 100px; max-width: 260px; object-fit: contain;">
     </div>
@@ -95,7 +95,7 @@
 {% endif %}
 
 {% if has_chart_data %}
-<div class="card" style="margin-top: 1.25rem;">
+<div class="card" style="margin-top: 1.25rem; margin-bottom: 0;">
     <div class="card-header" style="flex-wrap: nowrap; gap: 0.5rem;">
         <span class="card-title" style="white-space: nowrap;">Weekly Sessions</span>
         <span class="text-muted" style="font-size: 0.8rem; white-space: nowrap; display: flex; align-items: center; gap: 0.35rem;">
@@ -127,7 +127,7 @@
     </div>
 </div>
 {% else %}
-<div class="card" style="text-align: center; padding: 2rem 1rem; margin-top: 1.25rem;">
+<div class="card" style="text-align: center; padding: 2rem 1rem; margin-top: 1.25rem; margin-bottom: 0;">
     <p class="text-muted" style="margin: 0;">Your weekly stats will appear here once you subscribe to your first CrossFit class.</p>
 </div>
 {% endif %}
