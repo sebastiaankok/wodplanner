@@ -28,7 +28,7 @@ from wodplanner.app.dependencies import (
 )
 from wodplanner.models.auth import AuthSession
 from wodplanner.services.benchmark import BenchmarkService, find_benchmark_in_schedule
-from wodplanner.services.day_card import build_day_cards
+from wodplanner.services.day_card import _find_benchmark, _has_1rm, build_day_cards
 from wodplanner.services.friend_presence import find_friends_in_appointments
 from wodplanner.services.friends import FriendsService
 from wodplanner.services.one_rep_max import (
@@ -205,14 +205,31 @@ def home_page(
     client: WodAppClient = Depends(get_client_from_session_for_view),
     tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    schedule_service: ScheduleService = Depends(get_schedule_service),
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Homepage showing upcoming reservations and weekly stats."""
     reservations, company_images = client.get_upcoming_reservations()
 
+    benchmark_names = benchmark_service.get_benchmark_list()
+
     # Group by date for display
     days: dict[str, list[dict]] = {}
+    date_schedule_cache: dict = {}
+
     for r in reservations:
         day_key = r.date_start.strftime("%Y-%m-%d")
+        schedule_date = r.date_start.date()
+
+        if schedule_date not in date_schedule_cache:
+            date_schedule_cache[schedule_date] = match_schedules_for_date(
+                schedule_date, session.gym_id, schedule_service
+            )
+
+        schedule_by_type = date_schedule_cache[schedule_date]
+        has_1rm = _has_1rm(r.name, schedule_by_type)
+        benchmark_name = _find_benchmark(r.name, schedule_by_type, benchmark_names)
+
         if day_key not in days:
             days[day_key] = []
         days[day_key].append({
@@ -220,7 +237,12 @@ def home_page(
             "name": r.name,
             "time": r.date_start.strftime("%H:%M"),
             "weekday": r.date_start.strftime("%A"),
-            "display_date": r.date_start.strftime("%B %d"),
+            "display_date": r.date_start.strftime("%b %d").replace(" 0", " "),
+            "date_start": r.date_start.strftime("%Y-%m-%d %H:%M"),
+            "date_end": r.date_end.strftime("%Y-%m-%d %H:%M") if r.date_end else r.date_start.strftime("%Y-%m-%d %H:%M"),
+            "has_1rm": has_1rm,
+            "has_benchmark": benchmark_name is not None,
+            "benchmark_name": benchmark_name,
         })
 
     # Weekly stats (skip if tracking disabled)

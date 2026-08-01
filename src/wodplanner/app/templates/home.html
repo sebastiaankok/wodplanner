@@ -15,18 +15,75 @@
 <div class="card" style="padding: 0; overflow: hidden;">
     {% for day_key, classes in days.items() %}
         {% for cls in classes %}
-        <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit; display: block;">
-            <div style="display: grid; grid-template-columns: 7rem 5rem 1fr auto; align-items: center; gap: 0.75rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--gray-100); border-left: 3px solid var(--primary);">
+        <div style="display: grid; grid-template-columns: 6rem 3.5rem 1fr auto; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--gray-100); border-left: 3px solid var(--primary);">
+            <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit; display: block;">
                 <span style="font-size: 0.8rem; color: var(--gray-500); white-space: nowrap;">{{ cls.weekday[:3] }} {{ cls.display_date }}</span>
+            </a>
+            <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit; display: block;">
                 <span style="font-size: 0.875rem; font-weight: 600; color: var(--gray-700);">{{ cls.time }}</span>
+            </a>
+            <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit; display: block;">
                 <span style="font-weight: 500; font-size: 0.9375rem;">{{ cls.name }}</span>
-                <span style="color: var(--primary);">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                        <polyline points="20 6 9 17 4 12"></polyline>
+            </a>
+            <div style="display: flex; gap: 0.25rem; align-items: center;">
+                {% if cls.has_1rm %}
+                <button class="btn btn-icon btn-sm btn-1rm"
+                        hx-get="/appointments/{{ cls.id }}/1rm?date_start={{ cls.date_start | urlencode }}&class_name={{ cls.name | urlencode }}"
+                        hx-target="#one-rep-max-modal-container"
+                        hx-swap="innerHTML"
+                        onclick="open1rmModal();"
+                        title="Log 1 rep max">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <line x1="6" y1="6" x2="6" y2="18"/>
+                        <line x1="4" y1="8" x2="4" y2="16"/>
+                        <line x1="18" y1="6" x2="18" y2="18"/>
+                        <line x1="20" y1="8" x2="20" y2="16"/>
+                        <line x1="6" y1="12" x2="18" y2="12"/>
                     </svg>
-                </span>
+                </button>
+                {% endif %}
+                {% if cls.has_benchmark %}
+                <button class="btn btn-icon btn-sm btn-benchmark"
+                        hx-get="/appointments/{{ cls.id }}/benchmark?date_start={{ cls.date_start | urlencode }}&class_name={{ cls.name | urlencode }}"
+                        hx-target="#benchmark-modal-container"
+                        hx-swap="innerHTML"
+                        onclick="openBenchmarkModal();"
+                        title="Log benchmark result for {{ cls.benchmark_name }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                </button>
+                {% endif %}
+                <button class="btn btn-icon btn-sm"
+                        hx-get="/appointments/{{ cls.id }}/schedule?date_start={{ cls.date_start | urlencode }}&class_name={{ cls.name | urlencode }}"
+                        hx-target="#schedule-modal-container"
+                        hx-swap="innerHTML"
+                        onclick="openScheduleModal();"
+                        title="View workout">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </button>
+                <button class="btn btn-icon btn-sm"
+                        hx-get="/appointments/{{ cls.id }}/people?date_start={{ cls.date_start | urlencode }}&date_end={{ cls.date_end | urlencode }}"
+                        hx-target="#people-modal-container"
+                        hx-swap="innerHTML"
+                        onclick="openPeopleModal();"
+                        title="View participants">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </button>
             </div>
-        </a>
+        </div>
         {% endfor %}
     {% endfor %}
 </div>
