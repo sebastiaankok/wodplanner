@@ -1164,6 +1164,70 @@ def delete_one_rep_max_view(
     )
 
 
+@router.get("/one-rep-maxes/{entry_id}/edit", response_class=HTMLResponse)
+def edit_one_rep_max_form_view(
+    request: Request,
+    entry_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+):
+    """Get inline edit form for a 1rm entry."""
+    entry = one_rep_max_service.get_by_id(session.user_id, entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found.")
+    exercises = one_rep_max_service.get_exercise_list()
+    return render(
+        request,
+        "partials/one_rep_max_edit_row.html",
+        {
+            "entry": _format_1rm_entries([entry])[0],
+            "exercises": exercises,
+            "entry_id": entry_id,
+        },
+    )
+
+
+@router.put("/one-rep-maxes/{entry_id}/edit", response_class=HTMLResponse)
+def update_one_rep_max_view(
+    request: Request,
+    entry_id: int,
+    exercise: str = Form(...),
+    weight_kg: float = Form(...),
+    recorded_at: str = Form(...),
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+):
+    """Update a 1rm entry (htmx)."""
+    exercise = exercise.strip()
+    if not one_rep_max_service.validate_exercise(exercise):
+        raise HTTPException(status_code=422, detail=f"Unknown exercise: '{exercise}'.")
+    if not (0 < weight_kg < 1000):
+        raise HTTPException(status_code=400, detail="Weight must be between 0 and 1000 kg.")
+    try:
+        entry_date = parse_iso_date(recorded_at)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format.")
+
+    prev_max = one_rep_max_service.get_max_for_exercise(session.user_id, exercise)
+    is_pr = prev_max is not None and weight_kg > prev_max
+
+    one_rep_max_service.update(session.user_id, entry_id, exercise, weight_kg, entry_date)
+
+    raw = one_rep_max_service.get_all(session.user_id)
+    entries = _format_1rm_entries(raw)
+    resp = render(
+        request,
+        "partials/one_rep_max_history.html",
+        {
+            "entries": entries,
+            "exercises_data_json": _build_exercises_chart_data(entries),
+        },
+    )
+    if is_pr:
+        resp.headers["HX-Trigger"] = "pr-celebration"
+    return resp
+
+
 @router.get("/appointments/{appointment_id}/benchmark", response_class=HTMLResponse)
 def benchmark_modal_view(
     request: Request,
@@ -1253,6 +1317,74 @@ def delete_benchmark_result_view(
 ):
     """Delete a benchmark result (htmx)."""
     benchmark_service.delete_result(session.user_id, result_id)
+
+    raw = benchmark_service.get_all_results(session.user_id)
+    entries = _format_benchmark_entries(raw)
+    return render(
+        request,
+        "partials/benchmark_history.html",
+        {
+            "entries": entries,
+            "benchmark_data_json": _build_benchmark_chart_data(entries),
+        },
+    )
+
+
+@router.get("/benchmark-results/{result_id}/edit", response_class=HTMLResponse)
+def edit_benchmark_result_form_view(
+    request: Request,
+    result_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+):
+    """Get inline edit form for a benchmark result."""
+    result = benchmark_service.get_result(session.user_id, result_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Result not found.")
+    benchmarks = benchmark_service.get_benchmark_list()
+    return render(
+        request,
+        "partials/benchmark_edit_row.html",
+        {
+            "result": {
+                "id": result.id,
+                "benchmark_name": result.benchmark_name,
+                "time_seconds": result.time_seconds,
+                "formatted_time": f"{result.time_seconds // 60}:{result.time_seconds % 60:02d}",
+                "is_rx": result.is_rx,
+                "recorded_at": result.recorded_at,
+            },
+            "benchmarks": benchmarks,
+            "result_id": result_id,
+        },
+    )
+
+
+@router.put("/benchmark-results/{result_id}/edit", response_class=HTMLResponse)
+def update_benchmark_result_view(
+    request: Request,
+    result_id: int,
+    benchmark_name: str = Form(...),
+    minutes: int = Form(...),
+    seconds: int = Form(...),
+    is_rx: str = Form("true"),
+    recorded_at: str = Form(...),
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+):
+    """Update a benchmark result (htmx)."""
+    total_seconds = minutes * 60 + seconds
+    if total_seconds <= 0:
+        raise HTTPException(status_code=400, detail="Time must be greater than 0.")
+
+    benchmark_service.update_result(
+        user_id=session.user_id,
+        result_id=result_id,
+        benchmark_name=benchmark_name.strip(),
+        time_seconds=total_seconds,
+        is_rx=is_rx == "true",
+        recorded_at=recorded_at,
+    )
 
     raw = benchmark_service.get_all_results(session.user_id)
     entries = _format_benchmark_entries(raw)

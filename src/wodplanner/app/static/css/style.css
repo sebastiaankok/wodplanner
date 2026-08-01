@@ -1141,6 +1141,115 @@ body {
     color: var(--danger);
 }
 
+.one-rm-actions {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.btn-edit {
+    background: none;
+    border: none;
+    color: var(--gray-400);
+    cursor: pointer;
+    padding: 0.125rem 0.25rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-edit:hover {
+    color: var(--primary);
+}
+
+.btn-cancel {
+    background: none;
+    border: 1px solid var(--gray-300);
+    color: var(--gray-500);
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.btn-cancel:hover {
+    background: var(--gray-100);
+}
+
+.one-rm-edit-row td {
+    padding: 0.5rem;
+    background: var(--gray-50);
+}
+
+.one-rm-form--inline .form-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.one-rm-form--inline .form-group {
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 120px;
+}
+
+.one-rm-form--inline .form-group-narrow {
+    flex: 0 0 110px;
+    min-width: 90px;
+}
+
+.one-rm-form--inline .form-group-submit {
+    flex: 0 0 auto;
+}
+
+.benchmark-form--inline .form-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr) auto;
+    gap: 0.5rem;
+    align-items: end;
+}
+
+.benchmark-form--inline .form-group {
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+.benchmark-form--inline .form-group-full {
+    grid-column: 1 / -1;
+}
+
+.benchmark-form--inline .form-group-submit {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.benchmark-form--inline .form-row + .form-row {
+    margin-top: 0.5rem;
+}
+
+.one-rm-edit-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+@media (max-width: 640px) {
+    .benchmark-form--inline .form-row {
+        grid-template-columns: 1fr 1fr;
+    }
+    .benchmark-form--inline .form-group-submit {
+        grid-column: 1 / -1;
+    }
+}
+
+.form-control-sm {
+    font-size: 0.8125rem;
+    padding: 0.375rem 0.5rem;
+}
+
 .friend-count {
     position: absolute;
     top: -5px;
@@ -1941,6 +2050,10 @@ body {
 
     .one-rm-table td {
         border-color: #1e293b;
+    }
+
+    .one-rm-edit-row td {
+        background: #0f172a;
     }
 
     /* People list */

@@ -197,3 +197,12 @@ class BenchmarkService(BaseService):
             )
             conn.commit()
             return cursor.rowcount > 0
+
+    def update_result(self, user_id: int, result_id: int, benchmark_name: str, time_seconds: int, is_rx: bool, recorded_at: str) -> bool:
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "UPDATE benchmark_results SET benchmark_name = ?, time_seconds = ?, is_rx = ?, recorded_at = ? WHERE id = ? AND user_id = ?",
+                (benchmark_name, time_seconds, int(is_rx), recorded_at, result_id, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0

@@ -298,3 +298,22 @@ class TestBenchmarkResultService:
         r = svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
         assert r.id is not None
         assert r.user_id == 1
+
+    def test_update_result(self, db_path):
+        svc = BenchmarkService(db_path)
+        r = svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
+        updated = svc.update_result(user_id=1, result_id=r.id, benchmark_name="Helen", time_seconds=240, is_rx=False, recorded_at="2026-06-01")
+        assert updated is True
+
+        result = svc.get_result(user_id=1, result_id=r.id)
+        assert result is not None
+        assert result.benchmark_name == "Helen"
+        assert result.time_seconds == 240
+        assert result.is_rx is False
+        assert result.recorded_at == "2026-06-01"
+
+    def test_update_result_scoped_by_user(self, db_path):
+        svc = BenchmarkService(db_path)
+        r = svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
+        updated = svc.update_result(user_id=2, result_id=r.id, benchmark_name="Helen", time_seconds=240, is_rx=False, recorded_at="2026-06-01")
+        assert updated is False

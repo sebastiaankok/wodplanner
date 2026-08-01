@@ -234,3 +234,20 @@ class OneRepMaxService(BaseService):
                 (user_id, exercise),
             ).fetchone()
             return row[0] if row and row[0] is not None else None
+
+    def get_by_id(self, user_id: int, entry_id: int) -> OneRepMax | None:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM one_rep_maxes WHERE id = ? AND user_id = ?",
+                (entry_id, user_id),
+            ).fetchone()
+            return self._row_to_model(row) if row else None
+
+    def update(self, user_id: int, entry_id: int, exercise: str, weight_kg: float, recorded_at: date) -> bool:
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "UPDATE one_rep_maxes SET exercise = ?, weight_kg = ?, recorded_at = ? WHERE id = ? AND user_id = ?",
+                (exercise, weight_kg, recorded_at.isoformat(), entry_id, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0

@@ -1,0 +1,78 @@
+<tr id="edit-row-{{ result_id }}" class="one-rm-edit-row">
+    <td colspan="5">
+        <form hx-put="/benchmark-results/{{ result_id }}/edit"
+              hx-target="#benchmark-history"
+              hx-swap="outerHTML"
+              class="benchmark-form benchmark-form--inline">
+            <div class="form-row">
+                <div class="form-group form-group-full">
+                    <label for="benchmark-name-{{ result_id }}">Benchmark</label>
+                    <input type="text"
+                           id="benchmark-name-{{ result_id }}"
+                           name="benchmark_name"
+                           list="benchmark-list-{{ result_id }}"
+                           value="{{ result.benchmark_name }}"
+                           placeholder="Benchmark"
+                           required
+                           class="form-control form-control-sm"
+                           autocomplete="off">
+                    <datalist id="benchmark-list-{{ result_id }}">
+                        {% for name in benchmarks %}
+                        <option value="{{ name }}">
+                        {% endfor %}
+                    </datalist>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-narrow">
+                    <label for="benchmark-minutes-{{ result_id }}">Minutes</label>
+                    <input type="number"
+                           id="benchmark-minutes-{{ result_id }}"
+                           name="minutes"
+                           value="{{ result.time_seconds // 60 }}"
+                           min="0"
+                           max="999"
+                           placeholder="0"
+                           required
+                           class="form-control form-control-sm">
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="benchmark-seconds-{{ result_id }}">Seconds</label>
+                    <input type="number"
+                           id="benchmark-seconds-{{ result_id }}"
+                           name="seconds"
+                           value="{{ result.time_seconds % 60 }}"
+                           min="0"
+                           max="59"
+                           placeholder="00"
+                           required
+                           class="form-control form-control-sm">
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="benchmark-is-rx-{{ result_id }}">RX / Scaled</label>
+                    <select id="benchmark-is-rx-{{ result_id }}" name="is_rx" class="form-control form-control-sm">
+                        <option value="true" {% if result.is_rx %}selected{% endif %}>RX</option>
+                        <option value="false" {% if not result.is_rx %}selected{% endif %}>Scaled</option>
+                    </select>
+                </div>
+                <div class="form-group form-group-narrow">
+                    <label for="benchmark-date-{{ result_id }}">Date</label>
+                    <input type="date"
+                           id="benchmark-date-{{ result_id }}"
+                           name="recorded_at"
+                           value="{{ result.recorded_at }}"
+                           required
+                           class="form-control form-control-sm">
+                </div>
+                <div class="form-group form-group-submit">
+                    <label>&nbsp;</label>
+                    <div class="one-rm-edit-actions">
+                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        <button type="button" class="btn btn-sm btn-cancel"
+                                onclick="var row = this.closest('tr'); row.parentElement.removeChild(row);" title="Cancel">&times;</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </td>
+</tr>
