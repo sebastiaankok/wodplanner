@@ -27,6 +27,16 @@
                 <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="upload-input" onchange="document.getElementById('avatar-form').submit()">
             </label>
         </form>
+        {% if my_avatar %}
+        <form action="/avatar/remove" method="post" id="avatar-remove-form">
+            <button type="submit" class="btn btn-sm btn-danger remove-btn" onclick="return confirm('Remove your profile photo?')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                Remove
+            </button>
+        </form>
+        {% endif %}
     </div>
 </div>
 

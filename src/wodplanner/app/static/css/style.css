@@ -2601,6 +2601,12 @@ body {
     cursor: pointer;
 }
 
+.remove-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
 /* Empty state with icon */
 .empty-state-icon {
     color: var(--gray-300);

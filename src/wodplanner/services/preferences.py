@@ -146,6 +146,15 @@ class PreferencesService(BaseService):
     def set_avatar_filename(self, user_id: int, filename: str) -> None:
         self._set(user_id, "avatar_filename", filename)
 
+    def delete_avatar_filename(self, user_id: int) -> None:
+        """Remove the avatar filename preference for a user."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "DELETE FROM preferences WHERE user_id = ? AND key = 'avatar_filename'",
+                (user_id,),
+            )
+            conn.commit()
+
     def get_avatar_filenames(self, user_ids: list[int]) -> dict[int, str]:
         if not user_ids:
             return {}
@@ -156,3 +165,50 @@ class PreferencesService(BaseService):
                 user_ids,
             ).fetchall()
         return {row["user_id"]: row["value"] for row in rows}
+
+    def get_avatar_filenames_by_appuser_ids(self, appuser_ids: list[int]) -> dict[int, str | None]:
+        """Get avatar filenames keyed by WodApp appuser_id.
+
+        First tries direct lookup by appuser_id. For unfound IDs, falls back
+        to reverse-mapping via my_appuser_id preferences (user_id → appuser_id)
+        to find avatars stored only under the session user_id.
+        """
+        if not appuser_ids:
+            return {}
+
+        result: dict[int, str | None] = {uid: None for uid in appuser_ids}
+
+        with self._get_connection() as conn:
+            # 1. Direct lookup by appuser_id
+            placeholders = ",".join("?" * len(appuser_ids))
+            rows = conn.execute(
+                f"SELECT user_id, value FROM preferences WHERE user_id IN ({placeholders}) AND key = 'avatar_filename'",
+                appuser_ids,
+            ).fetchall()
+            for row in rows:
+                result[row["user_id"]] = row["value"]
+
+            # 2. For unfound IDs, reverse-map through my_appuser_id
+            unfound = [uid for uid in appuser_ids if result[uid] is None]
+            if unfound:
+                placeholders = ",".join("?" * len(unfound))
+                rows = conn.execute(
+                    f"SELECT user_id, value FROM preferences WHERE key = 'my_appuser_id' AND value IN ({placeholders})",
+                    unfound,
+                ).fetchall()
+                mapped_session_ids = [int(row["value"]) for row in rows]
+                if mapped_session_ids:
+                    placeholders = ",".join("?" * len(mapped_session_ids))
+                    avatar_rows = conn.execute(
+                        f"SELECT user_id, value FROM preferences WHERE user_id IN ({placeholders}) AND key = 'avatar_filename'",
+                        mapped_session_ids,
+                    ).fetchall()
+                    session_to_avatar = {row["user_id"]: row["value"] for row in avatar_rows}
+                    for row in rows:
+                        session_id = int(row["value"])
+                        avatar = session_to_avatar.get(session_id)
+                        if avatar:
+                            appuser_id = row["user_id"]
+                            result[int(appuser_id)] = avatar
+
+        return result
