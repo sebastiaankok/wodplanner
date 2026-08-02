@@ -638,7 +638,7 @@ def friends_page(
     """Friends management page."""
     friends = friends_service.get_all(session.user_id)
     friend_user_ids = [f.appuser_id for f in friends]
-    avatar_map = prefs_service.get_avatar_filenames(friend_user_ids)
+    avatar_map = prefs_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
     my_avatar = prefs_service.get_avatar_filename(session.user_id)
 
     friends_data = [
@@ -679,7 +679,7 @@ def add_friend_view(
     friends_service.add(session.user_id, appuser_id, name)
     friends = friends_service.get_all(session.user_id)
     friend_user_ids = [f.appuser_id for f in friends]
-    avatar_map = prefs_service.get_avatar_filenames(friend_user_ids)
+    avatar_map = prefs_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
 
     friends_data = [
         {
@@ -708,7 +708,7 @@ def delete_friend_view(
     friends_service.delete(session.user_id, friend_id)
     friends = friends_service.get_all(session.user_id)
     friend_user_ids = [f.appuser_id for f in friends]
-    avatar_map = prefs_service.get_avatar_filenames(friend_user_ids)
+    avatar_map = prefs_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
 
     friends_data = [
         {
@@ -769,7 +769,7 @@ def upload_avatar(
                 old_path.unlink()
                 return
     _remove_old(session.user_id)
-    if session.appuser_id and session.appuser_id != session.user_id:
+    if session.appuser_id:
         _remove_old(session.appuser_id)
 
     filepath = _UPLOAD_DIR / filename
@@ -778,8 +778,30 @@ def upload_avatar(
     img.save(filepath, format=fmt)
 
     prefs_service.set_avatar_filename(session.user_id, filename)
-    if session.appuser_id and session.appuser_id != session.user_id:
+    if session.appuser_id:
         prefs_service.set_avatar_filename(session.appuser_id, filename)
+    return RedirectResponse(url="/friends", status_code=303)
+
+
+@router.post("/avatar/remove", response_class=RedirectResponse)
+def remove_avatar(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    prefs_service: PreferencesService = Depends(get_preferences_service),
+):
+    """Remove the current user's avatar photo."""
+    def _remove_file(user_id: int) -> None:
+        filename = prefs_service.get_avatar_filename(user_id)
+        if filename:
+            filepath = _UPLOAD_DIR / filename
+            if filepath.exists():
+                filepath.unlink()
+    _remove_file(session.user_id)
+    if session.appuser_id:
+        _remove_file(session.appuser_id)
+    prefs_service.delete_avatar_filename(session.user_id)
+    if session.appuser_id:
+        prefs_service.delete_avatar_filename(session.appuser_id)
     return RedirectResponse(url="/friends", status_code=303)
 
 
