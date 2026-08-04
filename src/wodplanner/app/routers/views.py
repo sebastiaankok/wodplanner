@@ -642,7 +642,6 @@ def friends_page(
     friends = friends_service.get_all(session.user_id)
     friend_user_ids = [f.appuser_id for f in friends]
     avatar_map = user_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
-    my_avatar = user_service.get_avatar_filename(session.user_id)
 
     friends_data = [
         {
@@ -663,7 +662,6 @@ def friends_page(
             "active_page": "friends",
             "friends": friends_data,
             "friend_count": len(friends_data),
-            "my_avatar": my_avatar,
             **get_user_context(session),
         },
     )

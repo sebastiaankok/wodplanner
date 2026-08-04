@@ -2526,11 +2526,8 @@ body {
     white-space: nowrap;
 }
 
-/* Friend avatar section (self upload) */
+/* Friend avatar section */
 .friend-avatar-section {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
     margin-bottom: 1.25rem;
     padding: 1rem 1.25rem;
     background: white;
@@ -2568,46 +2565,7 @@ body {
         border-radius: 50%;
     }
 
-    .friend-avatar-self-img,
-    .friend-avatar-img,
-    .person-avatar-img {
-        cursor: pointer;
-    }
-
-    .friend-avatar-upload {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.friend-avatar-label {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--gray-700);
-}
-
-.upload-btn {
-    position: relative;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-}
-
-.upload-input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-}
-
-.remove-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-}
-
-/* Empty state with icon */
+    /* Empty state with icon */
 .empty-state-icon {
     color: var(--gray-300);
     margin-bottom: 0.75rem;
