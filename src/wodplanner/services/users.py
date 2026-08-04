@@ -136,8 +136,10 @@ class UserService(BaseService):
     ) -> None:
         """Insert or refresh a user from session data.
 
-        Updates appuser_id, gym_id, and display_name on every call, but never
-        overwrites the user-managed tracking_disabled or avatar_filename.
+        Updates gym_id and display_name on every call.  appuser_id is only
+        updated when a non-NULL value is provided, so a later request with a
+        NULL session appuser_id won't clobber a previously discovered Member ID.
+        Never overwrites the user-managed tracking_disabled or avatar_filename.
         """
         now = datetime.now().isoformat()
         with self._get_connection() as conn:
@@ -148,7 +150,7 @@ class UserService(BaseService):
                      created_at, updated_at)
                 VALUES (?, ?, ?, ?, 0, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
-                    appuser_id = excluded.appuser_id,
+                    appuser_id = COALESCE(excluded.appuser_id, users.appuser_id),
                     gym_id = excluded.gym_id,
                     display_name = excluded.display_name,
                     updated_at = excluded.updated_at
