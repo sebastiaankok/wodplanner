@@ -15,14 +15,14 @@
 <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 0;">
     {% for day_key, classes in days.items() %}
         {% for cls in classes %}
-        <div style="display: grid; grid-template-columns: 6rem 3.5rem 1fr auto; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--gray-100);">
-            <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit; display: block;">
+        <div style="display: grid; grid-template-columns: 4.5rem 2.75rem 1fr auto; align-items: center; gap: 0.75rem; padding: 0.5rem 1rem 0.5rem 0.65rem; border-bottom: 1px solid var(--gray-100);">
+            <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit; text-align: right;">
                 <span style="font-size: 0.8rem; color: var(--gray-500); white-space: nowrap;">{{ cls.weekday[:3] }} {{ cls.display_date }}</span>
             </a>
-            <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit; display: block;">
-                <span style="font-size: 0.875rem; font-weight: 600; color: var(--gray-700);">{{ cls.time }}</span>
+            <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit;">
+                <span class="home-class-time" style="font-size: 0.875rem; font-weight: 600;">{{ cls.time }}</span>
             </a>
-            <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit; display: block;">
+            <a href="/calendar?day={{ day_key }}" style="text-decoration: none; color: inherit;">
                 <span style="font-weight: 500; font-size: 0.9375rem;">{{ cls.name }}</span>
             </a>
             <div style="display: flex; gap: 0.25rem; align-items: center;">

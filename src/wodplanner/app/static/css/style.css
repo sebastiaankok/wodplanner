@@ -6,6 +6,8 @@
 }
 
 html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     scrollbar-gutter: stable;
 }
 
@@ -625,6 +627,10 @@ body {
     font-weight: 600;
     font-size: 0.875rem;
     color: var(--gray-700);
+}
+
+.home-class-time {
+    color: var(--gray-500);
 }
 
 .appointment-name {
@@ -1966,6 +1972,10 @@ body {
 
     .appointment-time {
         color: #cbd5e1;
+    }
+
+    .home-class-time {
+        color: #94a3b8;
     }
 
     .appointment-spots {
