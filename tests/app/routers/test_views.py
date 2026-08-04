@@ -324,6 +324,24 @@ class TestPeopleModal:
         assert response.status_code == 200
         assert user_service.get(77).appuser_id == 8888
 
+    def test_self_avatar_visible_via_appuser_id(self, app_client, session_cookie, mock_wodapp_client, user_service):
+        """Current user's avatar must appear in the modal without a workaround."""
+        user_service.set_avatar_filename(42, "avatar_42.png")
+        details = _details()
+        details.subscriptions.members = [
+            Member(id_appuser=4242, name="User", imageURL=""),
+            Member(id_appuser=1, name="Alice", imageURL=""),
+        ]
+        mock_wodapp_client.get_appointment_details.return_value = details
+
+        app_client.cookies.set("session", session_cookie)
+        response = app_client.get(
+            "/appointments/1/people",
+            params={"date_start": "2026-04-25 10:00", "date_end": "2026-04-25 11:00"},
+        )
+        assert response.status_code == 200
+        assert "avatar_42.png" in response.text
+
 
 class TestAddFriendFromPeople:
     def test_adds_and_returns_modal(self, app_client, session_cookie, mock_wodapp_client, friends_service):

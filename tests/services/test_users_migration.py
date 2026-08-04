@@ -296,6 +296,14 @@ class TestUserService:
         assert u.gym_id == 8
         assert u.created_at == created_after_first
 
+    def test_upsert_preserves_appuser_id_when_null(self, db_path):
+        """appuser_id must not be overwritten with NULL (breaks friend avatar lookup)."""
+        svc = UserService(db_path)
+        svc.upsert(user_id=1, appuser_id=42, gym_id=7, display_name="Bob")
+        svc.upsert(user_id=1, appuser_id=None, gym_id=7, display_name="Bob")
+        u = svc.get(1)
+        assert u.appuser_id == 42
+
     def test_get_avatar_filenames_by_appuser_ids(self, db_path):
         svc = UserService(db_path)
         svc.upsert(user_id=5, appuser_id=100, gym_id=1, display_name="x")
