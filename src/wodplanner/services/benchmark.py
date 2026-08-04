@@ -107,6 +107,57 @@ migrations.register(601, "seed default benchmark WODs", _migrate_v601)
 migrations.register(602, "create benchmark_results table", _migrate_v602)
 
 
+def _migrate_v805(conn: sqlite3.Connection) -> None:
+    """Recreate benchmark_results with FK to users/wods, CHECK, soft-delete, index."""
+    if migrations.has_fk_to(conn, "benchmark_results", "users") and migrations.has_column(
+        conn, "benchmark_results", "updated_at"
+    ):
+        return
+    with migrations.fk_disabled(conn):
+        conn.execute("ALTER TABLE benchmark_results RENAME TO benchmark_results_old")
+        conn.execute(
+            """
+            CREATE TABLE benchmark_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                benchmark_name TEXT NOT NULL REFERENCES benchmark_wods(name) ON UPDATE CASCADE ON DELETE RESTRICT,
+                time_seconds INTEGER NOT NULL CHECK(time_seconds > 0),
+                is_rx INTEGER NOT NULL DEFAULT 1 CHECK(is_rx IN (0, 1)),
+                recorded_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                deleted_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO benchmark_results
+                (id, user_id, benchmark_name, time_seconds, is_rx, recorded_at, created_at, updated_at, deleted_at)
+            SELECT id, user_id, benchmark_name, time_seconds, is_rx, recorded_at, created_at, created_at, NULL
+            FROM benchmark_results_old
+            """
+        )
+        conn.execute("DROP TABLE benchmark_results_old")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bmr_user_name ON benchmark_results(user_id, benchmark_name)"
+        )
+
+
+migrations.register(805, "recreate benchmark_results with FK + soft-delete", _migrate_v805)
+
+
+def _migrate_v809(conn: sqlite3.Connection) -> None:
+    """Add deleted_at + updated_at to benchmark_wods."""
+    if not migrations.has_column(conn, "benchmark_wods", "deleted_at"):
+        conn.execute("ALTER TABLE benchmark_wods ADD COLUMN deleted_at TEXT")
+    if not migrations.has_column(conn, "benchmark_wods", "updated_at"):
+        conn.execute("ALTER TABLE benchmark_wods ADD COLUMN updated_at TEXT")
+
+
+migrations.register(809, "add soft-delete + updated_at to benchmark_wods", _migrate_v809)
+
+
 class BenchmarkService(BaseService):
     def _row_to_model(self, row: sqlite3.Row) -> BenchmarkWod:
         return BenchmarkWod(
@@ -119,16 +170,17 @@ class BenchmarkService(BaseService):
     def get_benchmark_list(self) -> list[str]:
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT name FROM benchmark_wods ORDER BY name"
+                "SELECT name FROM benchmark_wods WHERE deleted_at IS NULL ORDER BY name"
             ).fetchall()
             return [row["name"] for row in rows]
 
     def add_benchmark_wod(self, name: str, category: str) -> bool:
         try:
+            now = datetime.now().isoformat()
             with self._get_connection() as conn:
                 conn.execute(
-                    "INSERT INTO benchmark_wods (name, category, created_at) VALUES (?, ?, ?)",
-                    (name.strip(), category.strip(), datetime.now().isoformat()),
+                    "INSERT INTO benchmark_wods (name, category, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                    (name.strip(), category.strip(), now, now),
                 )
                 conn.commit()
                 return True
@@ -149,10 +201,11 @@ class BenchmarkService(BaseService):
     def add_result(
         self, user_id: int, benchmark_name: str, time_seconds: int, is_rx: bool, recorded_at: str
     ) -> BenchmarkResult:
+        now = datetime.now().isoformat()
         with self._get_connection() as conn:
             row = conn.execute(
-                "INSERT INTO benchmark_results (user_id, benchmark_name, time_seconds, is_rx, recorded_at, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
-                (user_id, benchmark_name.strip(), time_seconds, int(is_rx), recorded_at, datetime.now().isoformat()),
+                "INSERT INTO benchmark_results (user_id, benchmark_name, time_seconds, is_rx, recorded_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                (user_id, benchmark_name.strip(), time_seconds, int(is_rx), recorded_at, now, now),
             ).fetchone()
             conn.commit()
             return self._row_to_result(row)
@@ -160,7 +213,7 @@ class BenchmarkService(BaseService):
     def get_results_for_benchmark(self, user_id: int, benchmark_name: str) -> list[BenchmarkResult]:
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM benchmark_results WHERE user_id = ? AND benchmark_name = ? ORDER BY recorded_at DESC",
+                "SELECT * FROM benchmark_results WHERE user_id = ? AND benchmark_name = ? AND deleted_at IS NULL ORDER BY recorded_at DESC",
                 (user_id, benchmark_name),
             ).fetchall()
             return [self._row_to_result(row) for row in rows]
@@ -168,23 +221,15 @@ class BenchmarkService(BaseService):
     def get_all_results(self, user_id: int) -> list[BenchmarkResult]:
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM benchmark_results WHERE user_id = ? ORDER BY recorded_at DESC",
+                "SELECT * FROM benchmark_results WHERE user_id = ? AND deleted_at IS NULL ORDER BY recorded_at DESC",
                 (user_id,),
             ).fetchall()
             return [self._row_to_result(row) for row in rows]
 
-    def get_benchmark_names_for_user(self, user_id: int) -> list[str]:
-        with self._get_connection() as conn:
-            rows = conn.execute(
-                "SELECT DISTINCT benchmark_name FROM benchmark_results WHERE user_id = ? ORDER BY benchmark_name",
-                (user_id,),
-            ).fetchall()
-            return [row["benchmark_name"] for row in rows]
-
     def get_result(self, user_id: int, result_id: int) -> BenchmarkResult | None:
         with self._get_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM benchmark_results WHERE id = ? AND user_id = ?",
+                "SELECT * FROM benchmark_results WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
                 (result_id, user_id),
             ).fetchone()
             return self._row_to_result(row) if row else None
@@ -192,8 +237,8 @@ class BenchmarkService(BaseService):
     def delete_result(self, user_id: int, result_id: int) -> bool:
         with self._get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM benchmark_results WHERE id = ? AND user_id = ?",
-                (result_id, user_id),
+                "UPDATE benchmark_results SET deleted_at = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
+                (datetime.now().isoformat(), result_id, user_id),
             )
             conn.commit()
             return cursor.rowcount > 0
@@ -201,8 +246,8 @@ class BenchmarkService(BaseService):
     def update_result(self, user_id: int, result_id: int, benchmark_name: str, time_seconds: int, is_rx: bool, recorded_at: str) -> bool:
         with self._get_connection() as conn:
             cursor = conn.execute(
-                "UPDATE benchmark_results SET benchmark_name = ?, time_seconds = ?, is_rx = ?, recorded_at = ? WHERE id = ? AND user_id = ?",
-                (benchmark_name, time_seconds, int(is_rx), recorded_at, result_id, user_id),
+                "UPDATE benchmark_results SET benchmark_name = ?, time_seconds = ?, is_rx = ?, recorded_at = ?, updated_at = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
+                (benchmark_name, time_seconds, int(is_rx), recorded_at, datetime.now().isoformat(), result_id, user_id),
             )
             conn.commit()
             return cursor.rowcount > 0

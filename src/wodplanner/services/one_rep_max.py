@@ -143,6 +143,56 @@ migrations.register(400, "create exercises and one_rep_maxes tables", _migrate_v
 migrations.register(401, "seed default exercises", _migrate_v401)
 
 
+def _migrate_v804(conn: sqlite3.Connection) -> None:
+    """Recreate one_rep_maxes with FK to users/exercises, CHECK, soft-delete, indexes."""
+    if migrations.has_fk_to(conn, "one_rep_maxes", "users") and migrations.has_column(
+        conn, "one_rep_maxes", "updated_at"
+    ):
+        return
+    with migrations.fk_disabled(conn):
+        conn.execute("ALTER TABLE one_rep_maxes RENAME TO one_rep_maxes_old")
+        conn.execute(
+            """
+            CREATE TABLE one_rep_maxes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                exercise TEXT NOT NULL REFERENCES exercises(name) ON UPDATE CASCADE ON DELETE RESTRICT,
+                weight_kg REAL NOT NULL CHECK(weight_kg > 0),
+                recorded_at TEXT NOT NULL,
+                notes TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                deleted_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO one_rep_maxes
+                (id, user_id, exercise, weight_kg, recorded_at, notes, created_at, updated_at, deleted_at)
+            SELECT id, user_id, exercise, weight_kg, recorded_at, notes, created_at, created_at, NULL
+            FROM one_rep_maxes_old
+            """
+        )
+        conn.execute("DROP TABLE one_rep_maxes_old")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_orm_user_exercise ON one_rep_maxes(user_id, exercise)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_orm_user_recorded ON one_rep_maxes(user_id, recorded_at)")
+
+
+migrations.register(804, "recreate one_rep_maxes with FK + soft-delete", _migrate_v804)
+
+
+def _migrate_v808(conn: sqlite3.Connection) -> None:
+    """Add deleted_at + updated_at to exercises."""
+    if not migrations.has_column(conn, "exercises", "deleted_at"):
+        conn.execute("ALTER TABLE exercises ADD COLUMN deleted_at TEXT")
+    if not migrations.has_column(conn, "exercises", "updated_at"):
+        conn.execute("ALTER TABLE exercises ADD COLUMN updated_at TEXT")
+
+
+migrations.register(808, "add soft-delete + updated_at to exercises", _migrate_v808)
+
+
 class OneRepMaxService(BaseService):
     def _row_to_model(self, row: sqlite3.Row) -> OneRepMax:
         return OneRepMax(
@@ -156,10 +206,11 @@ class OneRepMaxService(BaseService):
         )
 
     def add(self, user_id: int, exercise: str, weight_kg: float, recorded_at: date, notes: str | None = None) -> OneRepMax:
+        now = datetime.now().isoformat()
         with self._get_connection() as conn:
             row = conn.execute(
-                "INSERT INTO one_rep_maxes (user_id, exercise, weight_kg, recorded_at, notes, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
-                (user_id, exercise.strip(), weight_kg, recorded_at.isoformat(), notes, datetime.now().isoformat()),
+                "INSERT INTO one_rep_maxes (user_id, exercise, weight_kg, recorded_at, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *",
+                (user_id, exercise.strip(), weight_kg, recorded_at.isoformat(), notes, now, now),
             ).fetchone()
             conn.commit()
             return self._row_to_model(row)
@@ -167,7 +218,7 @@ class OneRepMaxService(BaseService):
     def get_all(self, user_id: int) -> list[OneRepMax]:
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM one_rep_maxes WHERE user_id = ? ORDER BY recorded_at DESC, created_at DESC",
+                "SELECT * FROM one_rep_maxes WHERE user_id = ? AND deleted_at IS NULL ORDER BY recorded_at DESC, created_at DESC",
                 (user_id,),
             ).fetchall()
             return [self._row_to_model(row) for row in rows]
@@ -175,7 +226,7 @@ class OneRepMaxService(BaseService):
     def get_for_exercise(self, user_id: int, exercise: str) -> list[OneRepMax]:
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM one_rep_maxes WHERE user_id = ? AND exercise = ? ORDER BY recorded_at DESC",
+                "SELECT * FROM one_rep_maxes WHERE user_id = ? AND exercise = ? AND deleted_at IS NULL ORDER BY recorded_at DESC",
                 (user_id, exercise),
             ).fetchall()
             return [self._row_to_model(row) for row in rows]
@@ -183,7 +234,7 @@ class OneRepMaxService(BaseService):
     def get_exercises(self, user_id: int) -> list[str]:
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT DISTINCT exercise FROM one_rep_maxes WHERE user_id = ? ORDER BY exercise",
+                "SELECT DISTINCT exercise FROM one_rep_maxes WHERE user_id = ? AND deleted_at IS NULL ORDER BY exercise",
                 (user_id,),
             ).fetchall()
             return [row["exercise"] for row in rows]
@@ -191,15 +242,17 @@ class OneRepMaxService(BaseService):
     def delete(self, user_id: int, entry_id: int) -> bool:
         with self._get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM one_rep_maxes WHERE id = ? AND user_id = ?",
-                (entry_id, user_id),
+                "UPDATE one_rep_maxes SET deleted_at = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
+                (datetime.now().isoformat(), entry_id, user_id),
             )
             conn.commit()
             return cursor.rowcount > 0
 
     def get_exercise_list(self) -> list[str]:
         with self._get_connection() as conn:
-            rows = conn.execute("SELECT name FROM exercises ORDER BY name").fetchall()
+            rows = conn.execute(
+                "SELECT name FROM exercises WHERE deleted_at IS NULL ORDER BY name"
+            ).fetchall()
             return [row["name"] for row in rows]
 
     def add_exercise(self, name: str) -> bool:
@@ -207,8 +260,8 @@ class OneRepMaxService(BaseService):
         try:
             with self._get_connection() as conn:
                 conn.execute(
-                    "INSERT INTO exercises (name, created_at) VALUES (?, ?)",
-                    (name.strip(), datetime.now().isoformat()),
+                    "INSERT INTO exercises (name, created_at, updated_at) VALUES (?, ?, ?)",
+                    (name.strip(), datetime.now().isoformat(), datetime.now().isoformat()),
                 )
                 conn.commit()
                 return True
@@ -218,7 +271,7 @@ class OneRepMaxService(BaseService):
     def validate_exercise(self, name: str) -> bool:
         with self._get_connection() as conn:
             row = conn.execute(
-                "SELECT 1 FROM exercises WHERE name = ?", (name,)
+                "SELECT 1 FROM exercises WHERE name = ? AND deleted_at IS NULL", (name,)
             ).fetchone()
             return row is not None
 
@@ -230,7 +283,7 @@ class OneRepMaxService(BaseService):
     def get_max_for_exercise(self, user_id: int, exercise: str) -> float | None:
         with self._get_connection() as conn:
             row = conn.execute(
-                "SELECT MAX(weight_kg) FROM one_rep_maxes WHERE user_id = ? AND exercise = ?",
+                "SELECT MAX(weight_kg) FROM one_rep_maxes WHERE user_id = ? AND exercise = ? AND deleted_at IS NULL",
                 (user_id, exercise),
             ).fetchone()
             return row[0] if row and row[0] is not None else None
@@ -238,7 +291,7 @@ class OneRepMaxService(BaseService):
     def get_by_id(self, user_id: int, entry_id: int) -> OneRepMax | None:
         with self._get_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM one_rep_maxes WHERE id = ? AND user_id = ?",
+                "SELECT * FROM one_rep_maxes WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
                 (entry_id, user_id),
             ).fetchone()
             return self._row_to_model(row) if row else None
@@ -246,8 +299,8 @@ class OneRepMaxService(BaseService):
     def update(self, user_id: int, entry_id: int, exercise: str, weight_kg: float, recorded_at: date) -> bool:
         with self._get_connection() as conn:
             cursor = conn.execute(
-                "UPDATE one_rep_maxes SET exercise = ?, weight_kg = ?, recorded_at = ? WHERE id = ? AND user_id = ?",
-                (exercise, weight_kg, recorded_at.isoformat(), entry_id, user_id),
+                "UPDATE one_rep_maxes SET exercise = ?, weight_kg = ?, recorded_at = ?, updated_at = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
+                (exercise, weight_kg, recorded_at.isoformat(), datetime.now().isoformat(), entry_id, user_id),
             )
             conn.commit()
             return cursor.rowcount > 0

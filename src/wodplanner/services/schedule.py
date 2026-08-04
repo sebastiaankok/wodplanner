@@ -114,6 +114,47 @@ def _migrate_v100(conn: sqlite3.Connection) -> None:
 migrations.register(100, "create schedules table (with gym_id)", _migrate_v100)
 
 
+def _migrate_v807(conn: sqlite3.Connection) -> None:
+    """Recreate schedules — fix NULL gym_id (-> 0), add updated_at + index."""
+    if migrations.has_column(conn, "schedules", "updated_at"):
+        return
+    with migrations.fk_disabled(conn):
+        conn.execute("ALTER TABLE schedules RENAME TO schedules_old")
+        conn.execute(
+            """
+            CREATE TABLE schedules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gym_id INTEGER NOT NULL DEFAULT 0,
+                date DATE NOT NULL,
+                class_type TEXT NOT NULL,
+                warmup_mobility TEXT,
+                strength_specialty TEXT,
+                metcon TEXT,
+                raw_content TEXT,
+                source_file TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(date, class_type, gym_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO schedules
+                (id, gym_id, date, class_type, warmup_mobility, strength_specialty,
+                 metcon, raw_content, source_file, created_at, updated_at)
+            SELECT id, COALESCE(gym_id, 0), date, class_type, warmup_mobility, strength_specialty,
+                   metcon, raw_content, source_file, created_at, created_at
+            FROM schedules_old
+            """
+        )
+        conn.execute("DROP TABLE schedules_old")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_schedules_date_gym ON schedules(date, gym_id)")
+
+
+migrations.register(807, "recreate schedules (gym_id NOT NULL, updated_at)", _migrate_v807)
+
+
 class ScheduleService(BaseService):
     """Service for managing workout schedules with SQLite storage."""
 
@@ -133,21 +174,23 @@ class ScheduleService(BaseService):
         )
 
     def _execute_add(self, conn: sqlite3.Connection, schedule: Schedule) -> int | None:
+        now = datetime.now().isoformat()
+        gym_id = schedule.gym_id if schedule.gym_id is not None else 0
         cursor = conn.execute(
             """
             INSERT INTO schedules
-            (gym_id, date, class_type, warmup_mobility, strength_specialty, metcon, raw_content, source_file, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (gym_id, date, class_type, warmup_mobility, strength_specialty, metcon, raw_content, source_file, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(date, class_type, gym_id) DO UPDATE SET
                 warmup_mobility = excluded.warmup_mobility,
                 strength_specialty = excluded.strength_specialty,
                 metcon = excluded.metcon,
                 raw_content = excluded.raw_content,
                 source_file = excluded.source_file,
-                created_at = excluded.created_at
+                updated_at = excluded.updated_at
             """,
             (
-                schedule.gym_id,
+                gym_id,
                 schedule.date.isoformat(),
                 schedule.class_type,
                 schedule.warmup_mobility,
@@ -155,7 +198,8 @@ class ScheduleService(BaseService):
                 schedule.metcon,
                 schedule.raw_content,
                 schedule.source_file,
-                datetime.now().isoformat(),
+                now,
+                now,
             ),
         )
         return cursor.lastrowid
@@ -184,7 +228,7 @@ class ScheduleService(BaseService):
             placeholders = ",".join("?" * len(aliases))
             if gym_id is not None:
                 row = conn.execute(
-                    f"SELECT * FROM schedules WHERE date = ? AND class_type IN ({placeholders}) AND (gym_id = ? OR gym_id IS NULL)",
+                    f"SELECT * FROM schedules WHERE date = ? AND class_type IN ({placeholders}) AND (gym_id = ? OR gym_id = 0)",
                     (schedule_date.isoformat(), *aliases, gym_id),
                 ).fetchone()
             else:
@@ -202,7 +246,7 @@ class ScheduleService(BaseService):
         with self._get_connection() as conn:
             if gym_id is not None:
                 rows = conn.execute(
-                    "SELECT * FROM schedules WHERE date = ? AND (gym_id = ? OR gym_id IS NULL) ORDER BY class_type",
+                    "SELECT * FROM schedules WHERE date = ? AND (gym_id = ? OR gym_id = 0) ORDER BY class_type",
                     (schedule_date.isoformat(), gym_id),
                 ).fetchall()
             else:
@@ -211,10 +255,6 @@ class ScheduleService(BaseService):
                     (schedule_date.isoformat(),),
                 ).fetchall()
             return [self._row_to_model(row) for row in rows]
-
-    def find_for_appointment(self, appointment_name: str, appointment_date: date, gym_id: int | None = None) -> Schedule | None:
-        """Find a schedule that matches an appointment name and date."""
-        return self.get_by_date_and_class(appointment_date, appointment_name, gym_id=gym_id)
 
     def get_all_for_date(self, schedule_date: date, gym_id: int | None = None) -> dict[str, Schedule]:
         """All schedules for a date, keyed by every known alias — O(1) lookup by API class name."""

@@ -19,10 +19,17 @@ from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
 from wodplanner.services.subscription import SubscriptionService
 from wodplanner.services.subscription_tracker import SubscriptionTrackerService
+from wodplanner.services.users import UserService
 
 
 def _get_db_path() -> Path:
     return Path(os.environ.get("DB_PATH", "/data/wodplanner.db"))
+
+
+@lru_cache
+def get_user_service() -> UserService:
+    """Get the singleton user service."""
+    return UserService(_get_db_path())
 
 
 @lru_cache
@@ -88,7 +95,18 @@ def require_session(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
+    _upsert_user(session)
     return session
+
+
+def _upsert_user(session: AuthSession) -> None:
+    """Lazily persist the user's identity from the session."""
+    get_user_service().upsert(
+        user_id=session.user_id,
+        appuser_id=session.appuser_id,
+        gym_id=session.gym_id,
+        display_name=session.firstname,
+    )
 
 
 def require_session_for_view(
@@ -116,6 +134,7 @@ def require_session_for_view(
             status_code=status.HTTP_303_SEE_OTHER,
             headers={"Location": "/login"},
         )
+    _upsert_user(session)
     return session
 
 

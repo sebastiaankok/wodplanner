@@ -1,11 +1,14 @@
 """CLI tool for backing up the SQLite database."""
 
 import argparse
+import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 MAX_BACKUPS = 7
+
+logger = logging.getLogger(__name__)
 
 
 def backup(db_path: Path, backup_dir: Path) -> Path:
@@ -21,7 +24,30 @@ def backup(db_path: Path, backup_dir: Path) -> Path:
         dst.close()
         src.close()
 
+    _verify_backup(dest)
     return dest
+
+
+def _verify_backup(dest: Path) -> None:
+    """Run integrity + FK checks on the backup; delete it if either fails."""
+    conn = sqlite3.connect(dest)
+    try:
+        integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        if integrity != "ok":
+            logger.error("Backup %s failed integrity_check: %s", dest, integrity)
+            _discard(dest)
+            return
+        fk_violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+        if fk_violations:
+            logger.error("Backup %s has %d FK violations", dest, len(fk_violations))
+            _discard(dest)
+            return
+    finally:
+        conn.close()
+
+
+def _discard(dest: Path) -> None:
+    dest.unlink(missing_ok=True)
 
 
 def rotate(backup_dir: Path, keep: int = MAX_BACKUPS) -> list[Path]:

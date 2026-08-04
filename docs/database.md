@@ -19,6 +19,9 @@ Version ranges per service (keep grouped, avoid collisions):
 | 300–399 | `preferences` |
 | 400–499 | `one_rep_max` |
 | 500–599 | *(reserved — was `google_accounts`)* |
+| 600–699 | `benchmark` |
+| 700–799 | `subscription_tracker` |
+| 800–899 | `users` (single source of truth for user identity) |
 
 ### Applying migrations
 
@@ -62,11 +65,21 @@ WAL mode is persistent (stored in DB file header) — set once on first connecti
 
 ## Tables
 
-- `friends` — scoped per `owner_user_id`; unique on `(owner_user_id, appuser_id)`
-- `preferences` — scoped per `user_id`; primary key `(user_id, key)`; value is JSON-encoded. Known keys: `hidden_class_types` (JSON array of class type strings), `dismissed_tooltips` (JSON array of tooltip ID strings), `my_appuser_id` (stringified int — the user's `id_appuser` in member lists; discovered once via name-match in `people_modal_view`, then used for reliable ID-based self-detection)
-- `schedules` — scoped per `gym_id`; unique on `(date, class_type, gym_id)`; `gym_id` nullable for legacy rows imported before gym scoping was added
-- `exercises` — canonical list of 1RM exercise names; columns: `id`, `name` (UNIQUE), `created_at`; seeded with 28 predefined exercises on first run if table is empty; extended via `add-1rm` CLI
-- `one_rep_maxes` — scoped per `user_id`; columns: `id`, `user_id`, `exercise` (must match a name in `exercises`), `weight_kg`, `recorded_at` (ISO date), `notes`, `created_at`
+- `users` — single source of truth for user identity. PK `id` = WodApp `user_id` (from session); also stores `appuser_id` (for member matching), `gym_id`, `display_name`, `avatar_filename`, `tracking_disabled`. Referenced by every user-scoped table via FK. Rows are populated lazily on first authenticated request.
+- `friends` — scoped per `owner_user_id` (FK → `users`); unique on `(owner_user_id, appuser_id)`; soft-deletable via `deleted_at`
+- `preferences` — scoped per `user_id` (FK → `users`); primary key `(user_id, key)`; value is JSON-encoded. Keeps only UI settings: `hidden_class_types`, `dismissed_tooltips`. Identity/tracking/avatar keys moved to `users`.
+- `schedules` — scoped per `gym_id` (NOT NULL, default 0); unique on `(date, class_type, gym_id)`; index on `(date, gym_id)`; `created_at` is immutable, `updated_at` set on every upsert
+- `exercises` — canonical list of 1RM exercise names; columns: `id`, `name` (UNIQUE), `created_at`, `updated_at`, `deleted_at`; seeded with 28 predefined exercises on first run if table is empty; extended via `add-1rm` CLI
+- `one_rep_maxes` — scoped per `user_id` (FK → `users`); `exercise` FK → `exercises(name)`; columns: `id`, `user_id`, `exercise`, `weight_kg` (>0), `recorded_at`, `notes`, `created_at`, `updated_at`, `deleted_at`; indexes on `(user_id, exercise)` and `(user_id, recorded_at)`
+- `benchmark_wods` — canonical list of benchmark WOD names; columns `id`, `name` (UNIQUE), `category`, `created_at`, `updated_at`, `deleted_at`
+- `benchmark_results` — scoped per `user_id` (FK → `users`); `benchmark_name` FK → `benchmark_wods(name)`; columns `id`, `user_id`, `benchmark_name`, `time_seconds` (>0), `is_rx`, `recorded_at`, `created_at`, `updated_at`, `deleted_at`; index on `(user_id, benchmark_name)`
+- `subscription_events` — event log, scoped per `user_id` (FK → `users`, ON DELETE CASCADE); no soft-delete; indexes on `(user_id, class_date)` and `(user_id, appointment_id)`
+
+### Conventions
+
+- **Soft deletes**: user-data and reference tables (`friends`, `one_rep_maxes`, `benchmark_results`, `exercises`, `benchmark_wods`) expose `deleted_at TEXT`. All SELECT queries filter `WHERE deleted_at IS NULL`; delete methods set `deleted_at` instead of issuing `DELETE`.
+- **Audit timestamps**: all tables carry `created_at` (immutable) and `updated_at` (set on every change), stored as ISO-8601 `TEXT`.
+- **Lazy population**: `users` rows are created/refreshed on every authenticated request via `dependencies.require_session` / `require_session_for_view` (`UserService.upsert`). This keeps `appuser_id`, `gym_id`, and `display_name` in sync with the session while never overwriting `tracking_disabled` or `avatar_filename`.
 
 
 ## Auth

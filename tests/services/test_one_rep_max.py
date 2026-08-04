@@ -141,7 +141,8 @@ class TestOneRepMaxService:
         result = svc.match_exercise("xyznonexistent")
         assert result is None
 
-    def test_add_and_get_1rm(self, db_path):
+    def test_add_and_get_1rm(self, db_path, make_user):
+        make_user(1)
         from datetime import date
 
         svc = OneRepMaxService(db_path)
@@ -152,7 +153,8 @@ class TestOneRepMaxService:
         results = svc.get_all(user_id=1)
         assert len(results) == 1
 
-    def test_get_for_exercise(self, db_path):
+    def test_get_for_exercise(self, db_path, make_user):
+        make_user(1)
         from datetime import date
 
         svc = OneRepMaxService(db_path)
@@ -163,7 +165,8 @@ class TestOneRepMaxService:
         results = svc.get_for_exercise(user_id=1, exercise="Back Squat")
         assert len(results) == 2
 
-    def test_get_max_for_exercise(self, db_path):
+    def test_get_max_for_exercise(self, db_path, make_user):
+        make_user(1)
         from datetime import date
 
         svc = OneRepMaxService(db_path)
@@ -178,7 +181,8 @@ class TestOneRepMaxService:
         max_weight = svc.get_max_for_exercise(user_id=1, exercise="Nonexistent")
         assert max_weight is None
 
-    def test_delete(self, db_path):
+    def test_delete(self, db_path, make_user):
+        make_user(1)
         from datetime import date
 
         svc = OneRepMaxService(db_path)
@@ -189,7 +193,8 @@ class TestOneRepMaxService:
         results = svc.get_all(user_id=1)
         assert len(results) == 0
 
-    def test_delete_wrong_user_returns_false(self, db_path):
+    def test_delete_wrong_user_returns_false(self, db_path, make_user):
+        make_user(1)
         from datetime import date
 
         svc = OneRepMaxService(db_path)
@@ -197,7 +202,8 @@ class TestOneRepMaxService:
         deleted = svc.delete(user_id=999, entry_id=entry.id)
         assert deleted is False
 
-    def test_get_by_id(self, db_path):
+    def test_get_by_id(self, db_path, make_user):
+        make_user(1)
         from datetime import date
 
         svc = OneRepMaxService(db_path)
@@ -212,7 +218,8 @@ class TestOneRepMaxService:
         found = svc.get_by_id(user_id=1, entry_id=99999)
         assert found is None
 
-    def test_get_by_id_wrong_user(self, db_path):
+    def test_get_by_id_wrong_user(self, db_path, make_user):
+        make_user(1)
         from datetime import date
 
         svc = OneRepMaxService(db_path)
@@ -220,7 +227,8 @@ class TestOneRepMaxService:
         found = svc.get_by_id(user_id=999, entry_id=entry.id)
         assert found is None
 
-    def test_update(self, db_path):
+    def test_update(self, db_path, make_user):
+        make_user(1)
         from datetime import date
 
         svc = OneRepMaxService(db_path)
@@ -234,7 +242,8 @@ class TestOneRepMaxService:
         assert updated_entry.weight_kg == 110.0
         assert updated_entry.recorded_at == date(2026, 2, 1)
 
-    def test_update_wrong_user_returns_false(self, db_path):
+    def test_update_wrong_user_returns_false(self, db_path, make_user):
+        make_user(1)
         from datetime import date
 
         svc = OneRepMaxService(db_path)

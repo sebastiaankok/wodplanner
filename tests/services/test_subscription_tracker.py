@@ -6,31 +6,36 @@ from wodplanner.services.subscription_tracker import SubscriptionTrackerService
 
 
 class TestRecordSubscribe:
-    def test_records_subscribe(self, db_path):
+    def test_records_subscribe(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 6, 1))
         assert svc.has_any_events(1)
         assert not svc.has_any_events(2)
 
-    def test_records_any_class_type(self, db_path):
+    def test_records_any_class_type(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="Yoga", class_date=date(2026, 6, 1))
         assert svc.has_any_events(1)
 
 
 class TestRecordUnsubscribe:
-    def test_records_unsubscribe(self, db_path):
+    def test_records_unsubscribe(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 6, 1))
         svc.record_unsubscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 6, 1))
         assert svc.has_any_events(1)
 
-    def test_ignores_unsubscribe_without_prior_subscribe(self, db_path):
+    def test_ignores_unsubscribe_without_prior_subscribe(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.record_unsubscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 6, 1))
         assert not svc.has_any_events(1)
 
-    def test_sub_then_unsub_net_zero_for_week(self, db_path):
+    def test_sub_then_unsub_net_zero_for_week(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 6, 1))
         svc.record_unsubscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 6, 1))
@@ -43,7 +48,8 @@ class TestRecordUnsubscribe:
 
 
 class TestWeeklyCounts:
-    def test_single_past_session(self, db_path):
+    def test_single_past_session(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 5, 1))
         weekly = svc.get_weekly_counts(user_id=1, weeks=52)
@@ -54,7 +60,8 @@ class TestWeeklyCounts:
                 assert w["future"] == 0
                 break
 
-    def test_multiple_sessions_same_week(self, db_path):
+    def test_multiple_sessions_same_week(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 5, 4))
         svc.record_subscribe(user_id=1, appointment_id=11, class_name="CrossFit", class_date=date(2026, 5, 6))
@@ -65,13 +72,15 @@ class TestWeeklyCounts:
                 assert w["past"] == 2
                 break
 
-    def test_returns_52_weeks(self, db_path):
+    def test_returns_52_weeks(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.record_subscribe(user_id=1, appointment_id=1, class_name="CrossFit", class_date=date(2026, 1, 1))
         weekly = svc.get_weekly_counts(user_id=1, weeks=52)
         assert len(weekly) == 52
 
-    def test_user_scoping(self, db_path):
+    def test_user_scoping(self, db_path, make_user):
+        make_user(1, 2)
         svc = SubscriptionTrackerService(db_path)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 5, 1))
         svc.record_subscribe(user_id=2, appointment_id=11, class_name="CrossFit", class_date=date(2026, 5, 2))
@@ -88,7 +97,8 @@ class TestWeeklyCounts:
                 assert w["past"] == 1
                 break
 
-    def test_pre_existing_unsubscribe_ignored(self, db_path):
+    def test_pre_existing_unsubscribe_ignored(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.record_unsubscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 7, 12))
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 7, 12))
@@ -102,7 +112,8 @@ class TestWeeklyCounts:
 
 
 class TestCurrentWeekStats:
-    def test_returns_counts(self, db_path):
+    def test_returns_counts(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         today = date.today()
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=today)
@@ -115,7 +126,8 @@ class TestAveragePerWeek:
         svc = SubscriptionTrackerService(db_path)
         assert svc.get_average_per_week(1) == 0.0
 
-    def test_one_week_one_session(self, db_path):
+    def test_one_week_one_session(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         past_date = date.today() - timedelta(days=10)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=past_date)
@@ -128,7 +140,8 @@ class TestWeeksTracked:
         svc = SubscriptionTrackerService(db_path)
         assert svc.get_weeks_tracked(1) == 0
 
-    def test_counts_distinct_weeks(self, db_path):
+    def test_counts_distinct_weeks(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         past = date.today() - timedelta(days=30)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=past)
@@ -137,7 +150,8 @@ class TestWeeksTracked:
 
 
 class TestDeleteAllForUser:
-    def test_deletes_all_events_for_user(self, db_path):
+    def test_deletes_all_events_for_user(self, db_path, make_user):
+        make_user(1, 2)
         svc = SubscriptionTrackerService(db_path)
         svc.record_subscribe(user_id=1, appointment_id=10, class_name="CrossFit", class_date=date(2026, 6, 1))
         svc.record_subscribe(user_id=1, appointment_id=11, class_name="CrossFit", class_date=date(2026, 6, 2))
@@ -146,7 +160,8 @@ class TestDeleteAllForUser:
         assert not svc.has_any_events(1)
         assert svc.has_any_events(2)
 
-    def test_noop_when_no_data(self, db_path):
+    def test_noop_when_no_data(self, db_path, make_user):
+        make_user(1)
         svc = SubscriptionTrackerService(db_path)
         svc.delete_all_for_user(user_id=1)
         assert not svc.has_any_events(1)

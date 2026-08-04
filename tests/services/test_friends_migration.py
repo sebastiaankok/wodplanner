@@ -1,9 +1,9 @@
-"""Tests for friends._migrate_v200 ALTER branch (legacy schema migration)."""
+"""Tests for friends legacy-schema migration (v200 ALTER + full v800+ cascade)."""
 
 import sqlite3
 
 from wodplanner.services import migrations
-from wodplanner.services.friends import FriendsService, _migrate_v200
+from wodplanner.services.friends import FriendsService
 
 
 class TestFriendsMigrationAlter:
@@ -27,14 +27,12 @@ class TestFriendsMigrationAlter:
             (123, "OldFriend", "2026-04-25T10:00:00"),
         )
         conn.commit()
-
-        # Run migration
-        _migrate_v200(conn)
-        conn.commit()
         conn.close()
 
-        # Confirm new schema + row preserved with owner_user_id=0
+        # Run the full migration set (v200 ALTER + v800-v809 migrate-and-recreate).
         migrations._reset_for_tests()
+        migrations.ensure_migrations(db)
+
         svc = FriendsService(db)
         rows = svc.get_all(owner_user_id=0)
         assert len(rows) == 1

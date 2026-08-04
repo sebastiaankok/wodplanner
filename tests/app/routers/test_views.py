@@ -295,8 +295,8 @@ class TestPeopleModal:
         assert response.status_code == 200
         assert "Alice" in response.text
 
-    def test_self_discovery_via_name_match(self, app_client, mock_wodapp_client, preferences_service):
-        # session firstname "User" matches one member exactly → should set my_appuser_id
+    def test_self_discovery_via_name_match(self, app_client, mock_wodapp_client, user_service):
+        # session firstname "User" matches one member exactly → should set appuser_id
         from wodplanner.app.config import settings
         from wodplanner.models.auth import AuthSession
         from wodplanner.services import session as cookie_session
@@ -322,7 +322,7 @@ class TestPeopleModal:
             params={"date_start": "2026-04-25 10:00", "date_end": "2026-04-25 11:00"},
         )
         assert response.status_code == 200
-        assert preferences_service.get_my_appuser_id(77) == 8888
+        assert user_service.get(77).appuser_id == 8888
 
 
 class TestAddFriendFromPeople:
@@ -748,8 +748,8 @@ class TestSettingsPage:
         response = app_client.get("/settings")
         assert response.status_code == 200
 
-    def test_shows_tracking_state(self, app_client, session_cookie, preferences_service):
-        preferences_service.set_tracking_disabled(42, True)
+    def test_shows_tracking_state(self, app_client, session_cookie, user_service):
+        user_service.set_tracking_disabled(42, True)
         app_client.cookies.set("session", session_cookie)
         response = app_client.get("/settings")
         assert response.status_code == 200
@@ -771,24 +771,24 @@ class TestSettingsToggleFilter:
 
 
 class TestToggleTracking:
-    def test_disable_tracking(self, app_client, session_cookie, preferences_service):
+    def test_disable_tracking(self, app_client, session_cookie, user_service):
         app_client.cookies.set("session", session_cookie)
         response = app_client.post("/settings/toggle-tracking", data={"enable": "false", "delete_data": "false"})
         assert response.status_code == 200
-        assert preferences_service.is_tracking_disabled(42) is True
+        assert user_service.is_tracking_disabled(42) is True
 
-    def test_enable_tracking(self, app_client, session_cookie, preferences_service):
-        preferences_service.set_tracking_disabled(42, True)
+    def test_enable_tracking(self, app_client, session_cookie, user_service):
+        user_service.set_tracking_disabled(42, True)
         app_client.cookies.set("session", session_cookie)
         response = app_client.post("/settings/toggle-tracking", data={"enable": "true", "delete_data": "false"})
         assert response.status_code == 200
-        assert preferences_service.is_tracking_disabled(42) is False
+        assert user_service.is_tracking_disabled(42) is False
 
-    def test_disable_with_delete(self, app_client, session_cookie, preferences_service):
+    def test_disable_with_delete(self, app_client, session_cookie, user_service):
         app_client.cookies.set("session", session_cookie)
         response = app_client.post("/settings/toggle-tracking", data={"enable": "false", "delete_data": "true"})
         assert response.status_code == 200
-        assert preferences_service.is_tracking_disabled(42) is True
+        assert user_service.is_tracking_disabled(42) is True
 
 
 class TestDeleteTrackingData:
@@ -823,7 +823,7 @@ class TestBenchmarkPage:
 
 
 class TestUploadAvatar:
-    def test_upload_success(self, app_client, session_cookie, monkeypatch, tmp_path, preferences_service):
+    def test_upload_success(self, app_client, session_cookie, monkeypatch, tmp_path, user_service):
         upload_path = tmp_path / "avatars"
         monkeypatch.setattr("wodplanner.app.routers.views._UPLOAD_DIR", upload_path)
 
@@ -839,7 +839,7 @@ class TestUploadAvatar:
             )
         assert response.status_code == 303
         assert response.headers["location"] == "/friends"
-        assert preferences_service.get_avatar_filename(42) == "avatar_42.png"
+        assert user_service.get_avatar_filename(42) == "avatar_42.png"
 
     def test_upload_invalid_extension(self, app_client, session_cookie):
         app_client.cookies.set("session", session_cookie)
@@ -907,8 +907,8 @@ class TestBenchmarkModalNotFound:
 
 
 class TestPeopleModalAvatar:
-    def test_my_avatar_included(self, app_client, session_cookie, mock_wodapp_client, preferences_service):
-        preferences_service.set_avatar_filename(42, "avatar_42.jpg")
+    def test_my_avatar_included(self, app_client, session_cookie, mock_wodapp_client, user_service):
+        user_service.set_avatar_filename(42, "avatar_42.jpg")
         details = _details()
         details.subscriptions.members = [
             Member(id_appuser=1, name="Alice", imageURL=""),

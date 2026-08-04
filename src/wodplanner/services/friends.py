@@ -55,6 +55,40 @@ def _migrate_v200(conn: sqlite3.Connection) -> None:
 migrations.register(200, "create friends table (owner-scoped)", _migrate_v200)
 
 
+def _migrate_v803(conn: sqlite3.Connection) -> None:
+    """Recreate friends with FK to users + soft-delete + index."""
+    if migrations.has_fk_to(conn, "friends", "users") and migrations.has_column(
+        conn, "friends", "deleted_at"
+    ):
+        return
+    with migrations.fk_disabled(conn):
+        conn.execute("ALTER TABLE friends RENAME TO friends_old")
+        conn.execute(
+            """
+            CREATE TABLE friends (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                appuser_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                added_at TEXT NOT NULL,
+                deleted_at TEXT,
+                UNIQUE(owner_user_id, appuser_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO friends (id, owner_user_id, appuser_id, name, added_at, deleted_at)
+            SELECT id, owner_user_id, appuser_id, name, added_at, NULL FROM friends_old
+            """
+        )
+        conn.execute("DROP TABLE friends_old")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_friends_owner ON friends(owner_user_id)")
+
+
+migrations.register(803, "recreate friends with FK users + soft-delete", _migrate_v803)
+
+
 class FriendsService(BaseService):
     """Service for managing friends with SQLite storage."""
 
@@ -86,7 +120,7 @@ class FriendsService(BaseService):
         """Get a friend by ID, scoped to owner."""
         with self._get_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM friends WHERE id = ? AND owner_user_id = ?",
+                "SELECT * FROM friends WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL",
                 (friend_id, owner_user_id),
             ).fetchone()
             return self._row_to_model(row) if row else None
@@ -95,7 +129,7 @@ class FriendsService(BaseService):
         """Get a friend by WodApp user ID, scoped to owner."""
         with self._get_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM friends WHERE owner_user_id = ? AND appuser_id = ?",
+                "SELECT * FROM friends WHERE owner_user_id = ? AND appuser_id = ? AND deleted_at IS NULL",
                 (owner_user_id, appuser_id),
             ).fetchone()
             return self._row_to_model(row) if row else None
@@ -104,7 +138,7 @@ class FriendsService(BaseService):
         """Get all friends for owner."""
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM friends WHERE owner_user_id = ? ORDER BY name",
+                "SELECT * FROM friends WHERE owner_user_id = ? AND deleted_at IS NULL ORDER BY name",
                 (owner_user_id,),
             ).fetchall()
             return [self._row_to_model(row) for row in rows]
@@ -113,27 +147,27 @@ class FriendsService(BaseService):
         """Get set of friend appuser IDs for quick lookup, scoped to owner."""
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT appuser_id FROM friends WHERE owner_user_id = ?",
+                "SELECT appuser_id FROM friends WHERE owner_user_id = ? AND deleted_at IS NULL",
                 (owner_user_id,),
             ).fetchall()
             return {row["appuser_id"] for row in rows}
 
     def delete(self, owner_user_id: int, friend_id: int) -> bool:
-        """Delete a friend by ID, scoped to owner."""
+        """Soft-delete a friend by ID, scoped to owner."""
         with self._get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM friends WHERE id = ? AND owner_user_id = ?",
-                (friend_id, owner_user_id),
+                "UPDATE friends SET deleted_at = ? WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL",
+                (datetime.now().isoformat(), friend_id, owner_user_id),
             )
             conn.commit()
             return cursor.rowcount > 0
 
     def delete_by_appuser_id(self, owner_user_id: int, appuser_id: int) -> bool:
-        """Delete a friend by WodApp user ID, scoped to owner."""
+        """Soft-delete a friend by WodApp user ID, scoped to owner."""
         with self._get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM friends WHERE owner_user_id = ? AND appuser_id = ?",
-                (owner_user_id, appuser_id),
+                "UPDATE friends SET deleted_at = ? WHERE owner_user_id = ? AND appuser_id = ? AND deleted_at IS NULL",
+                (datetime.now().isoformat(), owner_user_id, appuser_id),
             )
             conn.commit()
             return cursor.rowcount > 0
