@@ -54,6 +54,24 @@ class TestBackup:
         assert result.exists()
         assert backup_dir.exists()
 
+    def test_backup_with_fk_violation_is_discarded(self, tmp_path):
+        db_path = tmp_path / "broken.db"
+        backup_dir = tmp_path / "backups"
+
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE parent (id INTEGER PRIMARY KEY)")
+        conn.execute(
+            "CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id))"
+        )
+        conn.execute("INSERT INTO child VALUES (1, 99)")  # orphan parent_id
+        conn.commit()
+        conn.close()
+
+        result = backup(db_path, backup_dir)
+
+        assert not result.exists()
+        assert len(list(backup_dir.glob("wodplanner_*.db"))) == 0
+
 
 class TestRotate:
     def test_rotate_keeps_all_when_under_limit(self, tmp_path):

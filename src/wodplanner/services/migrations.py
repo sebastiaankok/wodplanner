@@ -13,17 +13,21 @@ Version ranges per service (keep migrations grouped and avoid collisions):
     200-299  friends
     300-399  preferences
     400-499  one_rep_max
+    600-699  benchmark
+    700-799  subscription_tracker
+    800-899  users (single source of truth for user identity)
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import sqlite3
 import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Union
+from typing import Callable, Iterator, Union
 
 from wodplanner.services.db import get_connection
 
@@ -43,6 +47,37 @@ class _Entry:
 _registry: list[_Entry] = []
 _applied_paths: set[Path] = set()
 _lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def fk_disabled(conn: sqlite3.Connection) -> Iterator[None]:
+    """Temporarily disable FK enforcement so recreate-and-copy migrations can
+    preserve otherwise-orphaned rows. FK is re-enabled and committed on exit."""
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        yield
+    finally:
+        conn.commit()
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.commit()
+
+
+def table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    return (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+        ).fetchone()
+        is not None
+    )
+
+
+def has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})")]
+    return column in cols
+
+
+def has_fk_to(conn: sqlite3.Connection, table: str, parent: str) -> bool:
+    return any(r["table"] == parent for r in conn.execute(f"PRAGMA foreign_key_list({table})"))
 
 
 def register(version: int, description: str, sql: MigrationSql) -> None:
@@ -99,6 +134,7 @@ def _import_services_for_registration() -> None:
         preferences,
         schedule,
         subscription_tracker,
+        users,
     )
 
 

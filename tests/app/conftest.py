@@ -14,6 +14,7 @@ from wodplanner.app.dependencies import (
     get_one_rep_max_service,
     get_preferences_service,
     get_schedule_service,
+    get_user_service,
 )
 from wodplanner.models.auth import AuthSession
 from wodplanner.services import session as cookie_session
@@ -23,6 +24,7 @@ from wodplanner.services.login_limiter import limiter
 from wodplanner.services.one_rep_max import OneRepMaxService
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
+from wodplanner.services.users import UserService
 
 
 def _clear_dep_caches() -> None:
@@ -33,6 +35,7 @@ def _clear_dep_caches() -> None:
         get_one_rep_max_service,
         get_benchmark_service,
         get_api_cache_service,
+        get_user_service,
     ):
         fn.cache_clear()
 
@@ -46,6 +49,17 @@ def _isolate_dependency_caches(monkeypatch, db_path):
     yield
     _clear_dep_caches()
     limiter._state.clear()
+
+
+@pytest.fixture(autouse=True)
+def _create_auth_user(db_path, auth_session):
+    """Ensure the authenticated user (id 42) exists as an FK parent."""
+    UserService(db_path).upsert(
+        user_id=auth_session.user_id,
+        appuser_id=auth_session.appuser_id,
+        gym_id=auth_session.gym_id,
+        display_name=auth_session.firstname,
+    )
 
 
 @pytest.fixture
@@ -120,6 +134,11 @@ def schedule_service(db_path) -> ScheduleService:
 @pytest.fixture
 def preferences_service(db_path) -> PreferencesService:
     return PreferencesService(db_path)
+
+
+@pytest.fixture
+def user_service(db_path) -> UserService:
+    return UserService(db_path)
 
 
 @pytest.fixture

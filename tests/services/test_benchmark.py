@@ -249,7 +249,8 @@ class TestBenchmarkResultModel:
 
 
 class TestBenchmarkResultService:
-    def test_add_and_get_results(self, db_path):
+    def test_add_and_get_results(self, db_path, make_user):
+        make_user(1)
         svc = BenchmarkService(db_path)
         svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
         results = svc.get_results_for_benchmark(user_id=1, benchmark_name="Fran")
@@ -257,7 +258,8 @@ class TestBenchmarkResultService:
         assert results[0].time_seconds == 180
         assert results[0].is_rx is True
 
-    def test_results_ordered_by_date_desc(self, db_path):
+    def test_results_ordered_by_date_desc(self, db_path, make_user):
+        make_user(1)
         svc = BenchmarkService(db_path)
         svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=300, is_rx=True, recorded_at="2026-05-04")
         svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
@@ -265,13 +267,15 @@ class TestBenchmarkResultService:
         assert results[0].recorded_at == "2026-05-05"
         assert results[1].recorded_at == "2026-05-04"
 
-    def test_scoped_by_user(self, db_path):
+    def test_scoped_by_user(self, db_path, make_user):
+        make_user(1, 2)
         svc = BenchmarkService(db_path)
         svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
         results = svc.get_results_for_benchmark(user_id=2, benchmark_name="Fran")
         assert len(results) == 0
 
-    def test_scoped_by_benchmark_name(self, db_path):
+    def test_scoped_by_benchmark_name(self, db_path, make_user):
+        make_user(1)
         svc = BenchmarkService(db_path)
         svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
         svc.add_result(user_id=1, benchmark_name="Helen", time_seconds=600, is_rx=True, recorded_at="2026-05-05")
@@ -279,27 +283,31 @@ class TestBenchmarkResultService:
         assert len(results) == 1
         assert results[0].benchmark_name == "Fran"
 
-    def test_delete_result(self, db_path):
+    def test_delete_result(self, db_path, make_user):
+        make_user(1)
         svc = BenchmarkService(db_path)
         r = svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
         svc.delete_result(user_id=1, result_id=r.id)
         results = svc.get_results_for_benchmark(user_id=1, benchmark_name="Fran")
         assert len(results) == 0
 
-    def test_delete_scoped_by_user(self, db_path):
+    def test_delete_scoped_by_user(self, db_path, make_user):
+        make_user(1, 2)
         svc = BenchmarkService(db_path)
         r = svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
         svc.delete_result(user_id=2, result_id=r.id)
         results = svc.get_results_for_benchmark(user_id=1, benchmark_name="Fran")
         assert len(results) == 1
 
-    def test_add_result_returns_model_with_id(self, db_path):
+    def test_add_result_returns_model_with_id(self, db_path, make_user):
+        make_user(1)
         svc = BenchmarkService(db_path)
         r = svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
         assert r.id is not None
         assert r.user_id == 1
 
-    def test_update_result(self, db_path):
+    def test_update_result(self, db_path, make_user):
+        make_user(1)
         svc = BenchmarkService(db_path)
         r = svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
         updated = svc.update_result(user_id=1, result_id=r.id, benchmark_name="Helen", time_seconds=240, is_rx=False, recorded_at="2026-06-01")
@@ -312,7 +320,8 @@ class TestBenchmarkResultService:
         assert result.is_rx is False
         assert result.recorded_at == "2026-06-01"
 
-    def test_update_result_scoped_by_user(self, db_path):
+    def test_update_result_scoped_by_user(self, db_path, make_user):
+        make_user(1, 2)
         svc = BenchmarkService(db_path)
         r = svc.add_result(user_id=1, benchmark_name="Fran", time_seconds=180, is_rx=True, recorded_at="2026-05-05")
         updated = svc.update_result(user_id=2, result_id=r.id, benchmark_name="Helen", time_seconds=240, is_rx=False, recorded_at="2026-06-01")

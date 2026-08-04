@@ -53,6 +53,46 @@ migrations.register(
     _migrate_v701,
 )
 
+
+def _migrate_v806(conn: sqlite3.Connection) -> None:
+    """Recreate subscription_events with FK to users (keeps indexes, no soft-delete)."""
+    if migrations.has_fk_to(conn, "subscription_events", "users"):
+        return
+    with migrations.fk_disabled(conn):
+        conn.execute("ALTER TABLE subscription_events RENAME TO subscription_events_old")
+        conn.execute(
+            """
+            CREATE TABLE subscription_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                appointment_id INTEGER NOT NULL,
+                class_name TEXT NOT NULL,
+                event_type TEXT NOT NULL CHECK(event_type IN ('subscribe', 'unsubscribe')),
+                class_date TEXT NOT NULL,
+                class_end TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO subscription_events
+                (id, user_id, appointment_id, class_name, event_type, class_date, class_end, created_at)
+            SELECT id, user_id, appointment_id, class_name, event_type, class_date, class_end, created_at
+            FROM subscription_events_old
+            """
+        )
+        conn.execute("DROP TABLE subscription_events_old")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sub_events_user_date ON subscription_events(user_id, class_date)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sub_events_user_appt ON subscription_events(user_id, appointment_id)"
+        )
+
+
+migrations.register(806, "recreate subscription_events with FK to users", _migrate_v806)
+
 class SubscriptionTrackerService(BaseService):
     def record_subscribe(
         self, user_id: int, appointment_id: int, class_name: str, class_date: date,

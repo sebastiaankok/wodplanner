@@ -27,6 +27,7 @@ from wodplanner.app.dependencies import (
     get_session_from_cookie,
     get_subscription_service,
     get_subscription_tracker_service,
+    get_user_service,
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
@@ -43,6 +44,7 @@ from wodplanner.services.schedule import ScheduleService
 from wodplanner.services.schedule_lookup import match_schedule, match_schedules_for_date
 from wodplanner.services.subscription import SubscribeAction, SubscriptionService
 from wodplanner.services.subscription_tracker import SubscriptionTrackerService
+from wodplanner.services.users import UserService
 from wodplanner.utils.dates import parse_api_datetime, parse_iso_date
 
 logger = logging.getLogger(__name__)
@@ -234,7 +236,7 @@ def home_page(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
-    prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
@@ -283,7 +285,7 @@ def home_page(
     average = 0.0
     weeks_tracked = 0
 
-    if not prefs_service.is_tracking_disabled(user_id):
+    if not user_service.is_tracking_disabled(user_id):
         has_data = tracker.has_any_events(user_id)
         if has_data:
             weekly = tracker.get_weekly_counts(user_id)
@@ -500,11 +502,12 @@ def settings_page(
     request: Request,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Settings page."""
     hidden_types = prefs_service.get_hidden_class_types(session.user_id)
     filters = [{"name": t, "hidden": t in hidden_types} for t in FILTERABLE_CLASS_TYPES]
-    tracking_disabled = prefs_service.is_tracking_disabled(session.user_id)
+    tracking_disabled = user_service.is_tracking_disabled(session.user_id)
     return render(
         request,
         "settings.html",
@@ -547,12 +550,12 @@ def toggle_tracking(
     enable: str = Form("true"),
     delete_data: str = Form("false"),
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
-    prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
     tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
 ):
     """Enable or disable session tracking."""
     disabled = enable != "true"
-    prefs_service.set_tracking_disabled(session.user_id, disabled)
+    user_service.set_tracking_disabled(session.user_id, disabled)
 
     if delete_data == "true":
         tracker.delete_all_for_user(session.user_id)
@@ -633,13 +636,13 @@ def friends_page(
     request: Request,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
-    prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Friends management page."""
     friends = friends_service.get_all(session.user_id)
     friend_user_ids = [f.appuser_id for f in friends]
-    avatar_map = prefs_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
-    my_avatar = prefs_service.get_avatar_filename(session.user_id)
+    avatar_map = user_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
+    my_avatar = user_service.get_avatar_filename(session.user_id)
 
     friends_data = [
         {
@@ -673,13 +676,13 @@ def add_friend_view(
     name: str = Form(...),
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
-    prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Add a friend (htmx form submission)."""
     friends_service.add(session.user_id, appuser_id, name)
     friends = friends_service.get_all(session.user_id)
     friend_user_ids = [f.appuser_id for f in friends]
-    avatar_map = prefs_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
+    avatar_map = user_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
 
     friends_data = [
         {
@@ -702,13 +705,13 @@ def delete_friend_view(
     friend_id: int,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
-    prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Delete a friend (htmx)."""
     friends_service.delete(session.user_id, friend_id)
     friends = friends_service.get_all(session.user_id)
     friend_user_ids = [f.appuser_id for f in friends]
-    avatar_map = prefs_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
+    avatar_map = user_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
 
     friends_data = [
         {
@@ -730,7 +733,7 @@ def upload_avatar(
     request: Request,
     avatar: UploadFile = FastAPIFile(...),
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
-    prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     ext = Path(avatar.filename or "").suffix.lower()
     if ext not in _ALLOWED_EXTENSIONS:
@@ -777,9 +780,7 @@ def upload_avatar(
     img = Image.open(io.BytesIO(contents))
     img.save(filepath, format=fmt)
 
-    prefs_service.set_avatar_filename(session.user_id, filename)
-    if session.appuser_id:
-        prefs_service.set_avatar_filename(session.appuser_id, filename)
+    user_service.set_avatar_filename(session.user_id, filename)
     return RedirectResponse(url="/friends", status_code=303)
 
 
@@ -787,21 +788,17 @@ def upload_avatar(
 def remove_avatar(
     request: Request,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
-    prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Remove the current user's avatar photo."""
     def _remove_file(user_id: int) -> None:
-        filename = prefs_service.get_avatar_filename(user_id)
+        filename = user_service.get_avatar_filename(user_id)
         if filename:
             filepath = _UPLOAD_DIR / filename
             if filepath.exists():
                 filepath.unlink()
     _remove_file(session.user_id)
-    if session.appuser_id:
-        _remove_file(session.appuser_id)
-    prefs_service.delete_avatar_filename(session.user_id)
-    if session.appuser_id:
-        prefs_service.delete_avatar_filename(session.appuser_id)
+    user_service.delete_avatar_filename(session.user_id)
     return RedirectResponse(url="/friends", status_code=303)
 
 
@@ -816,6 +813,7 @@ def subscribe_view(
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     subscription_service: SubscriptionService = Depends(get_subscription_service),
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
@@ -832,7 +830,7 @@ def subscribe_view(
         action=SubscribeAction.SUBSCRIBE,
     )
 
-    if result.subscribedWithSuccess and not prefs_service.is_tracking_disabled(session.user_id):
+    if result.subscribedWithSuccess and not user_service.is_tracking_disabled(session.user_id):
         tracker.record_subscribe(
             user_id=session.user_id,
             appointment_id=appointment_id,
@@ -904,6 +902,7 @@ def unsubscribe_view(
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
     prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     subscription_service: SubscriptionService = Depends(get_subscription_service),
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
@@ -926,7 +925,7 @@ def unsubscribe_view(
         action=action,
     )
 
-    if result.subscribedWithSuccess and is_waitinglist != "true" and not prefs_service.is_tracking_disabled(session.user_id):
+    if result.subscribedWithSuccess and is_waitinglist != "true" and not user_service.is_tracking_disabled(session.user_id):
         tracker.record_unsubscribe(
             user_id=session.user_id,
             appointment_id=appointment_id,
@@ -957,7 +956,7 @@ def people_modal_view(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
-    prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Get participants for an appointment (htmx modal)."""
     start = parse_api_datetime(date_start)
@@ -967,22 +966,28 @@ def people_modal_view(
     friend_ids = friends_service.get_appuser_ids(session.user_id)
     members = details.subscriptions.members
 
-    # Resolve current user's id_appuser: prefer session, then stored pref, then
-    # one-time name-match discovery (only when exactly one member matches, to
-    # avoid wrong self-assignment on name collision).
-    current_appuser_id = session.appuser_id or prefs_service.get_my_appuser_id(session.user_id)
+    # Resolve current user's id_appuser: prefer session, then stored (users
+    # table), then one-time name-match discovery (only when exactly one member
+    # matches, to avoid wrong self-assignment on name collision).
+    current_user = user_service.get(session.user_id)
+    current_appuser_id = session.appuser_id or (current_user.appuser_id if current_user else None)
     if not current_appuser_id:
         name_matches = [m for m in members if m.name == session.firstname]
         if len(name_matches) == 1:
             current_appuser_id = name_matches[0].id_appuser
-            prefs_service.set_my_appuser_id(session.user_id, current_appuser_id)
+            user_service.upsert(
+                user_id=session.user_id,
+                appuser_id=current_appuser_id,
+                gym_id=session.gym_id,
+                display_name=session.firstname,
+            )
 
     participants = []
     all_user_ids = [m.id_appuser for m in members]
-    avatar_map = prefs_service.get_avatar_filenames(all_user_ids)
+    avatar_map = user_service.get_avatar_filenames_by_appuser_ids(all_user_ids)
     # Current user's avatar is stored under session.user_id, not appuser_id
     if current_appuser_id and current_appuser_id not in avatar_map:
-        my_avatar = prefs_service.get_avatar_filename(session.user_id)
+        my_avatar = user_service.get_avatar_filename(session.user_id)
         if my_avatar:
             avatar_map[current_appuser_id] = my_avatar
     for member in members:
@@ -1023,7 +1028,7 @@ def add_friend_from_people(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
-    prefs_service: PreferencesService = Depends(get_preferences_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Add a friend from the people modal."""
     friends_service.add(session.user_id, appuser_id, name)
@@ -1037,7 +1042,7 @@ def add_friend_from_people(
         session=session,
         client=client,
         friends_service=friends_service,
-        prefs_service=prefs_service,
+        user_service=user_service,
     )
 
 
