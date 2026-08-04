@@ -985,11 +985,6 @@ def people_modal_view(
     participants = []
     all_user_ids = [m.id_appuser for m in members]
     avatar_map = user_service.get_avatar_filenames_by_appuser_ids(all_user_ids)
-    # Current user's avatar is stored under session.user_id, not appuser_id
-    if current_appuser_id and current_appuser_id not in avatar_map:
-        my_avatar = user_service.get_avatar_filename(session.user_id)
-        if my_avatar:
-            avatar_map[current_appuser_id] = my_avatar
     for member in members:
         participants.append({
             "id": member.id_appuser,
