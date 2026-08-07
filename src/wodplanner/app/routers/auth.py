@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from wodplanner.api.client import AuthenticationError, WodAppClient, WodAppError
 from wodplanner.app.config import settings
-from wodplanner.app.dependencies import require_session
+from wodplanner.app.dependencies import get_user_service, require_session
 from wodplanner.models.auth import AuthSession
 from wodplanner.services import session as cookie_session
 from wodplanner.services.login_limiter import limiter
@@ -71,6 +71,12 @@ def login(
         client.close()
 
         limiter.record_success(ip)
+        get_user_service().upsert(
+            user_id=auth_session.user_id,
+            appuser_id=auth_session.appuser_id,
+            gym_id=auth_session.gym_id,
+            display_name=auth_session.firstname,
+        )
         session_value = cookie_session.encode(auth_session, settings.secret_key)
 
         redirect = RedirectResponse(url="/", status_code=303)

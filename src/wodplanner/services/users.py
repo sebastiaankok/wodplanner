@@ -2,9 +2,9 @@
 
 The `users` table replaces the user-scoped columns previously stored in the
 `preferences` table (my_appuser_id, tracking_disabled, avatar_filename) and is
-referenced by every user-scoped table. Rows are created lazily on the first
-authenticated request (see `dependencies.require_session`), then kept fresh by
-the upsert that runs on every request.
+referenced by every user-scoped table. Rows are created at login time (see
+`auth.login`) and updated lazily when the user's `appuser_id` is discovered via
+the people modal.
 """
 
 import json
@@ -136,11 +136,23 @@ class UserService(BaseService):
     ) -> None:
         """Insert or refresh a user from session data.
 
+        Skips the write when no values have changed, avoiding unnecessary
+        SQLite write-lock contention on every request.
+
         Updates gym_id and display_name on every call.  appuser_id is only
         updated when a non-NULL value is provided, so a later request with a
         NULL session appuser_id won't clobber a previously discovered Member ID.
         Never overwrites the user-managed tracking_disabled or avatar_filename.
         """
+        existing = self.get(user_id)
+        if existing is not None:
+            resolved_appuser_id = appuser_id if appuser_id is not None else existing.appuser_id
+            if (
+                existing.display_name == display_name
+                and existing.gym_id == gym_id
+                and existing.appuser_id == resolved_appuser_id
+            ):
+                return
         now = datetime.now().isoformat()
         with self._get_connection() as conn:
             conn.execute(
