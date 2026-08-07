@@ -79,7 +79,7 @@ WAL mode is persistent (stored in DB file header) — set once on first connecti
 
 - **Soft deletes**: user-data and reference tables (`friends`, `one_rep_maxes`, `benchmark_results`, `exercises`, `benchmark_wods`) expose `deleted_at TEXT`. All SELECT queries filter `WHERE deleted_at IS NULL`; delete methods set `deleted_at` instead of issuing `DELETE`.
 - **Audit timestamps**: all tables carry `created_at` (immutable) and `updated_at` (set on every change), stored as ISO-8601 `TEXT`.
-- **Lazy population**: `users` rows are created/refreshed on every authenticated request via `dependencies.require_session` / `require_session_for_view` (`UserService.upsert`). This keeps `appuser_id`, `gym_id`, and `display_name` in sync with the session while never overwriting `tracking_disabled` or `avatar_filename`.
+- **Login-time creation**: `users` rows are created/updated at login time via `auth.login` (`UserService.upsert`). The `appuser_id` is later refined when the user's people modal discovers their ID via name-match. Never overwrites `tracking_disabled` or `avatar_filename`.
 
 
 ## Auth
