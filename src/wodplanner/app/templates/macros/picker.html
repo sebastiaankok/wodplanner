@@ -1,0 +1,18 @@
+{% macro picker(field_name, options, selected='', recent=[], label='', id_suffix='', placeholder='Select…') %}
+{% set uid = id_suffix if id_suffix else field_name %}
+<div class="picker-wrapper">
+  {% if label %}<label class="picker-label" for="picker-hidden-{{ uid }}">{{ label }}</label>{% endif %}
+  <input type="hidden"
+         id="picker-hidden-{{ uid }}"
+         name="{{ field_name }}"
+         value="{{ selected }}"
+         class="picker-hidden">
+  <button type="button"
+          class="form-control picker-trigger"
+          data-picker-trigger
+          data-target="picker-hidden-{{ uid }}"
+          data-placeholder="{{ placeholder }}"
+          data-options='{{ options | tojson | safe }}'
+          data-recent='{{ recent | tojson | safe }}'>{{ selected or placeholder }}</button>
+</div>
+{% endmacro %}

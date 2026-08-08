@@ -13,6 +13,7 @@
     <link rel="manifest" href="/static/site.webmanifest">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="/static/js/picker.js?v={{ js_version }}"></script>
 </head>
 <body>
     <nav class="navbar">
@@ -111,6 +112,18 @@
     <!-- Benchmark Modal -->
     <div id="benchmark-modal" class="modal">
         <div id="benchmark-modal-container"></div>
+    </div>
+
+    <!-- Constrained value picker (bottom-sheet) -->
+    <div id="picker-sheet" class="picker-sheet">
+        <div class="picker-backdrop"></div>
+        <div class="picker-panel">
+            <div class="picker-header">
+                <input type="search" class="picker-search" placeholder="Search…" autocomplete="off">
+                <button type="button" class="picker-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="picker-list"></div>
+        </div>
     </div>
 
     <script>

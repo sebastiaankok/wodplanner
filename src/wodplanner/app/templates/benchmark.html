@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/picker.html" import picker %}
 
 {% block title %}Benchmark - WodPlanner{% endblock %}
 
@@ -18,22 +19,7 @@
               hx-swap="outerHTML"
               class="benchmark-form">
             <div class="form-row">
-                <div class="form-group">
-                    <label for="benchmark-name">Benchmark</label>
-                    <input type="text"
-                           id="benchmark-name"
-                           name="benchmark_name"
-                           list="benchmark-list"
-                           placeholder="Search benchmark…"
-                           required
-                           class="form-control"
-                           autocomplete="off">
-                    <datalist id="benchmark-list">
-                        {% for name in benchmark_list %}
-                        <option value="{{ name }}">
-                        {% endfor %}
-                    </datalist>
-                </div>
+                {{ picker("benchmark_name", benchmark_list, recent=benchmarks_by_recency, label="Benchmark") }}
                 <div class="form-group form-group-narrow">
                     <label for="benchmark-minutes">Minutes</label>
                     <input type="number"
@@ -43,7 +29,8 @@
                            max="999"
                            placeholder="0"
                            required
-                           class="form-control">
+                           class="form-control"
+                           inputmode="numeric">
                 </div>
                 <div class="form-group form-group-narrow">
                     <label for="benchmark-seconds">Seconds</label>
@@ -54,7 +41,8 @@
                            max="59"
                            placeholder="00"
                            required
-                           class="form-control">
+                           class="form-control"
+                           inputmode="numeric">
                 </div>
                 <div class="form-group form-group-narrow">
                     <label>RX / Scaled</label>
@@ -88,12 +76,9 @@
 <div class="card" style="margin-bottom: 1rem;">
     <div class="card-header">
         <span class="card-title">Progress</span>
-        <select id="benchmark-select" class="form-control form-control-inline" onchange="updateBenchmarkChart()">
-            <option value="">— Select benchmark —</option>
-            {% for name in benchmarks_by_recency %}
-            <option value="{{ name }}">{{ name }}</option>
-            {% endfor %}
-        </select>
+        <div style="flex:1;max-width:300px">
+            {{ picker("progress_benchmark", benchmark_list, recent=benchmarks_by_recency, placeholder="Select benchmark\u2026", id_suffix="bp") }}
+        </div>
     </div>
     <div class="benchmark-chart-container">
         <canvas id="benchmark-chart"></canvas>
@@ -127,11 +112,11 @@ function formatTime(seconds) {
 }
 
 function updateBenchmarkChart() {
-    var select = document.getElementById('benchmark-select');
+    var hidden = document.getElementById('picker-hidden-bp');
     var canvas = document.getElementById('benchmark-chart');
     var noData = document.getElementById('benchmark-no-data');
-    if (!select || !canvas) return;
-    var name = select.value;
+    if (!hidden || !canvas) return;
+    var name = hidden.value;
 
     if (!name || !__benchmarkData[name] || !__benchmarkData[name].length) {
         canvas.style.display = 'none';
@@ -211,10 +196,22 @@ function updateBenchmarkChart() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    var select = document.getElementById('benchmark-select');
-    if (select && select.options.length > 1) {
-        select.selectedIndex = 1;
-        updateBenchmarkChart();
+    var hidden = document.getElementById('picker-hidden-bp');
+    if (hidden) {
+        hidden.addEventListener('change', updateBenchmarkChart);
+        var options = __benchmarkData ? Object.keys(__benchmarkData).sort(function(a, b) {
+            var aLast = __benchmarkData[a][__benchmarkData[a].length - 1].date;
+            var bLast = __benchmarkData[b][__benchmarkData[b].length - 1].date;
+            return aLast < bLast ? 1 : aLast > bLast ? -1 : 0;
+        }) : [];
+        if (options.length > 0) {
+            hidden.value = options[0];
+            var trigger = document.querySelector('[data-target="picker-hidden-bp"]');
+            if (trigger) trigger.textContent = options[0];
+            updateBenchmarkChart();
+        } else {
+            document.getElementById('benchmark-chart').style.display = 'none';
+        }
     } else {
         document.getElementById('benchmark-chart').style.display = 'none';
     }
@@ -225,23 +222,17 @@ document.addEventListener('htmx:afterSwap', function(e) {
         var raw = document.getElementById('benchmark-history').dataset.benchmark;
         if (!raw) return;
         __benchmarkData = JSON.parse(raw);
-        var select = document.getElementById('benchmark-select');
-        if (!select) return;
-        var current = select.value;
-        select.innerHTML = '<option value="">— Select benchmark —</option>';
-        Object.keys(__benchmarkData)
-            .sort(function(a, b) {
-                var aLast = __benchmarkData[a][__benchmarkData[a].length - 1].date;
-                var bLast = __benchmarkData[b][__benchmarkData[b].length - 1].date;
-                return aLast < bLast ? 1 : aLast > bLast ? -1 : 0;
-            })
-            .forEach(function(name) {
-            var opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            select.appendChild(opt);
+        var hidden = document.getElementById('picker-hidden-bp');
+        var trigger = document.querySelector('[data-target="picker-hidden-bp"]');
+        if (!hidden || !trigger) return;
+        var current = hidden.value;
+        var keys = Object.keys(__benchmarkData).sort(function(a, b) {
+            var aLast = __benchmarkData[a][__benchmarkData[a].length - 1].date;
+            var bLast = __benchmarkData[b][__benchmarkData[b].length - 1].date;
+            return aLast < bLast ? 1 : aLast > bLast ? -1 : 0;
         });
-        select.value = (__benchmarkData[current]) ? current : (Object.keys(__benchmarkData)[0] || '');
+        hidden.value = __benchmarkData[current] ? current : (keys[0] || '');
+        trigger.textContent = hidden.value || 'Select benchmark\u2026';
         updateBenchmarkChart();
     }
 });
