@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/picker.html" import picker %}
 
 {% block title %}1RM - WodPlanner{% endblock %}
 
@@ -18,23 +19,7 @@
               hx-swap="outerHTML"
               class="one-rm-form">
             <div class="form-row">
-                <div class="form-group">
-                    <label for="1rm-exercise">Exercise</label>
-                    <input type="text"
-                           id="1rm-exercise"
-                           name="exercise"
-                           list="exercise-list"
-                           placeholder="Search exercise…"
-                           value="{{ default_exercise }}"
-                           required
-                           class="form-control"
-                           autocomplete="off">
-                    <datalist id="exercise-list">
-                        {% for ex in exercises %}
-                        <option value="{{ ex }}">
-                        {% endfor %}
-                    </datalist>
-                </div>
+                {{ picker("exercise", exercises, selected=default_exercise, recent=exercises_by_recency, label="Exercise") }}
                 <div class="form-group form-group-narrow">
                     <label for="1rm-weight">Weight (kg)</label>
                     <input type="number"
@@ -45,7 +30,8 @@
                            step="0.5"
                            placeholder="100"
                            required
-                           class="form-control">
+                           class="form-control"
+                           inputmode="decimal">
                 </div>
                 <div class="form-group form-group-narrow">
                     <label for="1rm-date">Date</label>
@@ -68,12 +54,9 @@
 <div class="card" style="margin-bottom: 1rem;">
     <div class="card-header">
         <span class="card-title">Progress</span>
-        <select id="exercise-select" class="form-control form-control-inline" onchange="update1rmChart()">
-            <option value="">— Select exercise —</option>
-            {% for ex in exercises_by_recency %}
-            <option value="{{ ex }}">{{ ex }}</option>
-            {% endfor %}
-        </select>
+        <div style="flex:1;max-width:300px">
+            {{ picker("progress_exercise", exercises, recent=exercises_by_recency, placeholder="Select exercise…", id_suffix="progress") }}
+        </div>
     </div>
     <div class="one-rm-pct-section" id="pct-section" style="display:none;">
         <div class="one-rm-pct-center">
@@ -128,11 +111,11 @@ function updatePctDisplay() {
 }
 
 function update1rmChart() {
-    var select = document.getElementById('exercise-select');
+    var hidden = document.getElementById('picker-hidden-progress');
     var canvas = document.getElementById('1rm-chart');
     var noData = document.getElementById('1rm-no-data');
-    if (!select || !canvas) return;
-    var exercise = select.value;
+    if (!hidden || !canvas) return;
+    var exercise = hidden.value;
 
     if (!exercise || !__1rmData[exercise] || !__1rmData[exercise].length) {
         canvas.style.display = 'none';
@@ -204,10 +187,22 @@ function update1rmChart() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    var select = document.getElementById('exercise-select');
-    if (select && select.options.length > 1) {
-        select.selectedIndex = 1;
-        update1rmChart();
+    var hidden = document.getElementById('picker-hidden-progress');
+    if (hidden) {
+        hidden.addEventListener('change', update1rmChart);
+        var options = __1rmData ? Object.keys(__1rmData).sort(function(a, b) {
+            var aLast = __1rmData[a][__1rmData[a].length - 1].date;
+            var bLast = __1rmData[b][__1rmData[b].length - 1].date;
+            return aLast < bLast ? 1 : aLast > bLast ? -1 : 0;
+        }) : [];
+        if (options.length > 0) {
+            hidden.value = options[0];
+            var trigger = document.querySelector('[data-target="picker-hidden-progress"]');
+            if (trigger) trigger.textContent = options[0];
+            update1rmChart();
+        } else {
+            document.getElementById('1rm-chart').style.display = 'none';
+        }
     } else {
         document.getElementById('1rm-chart').style.display = 'none';
     }
@@ -218,23 +213,17 @@ document.addEventListener('htmx:afterSwap', function(e) {
         var raw = document.getElementById('one-rep-max-history').dataset.exercises;
         if (!raw) return;
         __1rmData = JSON.parse(raw);
-        var select = document.getElementById('exercise-select');
-        if (!select) return;
-        var current = select.value;
-        select.innerHTML = '<option value="">— Select exercise —</option>';
-        Object.keys(__1rmData)
-            .sort(function(a, b) {
-                var aLast = __1rmData[a][__1rmData[a].length - 1].date;
-                var bLast = __1rmData[b][__1rmData[b].length - 1].date;
-                return aLast < bLast ? 1 : aLast > bLast ? -1 : 0;
-            })
-            .forEach(function(ex) {
-            var opt = document.createElement('option');
-            opt.value = ex;
-            opt.textContent = ex;
-            select.appendChild(opt);
+        var hidden = document.getElementById('picker-hidden-progress');
+        var trigger = document.querySelector('[data-target="picker-hidden-progress"]');
+        if (!hidden || !trigger) return;
+        var current = hidden.value;
+        var keys = Object.keys(__1rmData).sort(function(a, b) {
+            var aLast = __1rmData[a][__1rmData[a].length - 1].date;
+            var bLast = __1rmData[b][__1rmData[b].length - 1].date;
+            return aLast < bLast ? 1 : aLast > bLast ? -1 : 0;
         });
-        select.value = (__1rmData[current]) ? current : (Object.keys(__1rmData)[0] || '');
+        hidden.value = __1rmData[current] ? current : (keys[0] || '');
+        trigger.textContent = hidden.value || 'Select exercise\u2026';
         update1rmChart();
     }
 });

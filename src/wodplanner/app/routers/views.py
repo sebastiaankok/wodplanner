@@ -1,5 +1,6 @@
 """HTML views for the web frontend."""
 
+import difflib
 import hashlib
 import io
 import json
@@ -175,6 +176,12 @@ try:
     templates.env.globals["css_version"] = hashlib.md5(_css_path.read_bytes()).hexdigest()[:8]
 except Exception:
     templates.env.globals["css_version"] = "1"
+
+_js_path = templates_dir.parent / "static" / "js" / "picker.js"
+try:
+    templates.env.globals["js_version"] = hashlib.md5(_js_path.read_bytes()).hexdigest()[:8]
+except Exception:
+    templates.env.globals["js_version"] = "1"
 
 try:
     templates.env.globals["app_version"] = settings.app_version
@@ -1131,7 +1138,11 @@ def add_one_rep_max_view(
     """Add a 1rm entry (htmx)."""
     exercise = exercise.strip()
     if not one_rep_max_service.validate_exercise(exercise):
-        raise HTTPException(status_code=422, detail=f"Unknown exercise: '{exercise}'.")
+        matched = one_rep_max_service.match_exercise(exercise)
+        if matched:
+            exercise = matched
+        else:
+            raise HTTPException(status_code=422, detail=f"Unknown exercise: '{exercise}'.")
     if not (0 < weight_kg < 1000):
         raise HTTPException(status_code=400, detail="Weight must be between 0 and 1000 kg.")
     try:
@@ -1222,7 +1233,11 @@ def update_one_rep_max_view(
     """Update a 1rm entry (htmx)."""
     exercise = exercise.strip()
     if not one_rep_max_service.validate_exercise(exercise):
-        raise HTTPException(status_code=422, detail=f"Unknown exercise: '{exercise}'.")
+        matched = one_rep_max_service.match_exercise(exercise)
+        if matched:
+            exercise = matched
+        else:
+            raise HTTPException(status_code=422, detail=f"Unknown exercise: '{exercise}'.")
     if not (0 < weight_kg < 1000):
         raise HTTPException(status_code=400, detail="Weight must be between 0 and 1000 kg.")
     try:
@@ -1306,13 +1321,22 @@ def add_benchmark_result_view(
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Add a benchmark result (htmx)."""
+    benchmark_name = benchmark_name.strip()
     total_seconds = minutes * 60 + seconds
     if total_seconds <= 0:
         raise HTTPException(status_code=400, detail="Time must be greater than 0.")
 
+    benchmark_list = benchmark_service.get_benchmark_list()
+    if benchmark_name not in benchmark_list:
+        matched = difflib.get_close_matches(benchmark_name, benchmark_list, n=1, cutoff=0.6)
+        if matched:
+            benchmark_name = matched[0]
+        else:
+            raise HTTPException(status_code=422, detail=f"Unknown benchmark: '{benchmark_name}'.")
+
     benchmark_service.add_result(
         user_id=session.user_id,
-        benchmark_name=benchmark_name.strip(),
+        benchmark_name=benchmark_name,
         time_seconds=total_seconds,
         is_rx=is_rx == "true",
         recorded_at=recorded_at,
@@ -1395,14 +1419,23 @@ def update_benchmark_result_view(
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
 ):
     """Update a benchmark result (htmx)."""
+    benchmark_name = benchmark_name.strip()
     total_seconds = minutes * 60 + seconds
     if total_seconds <= 0:
         raise HTTPException(status_code=400, detail="Time must be greater than 0.")
 
+    benchmark_list = benchmark_service.get_benchmark_list()
+    if benchmark_name not in benchmark_list:
+        matched = difflib.get_close_matches(benchmark_name, benchmark_list, n=1, cutoff=0.6)
+        if matched:
+            benchmark_name = matched[0]
+        else:
+            raise HTTPException(status_code=422, detail=f"Unknown benchmark: '{benchmark_name}'.")
+
     benchmark_service.update_result(
         user_id=session.user_id,
         result_id=result_id,
-        benchmark_name=benchmark_name.strip(),
+        benchmark_name=benchmark_name,
         time_seconds=total_seconds,
         is_rx=is_rx == "true",
         recorded_at=recorded_at,

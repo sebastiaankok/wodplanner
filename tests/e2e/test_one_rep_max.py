@@ -41,7 +41,10 @@ def test_add_1rm_entry_updates_history(page, auth_session):
     page.goto("/1rm")
     page.get_by_text("+ Log").click()
 
-    page.locator("input[name=exercise]").fill("Back Squat")
+    # Use picker to select exercise
+    page.locator("[data-picker-trigger]").click()
+    page.locator(".picker-option[data-value='Back Squat']").click()
+
     page.locator("input[name=weight_kg]").fill("100")
     page.locator("input[name=recorded_at]").fill(date.today().isoformat())
 

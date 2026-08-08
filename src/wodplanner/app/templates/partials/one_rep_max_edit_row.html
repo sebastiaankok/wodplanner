@@ -1,3 +1,4 @@
+{% from "macros/picker.html" import picker %}
 <tr id="edit-row-{{ entry_id }}" class="one-rm-edit-row">
     <td colspan="4">
         <form hx-put="/one-rep-maxes/{{ entry_id }}/edit"
@@ -5,23 +6,7 @@
               hx-swap="outerHTML"
               class="one-rm-form one-rm-form--inline">
             <div class="form-row">
-                <div class="form-group">
-                    <label for="1rm-exercise-{{ entry_id }}">Exercise</label>
-                    <input type="text"
-                           id="1rm-exercise-{{ entry_id }}"
-                           name="exercise"
-                           list="exercise-list-{{ entry_id }}"
-                           value="{{ entry.exercise }}"
-                           placeholder="Exercise"
-                           required
-                           class="form-control form-control-sm"
-                           autocomplete="off">
-                    <datalist id="exercise-list-{{ entry_id }}">
-                        {% for ex in exercises %}
-                        <option value="{{ ex }}">
-                        {% endfor %}
-                    </datalist>
-                </div>
+                {{ picker("exercise", exercises, selected=entry.exercise, label="Exercise", id_suffix=entry_id) }}
                 <div class="form-group form-group-narrow">
                     <label for="1rm-weight-{{ entry_id }}">Weight (kg)</label>
                     <input type="number"
@@ -32,7 +17,8 @@
                            max="999"
                            step="0.5"
                            required
-                           class="form-control form-control-sm">
+                           class="form-control form-control-sm"
+                           inputmode="decimal">
                 </div>
                 <div class="form-group form-group-narrow">
                     <label for="1rm-date-{{ entry_id }}">Date</label>
