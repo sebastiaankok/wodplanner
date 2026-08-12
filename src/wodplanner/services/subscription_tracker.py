@@ -162,7 +162,7 @@ class SubscriptionTrackerService(BaseService):
     def _is_past(self, class_end_raw: str | None, class_date_raw: str, now: datetime) -> bool:
         if class_end_raw:
             return self._parse_end(class_end_raw) < now
-        return date.fromisoformat(class_date_raw) < date.today()
+        return date.fromisoformat(class_date_raw) < now.date()
 
     def get_weekly_counts(
         self, user_id: int, weeks: int = 52
