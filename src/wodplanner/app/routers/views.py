@@ -932,7 +932,7 @@ def unsubscribe_view(
         action=action,
     )
 
-    if result.subscribedWithSuccess and is_waitinglist != "true" and not user_service.is_tracking_disabled(session.user_id):
+    if result.status == "OK" and is_waitinglist != "true" and not user_service.is_tracking_disabled(session.user_id):
         tracker.record_unsubscribe(
             user_id=session.user_id,
             appointment_id=appointment_id,
