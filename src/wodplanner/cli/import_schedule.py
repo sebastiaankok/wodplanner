@@ -39,7 +39,8 @@ DUTCH_MONTHS = {
 def parse_dutch_date(date_str: str, year: int) -> date | None:
     """Parse a Dutch date string like 'Maandag 13 April' to a date object."""
     # Pattern: Day name + day number + month name
-    pattern = r"(?:Maandag|Dinsdag|Woensdag|Donderdag|Vrijdag|Zaterdag|Zondag)\s+(\d+)\s+(\w+)"
+    # Allow stray punctuation (e.g. backtick) between day name and number — PDF artifact
+    pattern = r"(?:Maandag|Dinsdag|Woensdag|Donderdag|Vrijdag|Zaterdag|Zondag)\s+\W*(\d+)\s+(\w+)"
     match = re.match(pattern, date_str, re.IGNORECASE)
     if not match:
         return None
@@ -61,7 +62,7 @@ def is_date_row(text: str) -> bool:
     """Check if the text looks like a date row (e.g., 'Maandag 13 April')."""
     if not text:
         return False
-    pattern = r"^(Maandag|Dinsdag|Woensdag|Donderdag|Vrijdag|Zaterdag|Zondag)\s+\d+\s+\w+"
+    pattern = r"^(Maandag|Dinsdag|Woensdag|Donderdag|Vrijdag|Zaterdag|Zondag)\s+\W*\d+\s+\w+"
     return bool(re.match(pattern, text.strip(), re.IGNORECASE))
 
 
