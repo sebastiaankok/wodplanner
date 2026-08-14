@@ -19,20 +19,20 @@ from wodplanner.services.one_rep_max import (
 )
 from wodplanner.services.schedule import ScheduleService, normalize_class_name
 
-# Dutch month names to month numbers
-DUTCH_MONTHS = {
-    "januari": 1,
-    "februari": 2,
-    "maart": 3,
-    "april": 4,
-    "mei": 5,
-    "juni": 6,
-    "juli": 7,
-    "augustus": 8,
-    "september": 9,
-    "oktober": 10,
-    "november": 11,
-    "december": 12,
+# Month name variants (Dutch full, English full, English abbreviated) to month numbers
+MONTH_NAMES = {
+    "januari": 1, "january": 1, "jan": 1,
+    "februari": 2, "february": 2, "feb": 2,
+    "maart": 3, "march": 3, "mar": 3,
+    "april": 4, "apr": 4,
+    "mei": 5, "may": 5,
+    "juni": 6, "june": 6, "jun": 6,
+    "juli": 7, "july": 7, "jul": 7,
+    "augustus": 8, "august": 8, "aug": 8,
+    "september": 9, "sep": 9,
+    "oktober": 10, "october": 10, "oct": 10,
+    "november": 11, "nov": 11,
+    "december": 12, "dec": 12,
 }
 
 
@@ -48,7 +48,7 @@ def parse_dutch_date(date_str: str, year: int) -> date | None:
     day = int(match.group(1))
     month_name = match.group(2).lower()
 
-    month = DUTCH_MONTHS.get(month_name)
+    month = MONTH_NAMES.get(month_name)
     if not month:
         return None
 
