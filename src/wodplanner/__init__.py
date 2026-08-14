@@ -1,3 +1,3 @@
 """WodPlanner - Custom frontend for WodApp."""
 
-__version__ = "0.29.2"
+__version__ = "0.29.3"
