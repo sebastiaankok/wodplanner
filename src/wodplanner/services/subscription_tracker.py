@@ -130,14 +130,12 @@ class SubscriptionTrackerService(BaseService):
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
                 """
-                SELECT SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
-                FROM subscription_events
+                SELECT COUNT(*) AS cnt FROM subscription_events
                 WHERE user_id = ? AND appointment_id = ?
                 """,
                 (user_id, appointment_id),
             ).fetchone()
-            current_net = row["net"] if row and row["net"] is not None else 0
-            if current_net <= 0:
+            if row["cnt"] == 0:
                 conn.execute("ROLLBACK")
                 return
             conn.execute(
