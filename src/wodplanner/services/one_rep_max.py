@@ -93,7 +93,7 @@ def extract_1rm_exercises(text: str | None) -> list[str]:
         return []
     results = []
     # Capture everything up to the next exercise letter (e.g. "B.") or end of string
-    for m in re.finditer(r'1rm\s+(.+?)(?=\s+[A-Z]\.\s|\s*\Z)', text, re.IGNORECASE | re.DOTALL):
+    for m in re.finditer(r'1rm\s+(.+?)(?=\s+[A-Z]\.\s|\n(?!\s*[A-Za-z])|\s*\Z)', text, re.IGNORECASE | re.DOTALL):
         preceding = text[max(0, m.start() - 6):m.start()]
         if not re.search(r'\d+%\s*$', preceding):
             # Strip parenthetical annotations, collapse internal whitespace/newlines
