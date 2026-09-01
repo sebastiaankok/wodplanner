@@ -57,6 +57,16 @@
         <div style="flex:1;max-width:300px">
             {{ picker("progress_exercise", exercises, recent=exercises_by_recency, placeholder="Select exercise…", id_suffix="progress") }}
         </div>
+        {% if partners %}
+        <select id="compare-partner" class="form-control" style="width:auto;max-width:180px;margin-left:0.5rem;" onchange="updateCompareChart()">
+            <option value="">Compare with…</option>
+            {% for p in partners %}
+            <option value="{{ p.id }}">{{ p.display_name }}</option>
+            {% endfor %}
+        </select>
+        {% else %}
+        <a href="/friends" class="btn btn-sm btn-secondary" style="margin-left:0.5rem;white-space:nowrap;">Compare results with a friend</a>
+        {% endif %}
     </div>
     <div class="one-rm-pct-section" id="pct-section" style="display:none;">
         <div class="one-rm-pct-center">
@@ -85,6 +95,7 @@
 
 <script>
 var __1rmData = {{ exercises_data_json | safe }};
+var __1rmCompareData = null;
 var __1rmChart = null;
 var __1rmLogFormOpen = false;
 var __1rmMaxWeight = null;
@@ -108,6 +119,26 @@ function updatePctDisplay() {
     document.getElementById('pct-weight').textContent = __1rmMaxWeight !== null
         ? (Math.round(__1rmMaxWeight * __1rmCurrentPct / 100 * 2) / 2).toFixed(1) + ' kg'
         : '—';
+}
+
+function updateCompareChart() {
+    var select = document.getElementById('compare-partner');
+    var partnerId = select ? select.value : '';
+    if (!partnerId) {
+        __1rmCompareData = null;
+        update1rmChart();
+        return;
+    }
+    fetch('/api/one-rep-maxes/compare?with_user_id=' + partnerId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            __1rmCompareData = data;
+            update1rmChart();
+        })
+        .catch(function() {
+            __1rmCompareData = null;
+            update1rmChart();
+        });
 }
 
 function update1rmChart() {
@@ -153,29 +184,54 @@ function update1rmChart() {
     document.getElementById('pct-section').style.display = 'block';
     setPct(100);
 
+    var datasets = [{
+        label: exercise + ' (kg)',
+        data: weights,
+        borderColor: '#7c3aed',
+        backgroundColor: 'rgba(124,58,237,0.08)',
+        tension: 0.2,
+        fill: true,
+        pointBackgroundColor: prColors,
+        pointBorderColor: prBorders,
+        pointRadius: prRadii,
+        pointBorderWidth: 2,
+        pointHoverRadius: 10,
+    }];
+
+    // Add compare dataset if available
+    var compareSelect = document.getElementById('compare-partner');
+    var partnerName = compareSelect ? compareSelect.options[compareSelect.selectedIndex]?.text : '';
+    if (__1rmCompareData && __1rmCompareData[exercise] && __1rmCompareData[exercise].length) {
+        var cp = __1rmCompareData[exercise];
+        var cSorted = cp.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+        var cWeights = cSorted.map(function(p) { return p.weight; });
+        datasets.push({
+            label: (partnerName || 'Friend') + ' (kg)',
+            data: cWeights,
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249,115,22,0.05)',
+            borderDash: [5, 5],
+            tension: 0.2,
+            fill: false,
+            pointBackgroundColor: '#f97316',
+            pointBorderColor: '#ea580c',
+            pointRadius: 5,
+            pointBorderWidth: 2,
+            pointHoverRadius: 8,
+        });
+    }
+
     if (__1rmChart) __1rmChart.destroy();
     __1rmChart = new Chart(canvas, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{
-                label: exercise + ' (kg)',
-                data: weights,
-                borderColor: '#7c3aed',
-                backgroundColor: 'rgba(124,58,237,0.08)',
-                tension: 0.2,
-                fill: true,
-                pointBackgroundColor: prColors,
-                pointBorderColor: prBorders,
-                pointRadius: prRadii,
-                pointBorderWidth: 2,
-                pointHoverRadius: 10,
-            }]
+            datasets: datasets,
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: datasets.length > 1 } },
             scales: {
                 y: {
                     title: { display: true, text: 'Weight (kg)' },

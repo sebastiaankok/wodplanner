@@ -13,7 +13,7 @@ from wodplanner.models.auth import AuthSession
 from wodplanner.services import session as cookie_session
 from wodplanner.services.api_cache import ApiCacheService
 from wodplanner.services.benchmark import BenchmarkService
-from wodplanner.services.friends import FriendsService
+from wodplanner.services.friends import DataShareService, FriendsService
 from wodplanner.services.one_rep_max import OneRepMaxService
 from wodplanner.services.preferences import PreferencesService
 from wodplanner.services.schedule import ScheduleService
@@ -36,6 +36,12 @@ def get_user_service() -> UserService:
 def get_friends_service() -> FriendsService:
     """Get the singleton friends service."""
     return FriendsService(_get_db_path())
+
+
+@lru_cache
+def get_data_share_service() -> DataShareService:
+    """Get the singleton data share service."""
+    return DataShareService(_get_db_path())
 
 
 @lru_cache

@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import logging
+import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
@@ -12,7 +13,7 @@ from typing import Annotated
 import markdown
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi import File as FastAPIFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 
@@ -21,6 +22,7 @@ from wodplanner.app.config import settings
 from wodplanner.app.dependencies import (
     get_benchmark_service,
     get_client_from_session_for_view,
+    get_data_share_service,
     get_friends_service,
     get_one_rep_max_service,
     get_preferences_service,
@@ -29,13 +31,14 @@ from wodplanner.app.dependencies import (
     get_subscription_service,
     get_subscription_tracker_service,
     get_user_service,
+    require_session,
     require_session_for_view,
 )
 from wodplanner.models.auth import AuthSession
 from wodplanner.services.benchmark import BenchmarkService, find_benchmark_in_schedule
 from wodplanner.services.day_card import _find_benchmark, _has_1rm, build_day_cards
 from wodplanner.services.friend_presence import find_friends_in_appointments
-from wodplanner.services.friends import FriendsService
+from wodplanner.services.friends import DataShareService, FriendsService
 from wodplanner.services.one_rep_max import (
     OneRepMaxService,
     extract_1rm_exercises,
@@ -106,6 +109,11 @@ def _relative_time(dt: datetime) -> str:
 _UPLOAD_DIR = settings.upload_dir / "avatars"
 _ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 _MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+def _get_pending_request_count(session: AuthSession) -> int:
+    ds_service = DataShareService(Path(os.environ.get("DB_PATH", "/data/wodplanner.db")))
+    return ds_service.get_incoming_request_count(session.user_id)
 
 
 def _similarity_score(exercise: str, suggested: list[str]) -> int:
@@ -200,7 +208,8 @@ def get_user_context(session: AuthSession) -> dict:
         "user": {
             "firstname": session.firstname,
             "username": session.username,
-        }
+        },
+        "pending_request_count": _get_pending_request_count(session),
     }
 
 
@@ -590,6 +599,8 @@ def one_rep_max_page(
     request: Request,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """1RM tracking page."""
     raw = one_rep_max_service.get_all(session.user_id)
@@ -597,6 +608,12 @@ def one_rep_max_page(
     exercises = one_rep_max_service.get_exercise_list()
     entries = _format_1rm_entries(raw)
     exercises_by_recency = _ordered_by_recency(entries, "exercise")
+
+    # Partners for compare dropdown
+    partners = [
+        {"id": u.id, "display_name": u.display_name or "Unknown"}
+        for u in data_share_service.get_partner_users(session.user_id, user_service)
+    ]
 
     return render(
         request,
@@ -610,6 +627,8 @@ def one_rep_max_page(
             "exercises_by_recency": exercises_by_recency,
             "exercises_data_json": _build_exercises_chart_data(entries),
             "today": date.today().isoformat(),
+            "partners": partners,
+            "partners_json": json.dumps(partners).replace("</", "<\\/"),
             **get_user_context(session),
         },
     )
@@ -620,12 +639,20 @@ def benchmark_page(
     request: Request,
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Benchmark tracking page."""
     raw = benchmark_service.get_all_results(session.user_id)
     entries = _format_benchmark_entries(raw)
     benchmarks_by_recency = _ordered_by_recency(entries, "benchmark_name")
     benchmark_list = benchmark_service.get_benchmark_list()
+
+    # Partners for compare dropdown
+    partners = [
+        {"id": u.id, "display_name": u.display_name or "Unknown"}
+        for u in data_share_service.get_partner_users(session.user_id, user_service)
+    ]
 
     return render(
         request,
@@ -637,6 +664,8 @@ def benchmark_page(
             "benchmarks_by_recency": benchmarks_by_recency,
             "benchmark_data_json": _build_benchmark_chart_data(entries),
             "today": date.today().isoformat(),
+            "partners": partners,
+            "partners_json": json.dumps(partners).replace("</", "<\\/"),
             **get_user_context(session),
         },
     )
@@ -648,12 +677,16 @@ def friends_page(
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     friends_service: FriendsService = Depends(get_friends_service),
     user_service: UserService = Depends(get_user_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
 ):
     """Friends management page."""
     friends = friends_service.get_all(session.user_id)
     friend_user_ids = [f.appuser_id for f in friends]
     avatar_map = user_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
     my_avatar = user_service.get_avatar_filename(session.user_id)
+
+    # Data sharing state per friend
+    share_statuses = data_share_service.get_share_statuses_for_friends(session.user_id, friend_user_ids)
 
     friends_data = [
         {
@@ -663,8 +696,38 @@ def friends_page(
             "added_at": f.added_at.isoformat() if f.added_at else "",
             "added_ago": _relative_time(f.added_at) if f.added_at else "",
             "avatar": avatar_map.get(f.appuser_id),
+            "share_status": share_statuses.get(f.appuser_id),
+            "local_user_id": data_share_service.get_local_user_id(f.appuser_id),
         }
         for f in friends
+    ]
+
+    # Incoming and outgoing requests
+    incoming_ids = data_share_service.get_incoming_requests(session.user_id)
+    outgoing_ids = data_share_service.get_outgoing_requests(session.user_id)
+
+    incoming_users = user_service.get_users_by_ids(incoming_ids)
+    outgoing_users = user_service.get_users_by_ids(outgoing_ids)
+
+    all_relevant_user_ids = list(set(incoming_ids + outgoing_ids))
+    avatar_map_by_user_id = user_service.get_avatar_filenames_by_user_ids(all_relevant_user_ids)
+
+    incoming_data = [
+        {
+            "user_id": uid,
+            "display_name": u.display_name or "Unknown",
+            "avatar": avatar_map_by_user_id.get(uid),
+        }
+        for uid, u in incoming_users.items()
+    ]
+
+    outgoing_data = [
+        {
+            "user_id": uid,
+            "display_name": u.display_name or "Unknown",
+            "avatar": avatar_map_by_user_id.get(uid),
+        }
+        for uid, u in outgoing_users.items()
     ]
 
     return render(
@@ -675,6 +738,8 @@ def friends_page(
             "friends": friends_data,
             "friend_count": len(friends_data),
             "my_avatar": my_avatar,
+            "incoming_requests": incoming_data,
+            "outgoing_requests": outgoing_data,
             **get_user_context(session),
         },
     )
@@ -1062,6 +1127,169 @@ def add_friend_from_people(
         friends_service=friends_service,
         user_service=user_service,
     )
+
+
+def _reload_friends_list(request, session, friends_service, user_service, data_share_service):
+    """Re-render friends list partial with share statuses."""
+    friends = friends_service.get_all(session.user_id)
+    friend_user_ids = [f.appuser_id for f in friends]
+    avatar_map = user_service.get_avatar_filenames_by_appuser_ids(friend_user_ids)
+    share_statuses = data_share_service.get_share_statuses_for_friends(session.user_id, friend_user_ids)
+
+    friends_data = [
+        {
+            "id": f.id,
+            "appuser_id": f.appuser_id,
+            "name": f.name,
+            "added_at": f.added_at.isoformat() if f.added_at else "",
+            "added_ago": _relative_time(f.added_at) if f.added_at else "",
+            "avatar": avatar_map.get(f.appuser_id),
+            "share_status": share_statuses.get(f.appuser_id),
+            "local_user_id": data_share_service.get_local_user_id(f.appuser_id),
+        }
+        for f in friends
+    ]
+    return render(request, "partials/friends_list.html", {"friends": friends_data})
+
+
+@router.post("/friends/{friend_id}/request-share", response_class=HTMLResponse)
+def request_share_view(
+    request: Request,
+    friend_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    friends_service: FriendsService = Depends(get_friends_service),
+    user_service: UserService = Depends(get_user_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+):
+    """Send a data sharing request to a friend."""
+    friend = friends_service.get(session.user_id, friend_id)
+    if not friend:
+        raise HTTPException(status_code=404, detail="Friend not found")
+    to_user_id = data_share_service.get_local_user_id(friend.appuser_id)
+    if not to_user_id:
+        raise HTTPException(status_code=400, detail="Friend hasn't logged into WodPlanner yet")
+    data_share_service.send_request(session.user_id, to_user_id)
+    return _reload_friends_list(request, session, friends_service, user_service, data_share_service)
+
+
+@router.post("/friends/{friend_id}/cancel-request", response_class=HTMLResponse)
+def cancel_request_view(
+    request: Request,
+    friend_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    friends_service: FriendsService = Depends(get_friends_service),
+    user_service: UserService = Depends(get_user_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+):
+    """Cancel an outgoing pending data sharing request."""
+    friend = friends_service.get(session.user_id, friend_id)
+    if not friend:
+        raise HTTPException(status_code=404, detail="Friend not found")
+    to_user_id = data_share_service.get_local_user_id(friend.appuser_id)
+    if to_user_id:
+        data_share_service.cancel_request(session.user_id, to_user_id)
+    return _reload_friends_list(request, session, friends_service, user_service, data_share_service)
+
+
+@router.post("/friends/accept-share/{requester_user_id}", response_class=HTMLResponse)
+def accept_share_view(
+    request: Request,
+    requester_user_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    friends_service: FriendsService = Depends(get_friends_service),
+    user_service: UserService = Depends(get_user_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+):
+    """Accept an incoming data sharing request."""
+    data_share_service.accept_request(session.user_id, requester_user_id)
+    # Reload friends page
+    return friends_page(
+        request=request,
+        session=session,
+        friends_service=friends_service,
+        user_service=user_service,
+        data_share_service=data_share_service,
+    )
+
+
+@router.post("/friends/decline-share/{requester_user_id}", response_class=HTMLResponse)
+def decline_share_view(
+    request: Request,
+    requester_user_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    friends_service: FriendsService = Depends(get_friends_service),
+    user_service: UserService = Depends(get_user_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+):
+    """Decline an incoming data sharing request."""
+    data_share_service.decline_request(session.user_id, requester_user_id)
+    return friends_page(
+        request=request,
+        session=session,
+        friends_service=friends_service,
+        user_service=user_service,
+        data_share_service=data_share_service,
+    )
+
+
+@router.post("/friends/revoke-share/{partner_user_id}", response_class=HTMLResponse)
+def revoke_share_view(
+    request: Request,
+    partner_user_id: int,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    friends_service: FriendsService = Depends(get_friends_service),
+    user_service: UserService = Depends(get_user_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+):
+    """Revoke a data sharing connection."""
+    data_share_service.revoke_share(session.user_id, partner_user_id)
+    return friends_page(
+        request=request,
+        session=session,
+        friends_service=friends_service,
+        user_service=user_service,
+        data_share_service=data_share_service,
+    )
+
+
+@router.get("/api/one-rep-maxes/compare")
+def compare_one_rep_max(
+    session: Annotated[AuthSession, Depends(require_session)],
+    with_user_id: int | None = None,
+    exercise: str | None = None,
+    one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+):
+    """Get friend's 1RM data for compare overlay. Returns JSON."""
+    if not with_user_id:
+        return JSONResponse({"error": "Missing with_user_id"}, status_code=400)
+    partners = data_share_service.get_partners(session.user_id)
+    if with_user_id not in partners:
+        return JSONResponse({"error": "Not a data sharing partner"}, status_code=403)
+    raw = one_rep_max_service.get_all(with_user_id)
+    entries = _format_1rm_entries(raw)
+    data = _build_exercises_chart_data(entries)
+    return JSONResponse(json.loads(data))
+
+
+@router.get("/api/benchmark/compare")
+def compare_benchmark(
+    session: Annotated[AuthSession, Depends(require_session)],
+    with_user_id: int | None = None,
+    benchmark_name: str | None = None,
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+):
+    """Get friend's benchmark data for compare overlay. Returns JSON."""
+    if not with_user_id:
+        return JSONResponse({"error": "Missing with_user_id"}, status_code=400)
+    partners = data_share_service.get_partners(session.user_id)
+    if with_user_id not in partners:
+        return JSONResponse({"error": "Not a data sharing partner"}, status_code=403)
+    raw = benchmark_service.get_all_results(with_user_id)
+    entries = _format_benchmark_entries(raw)
+    data = _build_benchmark_chart_data(entries)
+    return JSONResponse(json.loads(data))
 
 
 @router.get("/appointments/{appointment_id}/schedule", response_class=HTMLResponse)

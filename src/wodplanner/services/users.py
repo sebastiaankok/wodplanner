@@ -200,6 +200,31 @@ class UserService(BaseService):
                 result[row["appuser_id"]] = row["avatar_filename"]
         return result
 
+    def get_users_by_ids(self, user_ids: list[int]) -> dict[int, User]:
+        """Get users by their local user IDs. Returns dict keyed by user_id."""
+        if not user_ids:
+            return {}
+        with self._get_connection() as conn:
+            placeholders = ",".join("?" * len(user_ids))
+            rows = conn.execute(
+                f"SELECT * FROM users WHERE id IN ({placeholders})",
+                user_ids,
+            ).fetchall()
+        return {row["id"]: self._row_to_model(row) for row in rows}
+
+    def get_avatar_filenames_by_user_ids(
+        self, user_ids: list[int]
+    ) -> dict[int, str | None]:
+        if not user_ids:
+            return {}
+        with self._get_connection() as conn:
+            placeholders = ",".join("?" * len(user_ids))
+            rows = conn.execute(
+                f"SELECT id, avatar_filename FROM users WHERE id IN ({placeholders})",
+                user_ids,
+            ).fetchall()
+        return {row["id"]: row["avatar_filename"] for row in rows if row["avatar_filename"]}
+
     def is_tracking_disabled(self, user_id: int) -> bool:
         with self._get_connection() as conn:
             row = conn.execute(

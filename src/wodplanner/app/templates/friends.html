@@ -40,6 +40,46 @@
     </div>
 </div>
 
+{% if incoming_requests %}
+<div class="card" style="margin-bottom: 1rem;">
+    <div class="card-header">
+        <span class="card-title">Incoming share requests</span>
+        <span class="badge badge-warning">{{ incoming_requests|length }}</span>
+    </div>
+    <div class="incoming-requests-list">
+        {% for req in incoming_requests %}
+        <div class="friend-card">
+            <div class="friend-avatar">
+                {% if req.avatar %}
+                <img src="/uploads/avatars/{{ req.avatar }}" alt="" class="friend-avatar-img">
+                {% else %}
+                <span class="friend-avatar-initials">{{ req.display_name[:2].upper() }}</span>
+                {% endif %}
+            </div>
+            <div class="friend-info">
+                <span class="friend-name">{{ req.display_name }}</span>
+                <span class="friend-meta">Wants to share results with you</span>
+            </div>
+            <div class="friend-actions">
+                <button class="btn btn-sm btn-primary"
+                        hx-post="/friends/accept-share/{{ req.user_id }}"
+                        hx-target="body"
+                        hx-swap="innerHTML">
+                    Accept
+                </button>
+                <button class="btn btn-sm btn-secondary"
+                        hx-post="/friends/decline-share/{{ req.user_id }}"
+                        hx-target="body"
+                        hx-swap="innerHTML">
+                    Decline
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <div id="friends-list">
     {% include "partials/friends_list.html" %}
 </div>
