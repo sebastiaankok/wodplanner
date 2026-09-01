@@ -1272,6 +1272,27 @@ def compare_one_rep_max(
     return JSONResponse(json.loads(data))
 
 
+@router.get("/api/one-rep-maxes/compare-all")
+def compare_all_one_rep_max(
+    session: Annotated[AuthSession, Depends(require_session)],
+    one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+    user_service: UserService = Depends(get_user_service),
+):
+    """Get all partners' 1RM data for compare overlay. Returns JSON."""
+    partners = data_share_service.get_partners(session.user_id)
+    result = {}
+    partner_info = {}
+    for pid in partners:
+        u = user_service.get(pid)
+        partner_info[str(pid)] = u.display_name if u else "Unknown"
+        raw = one_rep_max_service.get_all(pid)
+        formatted = _format_1rm_entries(raw)
+        data = _build_exercises_chart_data(formatted)
+        result[str(pid)] = json.loads(data)
+    return JSONResponse({"data": result, "partners": partner_info})
+
+
 @router.get("/api/benchmark/compare")
 def compare_benchmark(
     session: Annotated[AuthSession, Depends(require_session)],
@@ -1290,6 +1311,27 @@ def compare_benchmark(
     entries = _format_benchmark_entries(raw)
     data = _build_benchmark_chart_data(entries)
     return JSONResponse(json.loads(data))
+
+
+@router.get("/api/benchmark/compare-all")
+def compare_all_benchmark(
+    session: Annotated[AuthSession, Depends(require_session)],
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+    data_share_service: DataShareService = Depends(get_data_share_service),
+    user_service: UserService = Depends(get_user_service),
+):
+    """Get all partners' benchmark data for compare overlay. Returns JSON."""
+    partners = data_share_service.get_partners(session.user_id)
+    result = {}
+    partner_info = {}
+    for pid in partners:
+        u = user_service.get(pid)
+        partner_info[str(pid)] = u.display_name if u else "Unknown"
+        raw = benchmark_service.get_all_results(pid)
+        formatted = _format_benchmark_entries(raw)
+        data = _build_benchmark_chart_data(formatted)
+        result[str(pid)] = json.loads(data)
+    return JSONResponse({"data": result, "partners": partner_info})
 
 
 @router.get("/appointments/{appointment_id}/schedule", response_class=HTMLResponse)
@@ -1541,6 +1583,7 @@ def benchmark_modal_view(
 
     raw = benchmark_service.get_results_for_benchmark(session.user_id, benchmark_name)
     entries = _format_benchmark_entries(raw)
+    benchmark_data_json = _build_benchmark_chart_data(entries)
 
     return render(
         request,
@@ -1549,6 +1592,7 @@ def benchmark_modal_view(
             "benchmark_name": benchmark_name,
             "entries": entries,
             "preset_date": schedule_date.isoformat(),
+            "benchmark_data_json": benchmark_data_json,
         },
     )
 

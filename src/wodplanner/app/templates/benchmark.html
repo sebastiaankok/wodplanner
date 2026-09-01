@@ -80,12 +80,11 @@
             {{ picker("progress_benchmark", benchmark_list, recent=benchmarks_by_recency, placeholder="Select benchmark\u2026", id_suffix="bp") }}
         </div>
         {% if partners %}
-        <select id="compare-partner" class="form-control" style="width:auto;max-width:180px;margin-left:0.5rem;" onchange="updateCompareBenchmark()">
-            <option value="">Compare with…</option>
-            {% for p in partners %}
-            <option value="{{ p.id }}">{{ p.display_name }}</option>
-            {% endfor %}
-        </select>
+        <label class="checkbox-label" style="margin-left:0.5rem;white-space:nowrap;display:flex;align-items:center;gap:0.3rem;">
+            <input type="checkbox" id="show-compare" checked onchange="toggleCompare()">
+            Show partners
+        </label>
+        <input type="text" id="filter-partner" placeholder="Filter partner..." class="form-control" style="width:auto;max-width:120px;margin-left:0.3rem;" oninput="updateCompareFilter()">
         {% else %}
         <a href="/friends" class="btn btn-sm btn-secondary" style="margin-left:0.5rem;white-space:nowrap;">Compare results with a friend</a>
         {% endif %}
@@ -107,9 +106,23 @@
 
 <script>
 var __benchmarkData = {{ benchmark_data_json | safe }};
-var __benchmarkCompareData = null;
+var __benchmarkCompareAllData = null;
+var __benchmarkPartnerInfo = null;
 var __benchmarkChart = null;
 var __benchmarkLogFormOpen = false;
+
+var PARTNER_COLORS = [
+    { border: '#f97316', bg: 'rgba(249,115,22,0.05)', point: '#f97316', pointBorder: '#ea580c' },
+    { border: '#3b82f6', bg: 'rgba(59,130,246,0.05)', point: '#3b82f6', pointBorder: '#2563eb' },
+    { border: '#10b981', bg: 'rgba(16,185,129,0.05)', point: '#10b981', pointBorder: '#059669' },
+    { border: '#ef4444', bg: 'rgba(239,68,68,0.05)', point: '#ef4444', pointBorder: '#dc2626' },
+    { border: '#8b5cf6', bg: 'rgba(139,92,246,0.05)', point: '#8b5cf6', pointBorder: '#7c3aed' },
+    { border: '#06b6d4', bg: 'rgba(6,182,212,0.05)', point: '#06b6d4', pointBorder: '#0891b2' },
+    { border: '#ec4899', bg: 'rgba(236,72,153,0.05)', point: '#ec4899', pointBorder: '#db2777' },
+    { border: '#84cc16', bg: 'rgba(132,204,22,0.05)', point: '#84cc16', pointBorder: '#65a30d' },
+    { border: '#6366f1', bg: 'rgba(99,102,241,0.05)', point: '#6366f1', pointBorder: '#4f46e5' },
+    { border: '#14b8a6', bg: 'rgba(20,184,166,0.05)', point: '#14b8a6', pointBorder: '#0d9488' },
+];
 
 function toggleBenchmarkLogForm() {
     __benchmarkLogFormOpen = !__benchmarkLogFormOpen;
@@ -122,24 +135,39 @@ function formatTime(seconds) {
     return m + ':' + (s < 10 ? '0' : '') + s;
 }
 
-function updateCompareBenchmark() {
-    var select = document.getElementById('compare-partner');
-    var partnerId = select ? select.value : '';
-    if (!partnerId) {
-        __benchmarkCompareData = null;
-        updateBenchmarkChart();
-        return;
+function alignDataToLabels(sortedPoints, labels, valueKey) {
+    var map = {};
+    for (var i = 0; i < sortedPoints.length; i++) {
+        map[sortedPoints[i].date] = sortedPoints[i];
     }
-    fetch('/api/benchmark/compare?with_user_id=' + partnerId)
+    return labels.map(function(l) {
+        var p = map[l];
+        return p ? p[valueKey] : null;
+    });
+}
+
+function fetchAllCompareData() {
+    var el = document.getElementById('show-compare');
+    if (!el) return;
+    fetch('/api/benchmark/compare-all')
         .then(function(r) { return r.json(); })
-        .then(function(data) {
-            __benchmarkCompareData = data;
+        .then(function(response) {
+            __benchmarkCompareAllData = response.data;
+            __benchmarkPartnerInfo = response.partners;
             updateBenchmarkChart();
         })
         .catch(function() {
-            __benchmarkCompareData = null;
-            updateBenchmarkChart();
+            __benchmarkCompareAllData = null;
+            __benchmarkPartnerInfo = null;
         });
+}
+
+function toggleCompare() {
+    updateBenchmarkChart();
+}
+
+function updateCompareFilter() {
+    updateBenchmarkChart();
 }
 
 function updateBenchmarkChart() {
@@ -149,7 +177,45 @@ function updateBenchmarkChart() {
     if (!hidden || !canvas) return;
     var name = hidden.value;
 
-    if (!name || !__benchmarkData[name] || !__benchmarkData[name].length) {
+    var showCompare = document.getElementById('show-compare') ? document.getElementById('show-compare').checked : false;
+    var filterText = (document.getElementById('filter-partner') ? document.getElementById('filter-partner').value : '').toLowerCase();
+
+    var hasUserData = __benchmarkData && __benchmarkData[name] && __benchmarkData[name].length;
+    var allLabels = [];
+    var labelToDate = {};
+
+    var hasPartnerData = false;
+    if (showCompare && __benchmarkCompareAllData && __benchmarkPartnerInfo) {
+        for (var pid in __benchmarkCompareAllData) {
+            if (!__benchmarkCompareAllData[pid][name] || !__benchmarkCompareAllData[pid][name].length) continue;
+            var pname = (__benchmarkPartnerInfo[pid] || '').toLowerCase();
+            if (filterText && pname.indexOf(filterText) === -1) continue;
+            hasPartnerData = true;
+            var cp = __benchmarkCompareAllData[pid][name];
+            for (var i = 0; i < cp.length; i++) {
+                var l = cp[i].date;
+                if (allLabels.indexOf(l) === -1) {
+                    allLabels.push(l);
+                    labelToDate[l] = cp[i].date;
+                }
+            }
+        }
+    }
+
+    if (hasUserData) {
+        var points = __benchmarkData[name];
+        for (var i = 0; i < points.length; i++) {
+            var l = points[i].date;
+            if (allLabels.indexOf(l) === -1) {
+                allLabels.push(l);
+                labelToDate[l] = points[i].date;
+            }
+        }
+    }
+
+    allLabels.sort();
+
+    if (!hasUserData && !hasPartnerData) {
         canvas.style.display = 'none';
         noData.style.display = 'block';
         if (__benchmarkChart) { __benchmarkChart.destroy(); __benchmarkChart = null; }
@@ -159,69 +225,84 @@ function updateBenchmarkChart() {
     canvas.style.display = 'block';
     noData.style.display = 'none';
 
-    var points = __benchmarkData[name];
-    var sorted = points.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-    var labels = sorted.map(function(p) { return p.label; });
-    var times = sorted.map(function(p) { return p.time; });
+    var datasets = [];
 
-    var prColors = [], prRadii = [], prBorders = [];
-    var runningMin = Infinity;
-    for (var i = 0; i < sorted.length; i++) {
-        var t = sorted[i].time;
-        if (t < runningMin) {
-            runningMin = t;
-            prColors.push('#f59e0b');
-            prRadii.push(8);
-            prBorders.push('#d97706');
-        } else {
-            prColors.push('#f59e0b');
-            prRadii.push(4);
-            prBorders.push('#f59e0b');
+    if (hasUserData) {
+        var points = __benchmarkData[name];
+        var sorted = points.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+        var times = alignDataToLabels(sorted, allLabels, 'time');
+
+        var prColors = [], prRadii = [], prBorders = [];
+        var runningMin = Infinity;
+        var idxMap = {};
+        for (var i = 0; i < sorted.length; i++) {
+            idxMap[sorted[i].date] = i;
         }
+        for (var i = 0; i < allLabels.length; i++) {
+            var si = idxMap[allLabels[i]];
+            if (si !== undefined) {
+                var t = sorted[si].time;
+                if (t < runningMin) {
+                    runningMin = t;
+                    prColors.push('#f59e0b');
+                    prRadii.push(8);
+                    prBorders.push('#d97706');
+                } else {
+                    prColors.push('#f59e0b');
+                    prRadii.push(4);
+                    prBorders.push('#f59e0b');
+                }
+            }
+        }
+
+        datasets.push({
+            label: name + ' (seconds)',
+            data: times,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.08)',
+            tension: 0.2,
+            fill: true,
+            pointBackgroundColor: prColors,
+            pointBorderColor: prBorders,
+            pointRadius: prRadii,
+            pointBorderWidth: 2,
+            pointHoverRadius: 10,
+        });
     }
 
-    var datasets = [{
-        label: name + ' (seconds)',
-        data: times,
-        borderColor: '#f59e0b',
-        backgroundColor: 'rgba(245,158,11,0.08)',
-        tension: 0.2,
-        fill: true,
-        pointBackgroundColor: prColors,
-        pointBorderColor: prBorders,
-        pointRadius: prRadii,
-        pointBorderWidth: 2,
-        pointHoverRadius: 10,
-    }];
-
-    // Add compare dataset if available
-    var compareSelect = document.getElementById('compare-partner');
-    var partnerName = compareSelect ? compareSelect.options[compareSelect.selectedIndex]?.text : '';
-    if (__benchmarkCompareData && __benchmarkCompareData[name] && __benchmarkCompareData[name].length) {
-        var cp = __benchmarkCompareData[name];
-        var cSorted = cp.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-        var cTimes = cSorted.map(function(p) { return p.time; });
-        datasets.push({
-            label: (partnerName || 'Friend') + ' (seconds)',
-            data: cTimes,
-            borderColor: '#f97316',
-            backgroundColor: 'rgba(249,115,22,0.05)',
-            borderDash: [5, 5],
-            tension: 0.2,
-            fill: false,
-            pointBackgroundColor: '#f97316',
-            pointBorderColor: '#ea580c',
-            pointRadius: 5,
-            pointBorderWidth: 2,
-            pointHoverRadius: 8,
-        });
+    if (showCompare && __benchmarkCompareAllData && __benchmarkPartnerInfo) {
+        var colorIndex = 0;
+        for (var pid in __benchmarkCompareAllData) {
+            if (!__benchmarkCompareAllData[pid][name] || !__benchmarkCompareAllData[pid][name].length) continue;
+            var pname = (__benchmarkPartnerInfo[pid] || '').toLowerCase();
+            if (filterText && pname.indexOf(filterText) === -1) continue;
+            var cp = __benchmarkCompareAllData[pid][name];
+            var cSorted = cp.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+            var cTimes = alignDataToLabels(cSorted, allLabels, 'time');
+            var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
+            colorIndex++;
+            datasets.push({
+                label: (__benchmarkPartnerInfo[pid] || 'Friend') + ' (seconds)',
+                data: cTimes,
+                borderColor: color.border,
+                backgroundColor: color.bg,
+                borderDash: [5, 5],
+                tension: 0.2,
+                fill: false,
+                pointBackgroundColor: color.point,
+                pointBorderColor: color.pointBorder,
+                pointRadius: 5,
+                pointBorderWidth: 2,
+                pointHoverRadius: 8,
+            });
+        }
     }
 
     if (__benchmarkChart) __benchmarkChart.destroy();
     __benchmarkChart = new Chart(canvas, {
         type: 'line',
         data: {
-            labels: labels,
+            labels: allLabels,
             datasets: datasets,
         },
         options: {
@@ -271,6 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         document.getElementById('benchmark-chart').style.display = 'none';
     }
+    fetchAllCompareData();
 });
 
 document.addEventListener('htmx:afterSwap', function(e) {

@@ -51,6 +51,221 @@
             </div>
         </form>
 
+        <div class="benchmark-chart-container" style="margin-top:1rem;">
+            <canvas id="modal-benchmark-chart" style="display:none;height:200px;"></canvas>
+            <p id="modal-benchmark-no-data" class="text-muted benchmark-empty">No results yet for this benchmark.</p>
+        </div>
+
         {% include "partials/benchmark_history.html" %}
     </div>
 </div>
+<script>
+var __modalBenchmarkData = {{ benchmark_data_json | safe }};
+var __modalBenchmarkCompareAllData = null;
+var __modalBenchmarkPartnerInfo = null;
+var __modalBenchmarkChart = null;
+var __modalBenchmarkName = '{{ benchmark_name }}';
+
+var PARTNER_COLORS = [
+    { border: '#f97316', bg: 'rgba(249,115,22,0.05)', point: '#f97316', pointBorder: '#ea580c' },
+    { border: '#3b82f6', bg: 'rgba(59,130,246,0.05)', point: '#3b82f6', pointBorder: '#2563eb' },
+    { border: '#10b981', bg: 'rgba(16,185,129,0.05)', point: '#10b981', pointBorder: '#059669' },
+    { border: '#ef4444', bg: 'rgba(239,68,68,0.05)', point: '#ef4444', pointBorder: '#dc2626' },
+    { border: '#8b5cf6', bg: 'rgba(139,92,246,0.05)', point: '#8b5cf6', pointBorder: '#7c3aed' },
+    { border: '#06b6d4', bg: 'rgba(6,182,212,0.05)', point: '#06b6d4', pointBorder: '#0891b2' },
+    { border: '#ec4899', bg: 'rgba(236,72,153,0.05)', point: '#ec4899', pointBorder: '#db2777' },
+    { border: '#84cc16', bg: 'rgba(132,204,22,0.05)', point: '#84cc16', pointBorder: '#65a30d' },
+    { border: '#6366f1', bg: 'rgba(99,102,241,0.05)', point: '#6366f1', pointBorder: '#4f46e5' },
+    { border: '#14b8a6', bg: 'rgba(20,184,166,0.05)', point: '#14b8a6', pointBorder: '#0d9488' },
+];
+
+function formatTime(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function alignDataToLabels(sortedPoints, labels, valueKey) {
+    var map = {};
+    for (var i = 0; i < sortedPoints.length; i++) {
+        map[sortedPoints[i].date] = sortedPoints[i];
+    }
+    return labels.map(function(l) {
+        var p = map[l];
+        return p ? p[valueKey] : null;
+    });
+}
+
+function modalBenchmarkFetchCompare() {
+    fetch('/api/benchmark/compare-all')
+        .then(function(r) { return r.json(); })
+        .then(function(response) {
+            __modalBenchmarkCompareAllData = response.data;
+            __modalBenchmarkPartnerInfo = response.partners;
+            modalUpdateBenchmarkChart();
+        })
+        .catch(function() {
+            __modalBenchmarkCompareAllData = null;
+            __modalBenchmarkPartnerInfo = null;
+        });
+}
+
+function modalUpdateBenchmarkChart() {
+    var canvas = document.getElementById('modal-benchmark-chart');
+    var noData = document.getElementById('modal-benchmark-no-data');
+    if (!canvas || !noData) return;
+    var name = __modalBenchmarkName;
+
+    var hasUserData = __modalBenchmarkData && __modalBenchmarkData[name] && __modalBenchmarkData[name].length;
+    var allLabels = [];
+
+    var hasPartnerData = false;
+    if (__modalBenchmarkCompareAllData && __modalBenchmarkPartnerInfo) {
+        for (var pid in __modalBenchmarkCompareAllData) {
+            if (!__modalBenchmarkCompareAllData[pid][name] || !__modalBenchmarkCompareAllData[pid][name].length) continue;
+            hasPartnerData = true;
+            var cp = __modalBenchmarkCompareAllData[pid][name];
+            for (var i = 0; i < cp.length; i++) {
+                var l = cp[i].date;
+                if (allLabels.indexOf(l) === -1) allLabels.push(l);
+            }
+        }
+    }
+
+    if (hasUserData) {
+        var points = __modalBenchmarkData[name];
+        for (var i = 0; i < points.length; i++) {
+            var l = points[i].date;
+            if (allLabels.indexOf(l) === -1) allLabels.push(l);
+        }
+    }
+
+    allLabels.sort();
+
+    if (!hasUserData && !hasPartnerData) {
+        canvas.style.display = 'none';
+        noData.style.display = 'block';
+        if (__modalBenchmarkChart) { __modalBenchmarkChart.destroy(); __modalBenchmarkChart = null; }
+        return;
+    }
+
+    canvas.style.display = 'block';
+    noData.style.display = 'none';
+
+    var datasets = [];
+
+    if (hasUserData) {
+        var points = __modalBenchmarkData[name];
+        var sorted = points.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+        var times = alignDataToLabels(sorted, allLabels, 'time');
+
+        var prColors = [], prRadii = [], prBorders = [];
+        var runningMin = Infinity;
+        var idxMap = {};
+        for (var i = 0; i < sorted.length; i++) {
+            idxMap[sorted[i].date] = i;
+        }
+        for (var i = 0; i < allLabels.length; i++) {
+            var si = idxMap[allLabels[i]];
+            if (si !== undefined) {
+                var t = sorted[si].time;
+                if (t < runningMin) {
+                    runningMin = t;
+                    prColors.push('#f59e0b');
+                    prRadii.push(8);
+                    prBorders.push('#d97706');
+                } else {
+                    prColors.push('#f59e0b');
+                    prRadii.push(4);
+                    prBorders.push('#f59e0b');
+                }
+            }
+        }
+
+        datasets.push({
+            label: name + ' (seconds)',
+            data: times,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.08)',
+            tension: 0.2,
+            fill: true,
+            pointBackgroundColor: prColors,
+            pointBorderColor: prBorders,
+            pointRadius: prRadii,
+            pointBorderWidth: 2,
+            pointHoverRadius: 10,
+        });
+    }
+
+    if (__modalBenchmarkCompareAllData && __modalBenchmarkPartnerInfo) {
+        var colorIndex = 0;
+        for (var pid in __modalBenchmarkCompareAllData) {
+            if (!__modalBenchmarkCompareAllData[pid][name] || !__modalBenchmarkCompareAllData[pid][name].length) continue;
+            var cp = __modalBenchmarkCompareAllData[pid][name];
+            var cSorted = cp.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+            var cTimes = alignDataToLabels(cSorted, allLabels, 'time');
+            var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
+            colorIndex++;
+            datasets.push({
+                label: (__modalBenchmarkPartnerInfo[pid] || 'Friend') + ' (seconds)',
+                data: cTimes,
+                borderColor: color.border,
+                backgroundColor: color.bg,
+                borderDash: [5, 5],
+                tension: 0.2,
+                fill: false,
+                pointBackgroundColor: color.point,
+                pointBorderColor: color.pointBorder,
+                pointRadius: 5,
+                pointBorderWidth: 2,
+                pointHoverRadius: 8,
+            });
+        }
+    }
+
+    if (__modalBenchmarkChart) __modalBenchmarkChart.destroy();
+    __modalBenchmarkChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: allLabels,
+            datasets: datasets,
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: datasets.length > 1 },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return formatTime(ctx.parsed.y);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    title: { display: true, text: 'Time (mm:ss)' },
+                    ticks: {
+                        callback: function(value) {
+                            return formatTime(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+document.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target && e.detail.target.id === 'benchmark-history') {
+        var raw = document.getElementById('benchmark-history').dataset.benchmark;
+        if (!raw) return;
+        __modalBenchmarkData = JSON.parse(raw);
+        modalUpdateBenchmarkChart();
+    }
+});
+
+modalBenchmarkFetchCompare();
+modalUpdateBenchmarkChart();
+</script>
