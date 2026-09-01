@@ -104,9 +104,9 @@ class SubscriptionTrackerService(BaseService):
                 """
                 SELECT SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
                 FROM subscription_events
-                WHERE user_id = ? AND appointment_id = ?
+                WHERE user_id = ? AND appointment_id = ? AND class_date = ?
                 """,
-                (user_id, appointment_id),
+                (user_id, appointment_id, class_date.isoformat()),
             ).fetchone()
             current_net = row["net"] if row and row["net"] is not None else 0
             if current_net > 0:
@@ -131,9 +131,9 @@ class SubscriptionTrackerService(BaseService):
             row = conn.execute(
                 """
                 SELECT COUNT(*) AS cnt FROM subscription_events
-                WHERE user_id = ? AND appointment_id = ?
+                WHERE user_id = ? AND appointment_id = ? AND class_date = ?
                 """,
-                (user_id, appointment_id),
+                (user_id, appointment_id, class_date.isoformat()),
             ).fetchone()
             if row["cnt"] == 0:
                 conn.execute("ROLLBACK")
@@ -183,7 +183,7 @@ class SubscriptionTrackerService(BaseService):
                 FROM subscription_events
                 WHERE user_id = ?
                   AND class_date >= ?
-                GROUP BY appointment_id
+                GROUP BY appointment_id, class_date
                 HAVING net > 0
                 """,
                 (user_id, start.isoformat()),
@@ -233,7 +233,7 @@ class SubscriptionTrackerService(BaseService):
                 WHERE user_id = ?
                   AND class_date >= ?
                   AND class_date < ?
-                GROUP BY appointment_id
+                GROUP BY appointment_id, class_date
                 HAVING net > 0
                 """,
                 (user_id, week_monday.isoformat(), week_end.isoformat()),
@@ -262,7 +262,7 @@ class SubscriptionTrackerService(BaseService):
                 FROM subscription_events
                 WHERE user_id = ?
                   AND class_date < ?
-                GROUP BY appointment_id
+                GROUP BY appointment_id, class_date
                 HAVING net > 0
                 """,
                 (user_id, current_monday.isoformat()),
