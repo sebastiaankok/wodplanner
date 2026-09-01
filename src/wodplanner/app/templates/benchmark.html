@@ -80,11 +80,13 @@
             {{ picker("progress_benchmark", benchmark_list, recent=benchmarks_by_recency, placeholder="Select benchmark\u2026", id_suffix="bp") }}
         </div>
         {% if partners %}
-        <label class="checkbox-label" style="margin-left:0.5rem;white-space:nowrap;display:flex;align-items:center;gap:0.3rem;">
-            <input type="checkbox" id="show-compare" checked onchange="toggleCompare()">
-            Show partners
-        </label>
-        <input type="text" id="filter-partner" placeholder="Filter partner..." class="form-control" style="width:auto;max-width:120px;margin-left:0.3rem;" oninput="updateCompareFilter()">
+        <div class="compare-controls">
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-compare" checked onchange="toggleCompare()">
+                Show friends
+            </label>
+            <input type="text" id="filter-partner" placeholder="Filter friends..." class="form-control" oninput="updateCompareFilter()">
+        </div>
         {% else %}
         <a href="/friends" class="btn btn-sm btn-secondary" style="margin-left:0.5rem;white-space:nowrap;">Compare results with a friend</a>
         {% endif %}
@@ -256,7 +258,7 @@ function updateBenchmarkChart() {
         }
 
         datasets.push({
-            label: name + ' (seconds)',
+            label: '{{ user.firstname }}' + ' (seconds)',
             data: times,
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245,158,11,0.08)',
