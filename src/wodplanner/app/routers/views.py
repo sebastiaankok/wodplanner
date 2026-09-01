@@ -250,6 +250,10 @@ def home_page(
     """Homepage showing upcoming reservations and weekly stats."""
     reservations, company_images = client.get_upcoming_reservations()
 
+    # Reconcile waitlist promotions from WodApp reservations
+    if not user_service.is_tracking_disabled(session.user_id):
+        tracker.reconcile_from_reservations(session.user_id, reservations)
+
     benchmark_names = benchmark_service.get_benchmark_list()
 
     # Group by date for display
@@ -865,6 +869,7 @@ def waitinglist_view(
     appointment_id: int,
     date_start: str = Form(...),
     date_end: str = Form(...),
+    class_name: str = Form(""),
     session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
     client: WodAppClient = Depends(get_client_from_session_for_view),
     friends_service: FriendsService = Depends(get_friends_service),
@@ -872,17 +877,28 @@ def waitinglist_view(
     schedule_service: ScheduleService = Depends(get_schedule_service),
     subscription_service: SubscriptionService = Depends(get_subscription_service),
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+    tracker: SubscriptionTrackerService = Depends(get_subscription_tracker_service),
+    user_service: UserService = Depends(get_user_service),
 ):
     """Join waiting list from calendar (htmx)."""
     start = parse_api_datetime(date_start)
     end = parse_api_datetime(date_end)
 
-    subscription_service.act(
+    result = subscription_service.act(
         appointment_id=appointment_id,
         start=start,
         end=end,
         action=SubscribeAction.WAITLIST,
     )
+
+    if result.subscribedWithSuccess and not user_service.is_tracking_disabled(session.user_id):
+        tracker.record_waitlist(
+            user_id=session.user_id,
+            appointment_id=appointment_id,
+            class_name=class_name,
+            class_date=start.date(),
+            class_end=end,
+        )
 
     # Return updated calendar
     return calendar_day_partial(
