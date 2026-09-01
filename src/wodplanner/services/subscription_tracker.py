@@ -167,7 +167,7 @@ class SubscriptionTrackerService(BaseService):
     ) -> list[dict]:
         """Return list of {week_start, past_count, future_count} for last N weeks."""
         now = datetime.now(_TZ)
-        today = date.today()
+        today = now.date()
         # Start of current week (Monday)
         current_monday = today - timedelta(days=today.weekday())
         # Go back N weeks from Monday after current week so we get full weeks
@@ -202,7 +202,7 @@ class SubscriptionTrackerService(BaseService):
             else:
                 weeks_data[key]["future"] += row["net"]
 
-        # Build complete list of 52 weeks
+        # Build complete list of 52 weeks up to current week
         result = []
         for i in range(weeks):
             monday = current_monday + timedelta(weeks=i - weeks + 1)
@@ -211,12 +211,20 @@ class SubscriptionTrackerService(BaseService):
             entry["week_start"] = key
             result.append(entry)
 
+        # Append future weeks that have data but fall beyond the current week
+        future_keys = sorted(k for k in weeks_data if k > current_monday.isoformat())
+        for key in future_keys:
+            entry = weeks_data[key]
+            entry["week_start"] = key
+            result.append(entry)
+
         return result
 
     def get_current_week_stats(self, user_id: int) -> dict:
         """Return {past, future} for current week."""
         now = datetime.now(_TZ)
-        current_monday = date.today() - timedelta(days=date.today().weekday())
+        today = now.date()
+        current_monday = today - timedelta(days=today.weekday())
         return self._get_week_stats(user_id, current_monday, now)
 
     def _get_week_stats(self, user_id: int, week_monday: date, now: datetime | None = None) -> dict:
@@ -250,7 +258,7 @@ class SubscriptionTrackerService(BaseService):
 
     def get_average_per_week(self, user_id: int) -> float:
         """Average past sessions per complete week."""
-        today = date.today()
+        today = datetime.now(_TZ).date()
         current_monday = today - timedelta(days=today.weekday())
 
         with self._get_connection() as conn:
@@ -301,7 +309,7 @@ class SubscriptionTrackerService(BaseService):
 
     def get_weeks_tracked(self, user_id: int) -> int:
         """Number of distinct weeks with past sessions."""
-        today = date.today()
+        today = datetime.now(_TZ).date()
         current_monday = today - timedelta(days=today.weekday())
         with self._get_connection() as conn:
             rows = conn.execute(
