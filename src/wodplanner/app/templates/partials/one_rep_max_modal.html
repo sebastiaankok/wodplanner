@@ -70,9 +70,24 @@
 </style>
 <script>
 var __modal1rmData = {{ exercises_data_json | safe }};
+var __modal1rmCompareAllData = null;
+var __modal1rmPartnerInfo = null;
 var __modal1rmChart = null;
 var __modal1rmMaxWeight = null;
 var __modal1rmCurrentPct = 100;
+
+var PARTNER_COLORS = [
+    { border: '#f97316', bg: 'rgba(249,115,22,0.05)', point: '#f97316', pointBorder: '#ea580c' },
+    { border: '#3b82f6', bg: 'rgba(59,130,246,0.05)', point: '#3b82f6', pointBorder: '#2563eb' },
+    { border: '#10b981', bg: 'rgba(16,185,129,0.05)', point: '#10b981', pointBorder: '#059669' },
+    { border: '#ef4444', bg: 'rgba(239,68,68,0.05)', point: '#ef4444', pointBorder: '#dc2626' },
+    { border: '#8b5cf6', bg: 'rgba(139,92,246,0.05)', point: '#8b5cf6', pointBorder: '#7c3aed' },
+    { border: '#06b6d4', bg: 'rgba(6,182,212,0.05)', point: '#06b6d4', pointBorder: '#0891b2' },
+    { border: '#ec4899', bg: 'rgba(236,72,153,0.05)', point: '#ec4899', pointBorder: '#db2777' },
+    { border: '#84cc16', bg: 'rgba(132,204,22,0.05)', point: '#84cc16', pointBorder: '#65a30d' },
+    { border: '#6366f1', bg: 'rgba(99,102,241,0.05)', point: '#6366f1', pointBorder: '#4f46e5' },
+    { border: '#14b8a6', bg: 'rgba(20,184,166,0.05)', point: '#14b8a6', pointBorder: '#0d9488' },
+];
 
 function modalStepPct(delta) {
     modalSetPct(Math.min(100, Math.max(0, __modal1rmCurrentPct + delta)));
@@ -90,13 +105,71 @@ function modalUpdatePctDisplay() {
         : '—';
 }
 
+function alignDataToLabels(sortedPoints, labels, valueKey) {
+    var map = {};
+    for (var i = 0; i < sortedPoints.length; i++) {
+        map[sortedPoints[i].label] = sortedPoints[i];
+    }
+    return labels.map(function(l) {
+        var p = map[l];
+        return p ? p[valueKey] : null;
+    });
+}
+
+function modalFetchAllCompareData() {
+    fetch('/api/one-rep-maxes/compare-all')
+        .then(function(r) { return r.json(); })
+        .then(function(response) {
+            __modal1rmCompareAllData = response.data;
+            __modal1rmPartnerInfo = response.partners;
+            modalUpdate1rmChart();
+        })
+        .catch(function() {
+            __modal1rmCompareAllData = null;
+            __modal1rmPartnerInfo = null;
+        });
+}
+
 function modalUpdate1rmChart() {
     var hidden = document.getElementById('picker-hidden-modal');
     var canvas = document.getElementById('modal-1rm-chart');
     if (!hidden || !canvas) return;
     var exercise = hidden.value;
 
-    if (!exercise || !__modal1rmData[exercise] || !__modal1rmData[exercise].length) {
+    var hasUserData = __modal1rmData && __modal1rmData[exercise] && __modal1rmData[exercise].length;
+    var allLabels = [];
+    var labelToDate = {};
+
+    var hasPartnerData = false;
+    if (__modal1rmCompareAllData && __modal1rmPartnerInfo) {
+        for (var pid in __modal1rmCompareAllData) {
+            if (!__modal1rmCompareAllData[pid][exercise] || !__modal1rmCompareAllData[pid][exercise].length) continue;
+            hasPartnerData = true;
+            var cp = __modal1rmCompareAllData[pid][exercise];
+            for (var i = 0; i < cp.length; i++) {
+                var l = cp[i].label;
+                if (allLabels.indexOf(l) === -1) {
+                    allLabels.push(l);
+                    labelToDate[l] = cp[i].date;
+                }
+            }
+        }
+    }
+
+    if (hasUserData) {
+        var points = __modal1rmData[exercise];
+        for (var i = 0; i < points.length; i++) {
+            var l = points[i].label;
+            if (allLabels.indexOf(l) === -1) {
+                allLabels.push(l);
+                labelToDate[l] = points[i].date;
+            }
+        }
+    }
+
+    allLabels.sort(function(a, b) { return labelToDate[a] < labelToDate[b] ? -1 : labelToDate[a] > labelToDate[b] ? 1 : 0; });
+
+    if (!hasUserData && !hasPartnerData) {
         canvas.style.display = 'none';
         document.getElementById('modal-1rm-no-data').style.display = 'block';
         document.getElementById('modal-pct-section').style.display = 'none';
@@ -107,54 +180,94 @@ function modalUpdate1rmChart() {
     canvas.style.display = 'block';
     document.getElementById('modal-1rm-no-data').style.display = 'none';
 
-    var points = __modal1rmData[exercise];
-    var sorted = points.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-    var labels = sorted.map(function(p) { return p.label; });
-    var weights = sorted.map(function(p) { return p.weight; });
+    var datasets = [];
 
-    var prColors = [], prRadii = [], prBorders = [];
-    var runningMax = 0;
-    for (var i = 0; i < sorted.length; i++) {
-        var w = sorted[i].weight;
-        if (w > runningMax) {
-            runningMax = w;
-            prColors.push('#f59e0b');
-            prRadii.push(7);
-            prBorders.push('#d97706');
-        } else {
-            prColors.push('#f59e0b');
-            prRadii.push(4);
-            prBorders.push('#f59e0b');
+    if (hasUserData) {
+        var points = __modal1rmData[exercise];
+        var sorted = points.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+        var weights = alignDataToLabels(sorted, allLabels, 'weight');
+
+        var prColors = [], prRadii = [], prBorders = [];
+        var runningMax = 0;
+        var idxMap = {};
+        for (var i = 0; i < sorted.length; i++) {
+            idxMap[sorted[i].label] = i;
         }
+        for (var i = 0; i < allLabels.length; i++) {
+            var si = idxMap[allLabels[i]];
+            if (si !== undefined) {
+                var w = sorted[si].weight;
+                if (w > runningMax) {
+                    runningMax = w;
+                    prColors.push('#f59e0b');
+                    prRadii.push(7);
+                    prBorders.push('#d97706');
+                } else {
+                    prColors.push('#f59e0b');
+                    prRadii.push(4);
+                    prBorders.push('#f59e0b');
+                }
+            }
+        }
+
+        __modal1rmMaxWeight = runningMax;
+        document.getElementById('modal-pct-section').style.display = 'block';
+        modalSetPct(100);
+
+        datasets.push({
+            label: exercise + ' (kg)',
+            data: weights,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.08)',
+            tension: 0.2,
+            fill: true,
+            pointBackgroundColor: prColors,
+            pointBorderColor: prBorders,
+            pointRadius: prRadii,
+            pointBorderWidth: 2,
+            pointHoverRadius: 10,
+        });
+    } else {
+        document.getElementById('modal-pct-section').style.display = 'none';
     }
 
-    __modal1rmMaxWeight = runningMax;
-    document.getElementById('modal-pct-section').style.display = 'block';
-    modalSetPct(100);
+    if (__modal1rmCompareAllData && __modal1rmPartnerInfo) {
+        var colorIndex = 0;
+        for (var pid in __modal1rmCompareAllData) {
+            if (!__modal1rmCompareAllData[pid][exercise] || !__modal1rmCompareAllData[pid][exercise].length) continue;
+            var cp = __modal1rmCompareAllData[pid][exercise];
+            var cSorted = cp.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+            var cWeights = alignDataToLabels(cSorted, allLabels, 'weight');
+            var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
+            colorIndex++;
+            datasets.push({
+                label: (__modal1rmPartnerInfo[pid] || 'Friend') + ' (kg)',
+                data: cWeights,
+                borderColor: color.border,
+                backgroundColor: color.bg,
+                borderDash: [5, 5],
+                tension: 0.2,
+                fill: false,
+                pointBackgroundColor: color.point,
+                pointBorderColor: color.pointBorder,
+                pointRadius: 5,
+                pointBorderWidth: 2,
+                pointHoverRadius: 8,
+            });
+        }
+    }
 
     if (__modal1rmChart) __modal1rmChart.destroy();
     __modal1rmChart = new Chart(canvas, {
         type: 'line',
         data: {
-            labels: labels,
-            datasets: [{
-                label: exercise + ' (kg)',
-                data: weights,
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245,158,11,0.08)',
-                tension: 0.2,
-                fill: true,
-                pointBackgroundColor: prColors,
-                pointBorderColor: prBorders,
-                pointRadius: prRadii,
-                pointBorderWidth: 2,
-                pointHoverRadius: 10,
-            }]
+            labels: allLabels,
+            datasets: datasets,
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: datasets.length > 1 } },
             scales: {
                 y: {
                     title: { display: true, text: 'Weight (kg)' },
@@ -179,5 +292,6 @@ if (modalHiddenInput) {
     modalHiddenInput.addEventListener('change', modalUpdate1rmChart);
 }
 
+modalFetchAllCompareData();
 modalUpdate1rmChart();
 </script>
