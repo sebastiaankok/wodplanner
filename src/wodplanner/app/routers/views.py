@@ -1408,6 +1408,7 @@ def one_rep_max_modal_view(
             "show_date": False,
             "preset_date": schedule_date.isoformat(),
             "exercises_data_json": _build_exercises_chart_data(formatted),
+            "user_firstname": session.firstname,
         },
     )
 
@@ -1593,6 +1594,7 @@ def benchmark_modal_view(
             "entries": entries,
             "preset_date": schedule_date.isoformat(),
             "benchmark_data_json": benchmark_data_json,
+            "user_firstname": session.firstname,
         },
     )
 

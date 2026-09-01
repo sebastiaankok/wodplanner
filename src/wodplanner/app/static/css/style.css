@@ -570,6 +570,43 @@ body {
     min-width: 0;
 }
 
+.card-header .compare-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.card-header .compare-controls .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+    font-size: 0.875rem;
+}
+
+.card-header .compare-controls .form-control {
+    width: 130px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+    .card-header {
+        flex-wrap: wrap;
+    }
+
+    .card-header .compare-controls {
+        width: 100%;
+        margin-top: 0.4rem;
+    }
+
+    .card-header .compare-controls .form-control {
+        flex: 1;
+        min-width: 100px;
+    }
+}
+
 .card-title {
     font-size: 1.125rem;
     font-weight: 600;
