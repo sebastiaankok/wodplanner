@@ -93,6 +93,45 @@ def _migrate_v806(conn: sqlite3.Connection) -> None:
 
 migrations.register(806, "recreate subscription_events with FK to users", _migrate_v806)
 
+
+def _migrate_v807(conn: sqlite3.Connection) -> None:
+    """Add 'waitlist' to event_type CHECK constraint."""
+    sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='subscription_events'"
+    ).fetchone()
+    if sql and "'waitlist'" in sql[0]:
+        return
+    with migrations.fk_disabled(conn):
+        conn.execute("ALTER TABLE subscription_events RENAME TO subscription_events_old")
+        conn.execute(
+            """
+            CREATE TABLE subscription_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                appointment_id INTEGER NOT NULL,
+                class_name TEXT NOT NULL,
+                event_type TEXT NOT NULL CHECK(event_type IN ('subscribe', 'unsubscribe', 'waitlist')),
+                class_date TEXT NOT NULL,
+                class_end TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO subscription_events SELECT * FROM subscription_events_old"
+        )
+        conn.execute("DROP TABLE subscription_events_old")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sub_events_user_date ON subscription_events(user_id, class_date)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sub_events_user_appt ON subscription_events(user_id, appointment_id)"
+        )
+
+
+migrations.register(810, "add waitlist event_type to subscription_events", _migrate_v807)
+
+
 class SubscriptionTrackerService(BaseService):
     def record_subscribe(
         self, user_id: int, appointment_id: int, class_name: str, class_date: date,
@@ -172,6 +211,59 @@ class SubscriptionTrackerService(BaseService):
                  self._aware(class_end).isoformat() if class_end else None, datetime.now(_TZ).isoformat()),
             )
             conn.commit()
+
+    def record_waitlist(
+        self, user_id: int, appointment_id: int, class_name: str, class_date: date,
+        class_end: datetime | None = None,
+    ) -> None:
+        with self._get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            exists = conn.execute(
+                """
+                SELECT 1 FROM subscription_events
+                WHERE user_id = ? AND appointment_id = ? AND class_date = ? AND event_type = 'waitlist'
+                LIMIT 1
+                """,
+                (user_id, appointment_id, class_date.isoformat()),
+            ).fetchone()
+            if exists:
+                conn.execute("ROLLBACK")
+                return
+            conn.execute(
+                """
+                INSERT INTO subscription_events (user_id, appointment_id, class_name, event_type, class_date, class_end, created_at)
+                VALUES (?, ?, ?, 'waitlist', ?, ?, ?)
+                """,
+                (user_id, appointment_id, class_name, class_date.isoformat(),
+                 self._aware(class_end).isoformat() if class_end else None, datetime.now(_TZ).isoformat()),
+            )
+            conn.commit()
+
+    def promote_waitlist(
+        self, user_id: int, appointment_id: int, class_date: date,
+    ) -> bool:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                """
+                UPDATE subscription_events
+                SET event_type = 'subscribe'
+                WHERE user_id = ? AND appointment_id = ? AND class_date = ? AND event_type = 'waitlist'
+                """,
+                (user_id, appointment_id, class_date.isoformat()),
+            )
+            conn.commit()
+            return row.rowcount > 0
+
+    def reconcile_from_reservations(
+        self, user_id: int, reservations: list
+    ) -> int:
+        count = 0
+        for res in reservations:
+            if self.promote_waitlist(user_id, res.id_appointment, res.date_start.date()):
+                count += 1
+        if count:
+            logger.info("Promoted %d waitlist -> subscribe for user %d", count, user_id)
+        return count
 
     @staticmethod
     def _aware(dt: datetime) -> datetime:

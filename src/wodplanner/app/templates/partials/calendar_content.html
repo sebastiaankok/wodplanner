@@ -164,7 +164,7 @@
                     {% elif appt.status == 'closed' %}
                     <button class="btn btn-warning btn-sm"
                             hx-post="/appointments/{{ appt.id }}/waitinglist"
-                            hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}"}'
+                            hx-vals='{"date_start": "{{ appt.date_start }} {{ appt.time_start }}", "date_end": "{{ appt.date_end }} {{ appt.time_end }}", "class_name": "{{ appt.name }}"}'
                             hx-target="#calendar-content"
                             hx-swap="innerHTML">
                         Sign up
