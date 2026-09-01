@@ -100,14 +100,25 @@ class SubscriptionTrackerService(BaseService):
     ) -> None:
         with self._get_connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute(
-                """
-                SELECT SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
-                FROM subscription_events
-                WHERE user_id = ? AND appointment_id = ? AND class_date = ?
-                """,
-                (user_id, appointment_id, class_date.isoformat()),
-            ).fetchone()
+            if class_end is not None:
+                end_str = self._aware(class_end).isoformat()
+                row = conn.execute(
+                    """
+                    SELECT SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
+                    FROM subscription_events
+                    WHERE user_id = ? AND class_date = ? AND class_end = ?
+                    """,
+                    (user_id, class_date.isoformat(), end_str),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """
+                    SELECT SUM(CASE WHEN event_type = 'subscribe' THEN 1 ELSE -1 END) AS net
+                    FROM subscription_events
+                    WHERE user_id = ? AND appointment_id = ? AND class_date = ?
+                    """,
+                    (user_id, appointment_id, class_date.isoformat()),
+                ).fetchone()
             current_net = row["net"] if row and row["net"] is not None else 0
             if current_net > 0:
                 conn.execute("ROLLBACK")
@@ -128,14 +139,28 @@ class SubscriptionTrackerService(BaseService):
     ) -> None:
         with self._get_connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute(
-                """
-                SELECT COUNT(*) AS cnt FROM subscription_events
-                WHERE user_id = ? AND appointment_id = ? AND class_date = ?
-                """,
-                (user_id, appointment_id, class_date.isoformat()),
-            ).fetchone()
-            if row["cnt"] == 0:
+            if class_end is not None:
+                end_str = self._aware(class_end).isoformat()
+                row = conn.execute(
+                    """
+                    SELECT id, appointment_id FROM subscription_events
+                    WHERE user_id = ? AND class_date = ? AND class_end = ? AND event_type = 'subscribe'
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                    (user_id, class_date.isoformat(), end_str),
+                ).fetchone()
+                if row:
+                    appointment_id = row["appointment_id"]
+            else:
+                row = conn.execute(
+                    """
+                    SELECT id FROM subscription_events
+                    WHERE user_id = ? AND appointment_id = ? AND class_date = ?
+                    LIMIT 1
+                    """,
+                    (user_id, appointment_id, class_date.isoformat()),
+                ).fetchone()
+            if not row:
                 conn.execute("ROLLBACK")
                 return
             conn.execute(
