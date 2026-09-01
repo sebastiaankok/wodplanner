@@ -14,16 +14,51 @@
                 <span class="friend-name">{{ friend.name }}</span>
                 <span class="friend-meta">Added {{ friend.added_ago }}</span>
             </div>
-            <button class="friend-remove"
-                    hx-delete="/friends/{{ friend.id }}/delete"
-                    hx-target="#friends-list"
-                    hx-swap="innerHTML"
-                    hx-confirm="Remove {{ friend.name }} from friends?"
-                    title="Remove friend">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-            </button>
+            <div class="friend-actions">
+                {% if friend.share_status == "accepted" %}
+                <span class="badge badge-success">Shared</span>
+                <button class="btn btn-sm btn-secondary"
+                        hx-post="/friends/revoke-share/{{ friend.local_user_id }}"
+                        hx-target="body"
+                        hx-swap="innerHTML"
+                        hx-confirm="Revoke data sharing with {{ friend.name }}? They will no longer see your results."
+                        title="Revoke data sharing">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+                {% elif friend.share_status == "pending_outgoing" %}
+                <span class="badge badge-warning">Pending</span>
+                <button class="btn btn-sm btn-secondary"
+                        hx-post="/friends/{{ friend.id }}/cancel-request"
+                        hx-target="#friends-list"
+                        hx-swap="innerHTML"
+                        title="Cancel request">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+                {% elif friend.share_status == "pending_incoming" %}
+                <span class="badge badge-info">Requested</span>
+                {% elif friend.local_user_id %}
+                <button class="btn btn-sm btn-secondary"
+                        hx-post="/friends/{{ friend.id }}/request-share"
+                        hx-target="#friends-list"
+                        hx-swap="innerHTML">
+                    Request share
+                </button>
+                {% endif %}
+                <button class="friend-remove"
+                        hx-delete="/friends/{{ friend.id }}/delete"
+                        hx-target="#friends-list"
+                        hx-swap="innerHTML"
+                        hx-confirm="Remove {{ friend.name }} from friends?"
+                        title="Remove friend">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
         </div>
         {% endfor %}
     </div>

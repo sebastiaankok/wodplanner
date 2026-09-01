@@ -153,7 +153,7 @@ def migrated_db(tmp_path):
     path = tmp_path / "old.db"
     _build_old_schema(path)
     ran = migrations.ensure_migrations(path)
-    assert set(ran) == set(range(800, 811))
+    assert set(ran) == {210, 800, 801, 802, 803, 804, 805, 806, 807, 808, 809, 810}
     return path
 
 
