@@ -211,7 +211,7 @@ function updateBenchmarkChart() {
         var sorted = points.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
         var times = alignDataToLabels(sorted, allLabels, 'time');
 
-        var prColors = [], prBorders = [], prBorderWidths = [];
+var prColors = [], prBorders = [], prBorderWidths = [];
         var runningMin = Infinity;
         var idxMap = {};
         for (var i = 0; i < sorted.length; i++) {
@@ -230,7 +230,7 @@ function updateBenchmarkChart() {
                     prColors.push('#475569');
                     prBorders.push(isRxPoint ? '#f59e0b' : '#475569');
                 }
-                prBorderWidths.push(isRxPoint ? 2 : 1);
+prBorderWidths.push(isRxPoint ? 2 : 1);
             }
         }
 
@@ -246,7 +246,7 @@ function updateBenchmarkChart() {
             fill: true,
             pointBackgroundColor: prColors,
             pointBorderColor: prBorders,
-            pointRadius: 8,
+pointRadius: 8,
             pointBorderWidth: prBorderWidths,
             pointHoverRadius: 10,
         });
@@ -262,7 +262,7 @@ function updateBenchmarkChart() {
             var cIsRx = alignDataToLabels(cSorted, allLabels, 'is_rx');
             var cBorderWidths = [];
             for (var i = 0; i < allLabels.length; i++) {
-                cBorderWidths.push(cIsRx[i] ? 2 : 1);
+cBorderWidths.push(cIsRx[i] ? 2 : 1);
             }
             var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
             colorIndex++;
