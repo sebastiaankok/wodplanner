@@ -224,13 +224,13 @@ function update1rmChart() {
                 var w = sorted[si].weight;
                 if (w > runningMax) {
                     runningMax = w;
-                    prColors.push('#f59e0b');
+                    prColors.push('#475569');
                     prRadii.push(8);
-                    prBorders.push('#d97706');
+                    prBorders.push('#334155');
                 } else {
-                    prColors.push('#f59e0b');
+                    prColors.push('#475569');
                     prRadii.push(4);
-                    prBorders.push('#f59e0b');
+                    prBorders.push('#475569');
                 }
             }
         }
@@ -242,8 +242,8 @@ function update1rmChart() {
         datasets.push({
             label: '{{ user.firstname }}',
             data: weights,
-            borderColor: '#f59e0b',
-            backgroundColor: 'rgba(245,158,11,0.08)',
+            borderColor: '#475569',
+            backgroundColor: 'rgba(71,85,105,0.08)',
             tension: 0.2,
             fill: true,
             pointBackgroundColor: prColors,
