@@ -209,8 +209,10 @@ pointRadius: 8,
             var cTimes = alignDataToLabels(cSorted, allLabels, 'time');
             var cIsRx = alignDataToLabels(cSorted, allLabels, 'is_rx');
             var cBorderWidths = [];
+            var cPointBorders = [];
             for (var i = 0; i < allLabels.length; i++) {
 cBorderWidths.push(cIsRx[i] ? 2 : 1);
+                cPointBorders.push(cIsRx[i] ? '#f59e0b' : color.pointBorder);
             }
             var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
             colorIndex++;
@@ -224,7 +226,7 @@ cBorderWidths.push(cIsRx[i] ? 2 : 1);
                 tension: 0.2,
                 fill: false,
                 pointBackgroundColor: color.point,
-                pointBorderColor: color.pointBorder,
+                pointBorderColor: cPointBorders,
                 pointRadius: 5,
                 pointBorderWidth: cBorderWidths,
                 pointHoverRadius: 8,
