@@ -838,14 +838,10 @@ body {
 }
 
 .benchmark-form--modal .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: end;
+    display: flex;
     gap: 0.5rem;
-}
-
-.benchmark-form--modal .form-row > :nth-child(1) {
-    grid-column: 1 / -1;
+    align-items: end;
+    flex-wrap: wrap;
 }
 
 .benchmark-form--modal .form-group-submit .btn {

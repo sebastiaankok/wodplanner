@@ -215,7 +215,7 @@ function modalUpdate1rmChart() {
         modalSetPct(100);
 
         datasets.push({
-            label: '{{ user_firstname }}' + ' (kg)',
+            label: '{{ user_firstname }}',
             data: weights,
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245,158,11,0.08)',
@@ -241,7 +241,7 @@ function modalUpdate1rmChart() {
             var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
             colorIndex++;
             datasets.push({
-                label: (__modal1rmPartnerInfo[pid] || 'Friend') + ' (kg)',
+                label: (__modal1rmPartnerInfo[pid] || 'Friend'),
                 data: cWeights,
                 borderColor: color.border,
                 backgroundColor: color.bg,
@@ -267,7 +267,7 @@ function modalUpdate1rmChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: datasets.length > 0 } },
+            plugins: { legend: { display: datasets.length > 0, labels: { usePointStyle: true } } },
             scales: {
                 y: {
                     title: { display: true, text: 'Weight (kg)' },

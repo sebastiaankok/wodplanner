@@ -234,9 +234,12 @@ function updateBenchmarkChart() {
             }
         }
 
+        var isRxData = alignDataToLabels(sorted, allLabels, 'is_rx');
+
         datasets.push({
-            label: '{{ user.firstname }}' + ' (seconds)',
+            label: '{{ user.firstname }}',
             data: times,
+            isRxData: isRxData,
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245,158,11,0.08)',
             tension: 0.2,
@@ -256,11 +259,13 @@ function updateBenchmarkChart() {
             var cp = __benchmarkCompareAllData[pid][name];
             var cSorted = cp.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
             var cTimes = alignDataToLabels(cSorted, allLabels, 'time');
+            var cIsRx = alignDataToLabels(cSorted, allLabels, 'is_rx');
             var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
             colorIndex++;
             datasets.push({
-                label: (__benchmarkPartnerInfo[pid] || 'Friend') + ' (seconds)',
+                label: (__benchmarkPartnerInfo[pid] || 'Friend'),
                 data: cTimes,
+                isRxData: cIsRx,
                 borderColor: color.border,
                 backgroundColor: color.bg,
                 borderDash: [5, 5],
@@ -286,11 +291,16 @@ function updateBenchmarkChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: datasets.length > 0 },
+                legend: { display: datasets.length > 0, labels: { usePointStyle: true } },
                 tooltip: {
                     callbacks: {
                         label: function(ctx) {
-                            return formatTime(ctx.parsed.y);
+                            var label = formatTime(ctx.parsed.y);
+                            var isRx = ctx.dataset.isRxData ? ctx.dataset.isRxData[ctx.dataIndex] : null;
+                            if (isRx !== null) {
+                                label += isRx ? ' (RX)' : ' (Scaled)';
+                            }
+                            return label;
                         }
                     }
                 }
