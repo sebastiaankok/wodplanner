@@ -182,9 +182,12 @@ function modalUpdateBenchmarkChart() {
             }
         }
 
+        var isRxData = alignDataToLabels(sorted, allLabels, 'is_rx');
+
         datasets.push({
-            label: '{{ user_firstname }}' + ' (seconds)',
+            label: '{{ user_firstname }}',
             data: times,
+            isRxData: isRxData,
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245,158,11,0.08)',
             tension: 0.2,
@@ -204,11 +207,13 @@ function modalUpdateBenchmarkChart() {
             var cp = __modalBenchmarkCompareAllData[pid][name];
             var cSorted = cp.slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
             var cTimes = alignDataToLabels(cSorted, allLabels, 'time');
+            var cIsRx = alignDataToLabels(cSorted, allLabels, 'is_rx');
             var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
             colorIndex++;
             datasets.push({
-                label: (__modalBenchmarkPartnerInfo[pid] || 'Friend') + ' (seconds)',
+                label: (__modalBenchmarkPartnerInfo[pid] || 'Friend'),
                 data: cTimes,
+                isRxData: cIsRx,
                 borderColor: color.border,
                 backgroundColor: color.bg,
                 borderDash: [5, 5],
@@ -234,11 +239,16 @@ function modalUpdateBenchmarkChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: datasets.length > 0 },
+                legend: { display: datasets.length > 0, labels: { usePointStyle: true } },
                 tooltip: {
                     callbacks: {
                         label: function(ctx) {
-                            return formatTime(ctx.parsed.y);
+                            var label = formatTime(ctx.parsed.y);
+                            var isRx = ctx.dataset.isRxData ? ctx.dataset.isRxData[ctx.dataIndex] : null;
+                            if (isRx !== null) {
+                                label += isRx ? ' (RX)' : ' (Scaled)';
+                            }
+                            return label;
                         }
                     }
                 }
