@@ -297,7 +297,7 @@ pointRadius: 8,
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: datasets.length > 0, labels: { usePointStyle: true, generateLabels: function(chart) { var orig = Chart.defaults.plugins.legend.labels.generateLabels(chart); orig.push({ text: 'RX', fillStyle: 'transparent', strokeStyle: '#f59e0b', borderWidth: 7, pointStyle: 'circle', hidden: false, datasetIndex: -1 }); return orig; } } },
+                legend: { display: datasets.length > 0, labels: { usePointStyle: true, generateLabels: function(chart) { var orig = Chart.defaults.plugins.legend.labels.generateLabels(chart); for (var i = 0; i < orig.length; i++) { var item = orig[i]; if (item.datasetIndex >= 0) { item.strokeStyle = chart.data.datasets[item.datasetIndex].borderColor; item.borderWidth = 3; } } orig.push({ text: 'RX', fillStyle: 'transparent', strokeStyle: '#f59e0b', borderWidth: 7, pointStyle: 'circle', hidden: false, datasetIndex: -1 }); return orig; } } },
                 tooltip: {
                     callbacks: {
                         label: function(ctx) {
