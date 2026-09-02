@@ -209,12 +209,12 @@ pointRadius: 8,
             var cTimes = alignDataToLabels(cSorted, allLabels, 'time');
             var cIsRx = alignDataToLabels(cSorted, allLabels, 'is_rx');
             var cBorderWidths = [];
+            var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
             var cPointBorders = [];
             for (var i = 0; i < allLabels.length; i++) {
-cBorderWidths.push(cIsRx[i] ? 2 : 1);
+                cBorderWidths.push(cIsRx[i] ? 2 : 1);
                 cPointBorders.push(cIsRx[i] ? '#f59e0b' : color.pointBorder);
             }
-            var color = PARTNER_COLORS[colorIndex % PARTNER_COLORS.length];
             colorIndex++;
             datasets.push({
                 label: (__modalBenchmarkPartnerInfo[pid] || 'Friend'),

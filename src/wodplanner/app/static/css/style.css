@@ -936,11 +936,29 @@ body {
     .benchmark-form--modal .form-row {
         flex-direction: row;
         flex-wrap: wrap;
+        gap: 0.25rem;
     }
     .benchmark-form--modal .form-group-narrow {
         flex: 1 1 auto;
         min-width: 0;
         width: auto;
+    }
+    .benchmark-form--modal .form-group-narrow .form-control {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.8125rem;
+    }
+    .benchmark-form--modal .radio-group {
+        gap: 0.25rem;
+        padding-top: 0;
+    }
+    .benchmark-form--modal .radio-inline {
+        font-size: 0.8125rem;
+    }
+    .benchmark-form--modal .form-group-submit {
+        flex: 1 1 100%;
+    }
+    .benchmark-form--modal .form-group-submit .btn {
+        width: 100%;
     }
 }
 
