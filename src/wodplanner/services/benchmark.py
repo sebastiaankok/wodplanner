@@ -37,11 +37,11 @@ _SEED_BENCHMARKS: dict[str, list[str]] = {
     "The Girls": [
         "Fran", "Helen", "Cindy", "Annie", "Isabel", "Jackie", "Karen",
         "Angie", "Barbara", "Chelsea", "Diane", "Elizabeth", "Grace",
-        "Linda", "Mary", "Nancy", "Amanda", "Eva",
+        "Linda", "Mary", "Nancy", "Amanda", "Eva", "Kelly",
     ],
     "Hero": [
         "Murph", "Kalsu", "JT", "Loredo", "Randy", "Danny", "Michael",
-        "Nate", "Joshie", "Badger",
+        "Nate", "Joshie", "Badger", "Daniel",
     ],
 }
 
