@@ -98,3 +98,10 @@ class PreferencesService(BaseService):
 
     def reset_tooltips(self, user_id: int) -> None:
         self._set(user_id, "dismissed_tooltips", "[]")
+
+    def get_deprecation_banner_dismissed(self, user_id: int) -> bool:
+        value = self._get(user_id, "deprecation_banner_dismissed", "0")
+        return value == "1"
+
+    def dismiss_deprecation_banner(self, user_id: int) -> None:
+        self._set(user_id, "deprecation_banner_dismissed", "1")

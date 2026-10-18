@@ -3,6 +3,30 @@
 {% block title %}Home - WodPlanner{% endblock %}
 
 {% block content %}
+{% if not deprecation_banner_dismissed %}
+<div id="deprecation-banner" class="deprecation-banner" style="display:flex; align-items:center; gap:0.75rem; background:#fef3c7; border:1px solid #f59e0b; border-radius:0.5rem; padding:0.75rem 1rem; margin-bottom:1rem;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="2">
+        <path d="M12 2 L2 22 L22 22 Z"/>
+        <line x1="12" y1="8" x2="12" y2="15"/>
+        <circle cx="12" cy="19" r="2"/>
+    </svg>
+    <div style="flex:1; font-size:0.875rem; color:#1e293b;">
+        <strong>WodApp is being phased out.</strong>
+        The WodApp backend will be replaced next month, and it's uncertain if WodPlanner will remain functional.
+        We recommend
+        <a href="/1rm" style="color:#2563eb;">exporting your 1RM</a>
+        and
+        <a href="/benchmark" style="color:#2563eb;">benchmark data</a>
+        to keep a personal record.
+    </div>
+    <button class="btn btn-sm"
+            hx-post="/dismiss-deprecation-banner"
+            hx-target="#deprecation-banner"
+            hx-swap="outerHTML"
+            style="background:transparent; border:none; font-size:1.25rem; line-height:1; cursor:pointer; color:#6b7280; padding:0.25rem 0.5rem;"
+            aria-label="Dismiss">&times;</button>
+</div>
+{% endif %}
 {% if gym_logo %}
 <div style="display: flex; justify-content: center; margin: 0.65rem;">
     <div style="background: white; border-radius: 0.75rem; padding: 0.75rem 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.12); border: 1px solid var(--gray-200);">

@@ -1,5 +1,6 @@
 """HTML views for the web frontend."""
 
+import csv
 import difflib
 import hashlib
 import io
@@ -13,7 +14,7 @@ from typing import Annotated
 import markdown
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi import File as FastAPIFile
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 
@@ -255,6 +256,7 @@ def home_page(
     user_service: UserService = Depends(get_user_service),
     schedule_service: ScheduleService = Depends(get_schedule_service),
     benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+    prefs_service: PreferencesService = Depends(get_preferences_service),
 ):
     """Homepage showing upcoming reservations and weekly stats."""
     reservations, company_images = client.get_upcoming_reservations()
@@ -318,6 +320,8 @@ def home_page(
             average = round(tracker.get_average_per_week(user_id), 1)
             weeks_tracked = tracker.get_weeks_tracked(user_id)
 
+    banner_dismissed = prefs_service.get_deprecation_banner_dismissed(session.user_id)
+
     return render(
         request,
         "home.html",
@@ -330,6 +334,7 @@ def home_page(
             "week_stats": week_stats,
             "average": average,
             "weeks_tracked": weeks_tracked,
+            "deprecation_banner_dismissed": banner_dismissed,
             **get_user_context(session),
         },
     )
@@ -1741,3 +1746,62 @@ def update_benchmark_result_view(
             "benchmark_data_json": _build_benchmark_chart_data(entries),
         },
     )
+
+
+@router.get("/one-rep-maxes/export")
+def export_one_rep_max_csv(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    one_rep_max_service: OneRepMaxService = Depends(get_one_rep_max_service),
+):
+    """Export all 1RM entries as CSV."""
+    raw = one_rep_max_service.get_all(session.user_id)
+    entries = _format_1rm_entries(raw)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Exercise", "Weight (kg)", "Date"])
+    for e in entries:
+        writer.writerow([e["exercise"], e["weight_kg"], e["recorded_at_iso"]])
+
+    filename = f"1rm_export_{date.today().isoformat()}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/benchmark-results/export")
+def export_benchmark_csv(
+    request: Request,
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    benchmark_service: BenchmarkService = Depends(get_benchmark_service),
+):
+    """Export all benchmark results as CSV."""
+    raw = benchmark_service.get_all_results(session.user_id)
+    entries = _format_benchmark_entries(raw)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Benchmark Name", "Time (seconds)", "Time (MM:SS)", "RX / Scaled", "Date"])
+    for e in entries:
+        rx_label = "RX" if e["is_rx"] else "Scaled"
+        writer.writerow([e["benchmark_name"], e["time_seconds"], e["formatted_time"], rx_label, e["recorded_at"]])
+
+    filename = f"benchmark_export_{date.today().isoformat()}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/dismiss-deprecation-banner")
+def dismiss_deprecation_banner(
+    session: Annotated[AuthSession, Depends(require_session_for_view)] = None,  # type: ignore[assignment]
+    prefs_service: PreferencesService = Depends(get_preferences_service),
+):
+    """Dismiss the WodApp deprecation banner for the current user."""
+    prefs_service.dismiss_deprecation_banner(session.user_id)
+    return HTMLResponse("")
